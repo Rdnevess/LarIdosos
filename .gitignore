@@ -1,0 +1,31 @@
+# Dependências
+node_modules/
+
+# Build
+.next/
+out/
+dist/
+
+# Ambiente — nunca versionar credenciais
+.env
+.env.local
+.env.*.local
+
+# Uploads (documentos, exames, comprovantes) — dados sensíveis, ficam em volume
+/data/
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Testes
+coverage/
+test-results/
+playwright-report/
