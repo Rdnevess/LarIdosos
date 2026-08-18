@@ -16,7 +16,8 @@
 - **Interface inteira em pt-BR.** Nenhum texto de interface em inglês. Datas em `dd/mm/aaaa`, moeda em `R$ 0.000,00`.
 - **Nomes de domínio em português** (`Residente`, `Funcionario`, `criarResidente`). Nomes de framework permanecem como o framework exige.
 - **Exclusão é sempre lógica** (spec R1). Nenhum serviço executa `delete` em entidade de domínio.
-- **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. Cada recusa tem teste.
+- **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. **Cada função exportada de um serviço tem um teste que a chama com um papel não autorizado e espera `ErroPermissao`** — inclusive as funções cujo bloco de testes o plano não detalha. Sem isso, uma chamada a `exigirPapel` que alguém remova numa refatoração futura não quebra teste nenhum.
+- **O diff de auditoria registra o estado real anterior, nunca um valor presumido.** Use o campo lido do banco (`atual.campo`) como `de`, não uma constante. Um log que afirma "estava ativo" sobre um registro que já estava inativo é um registro falso — e este sistema responde a fiscalização sanitária e a prestação de contas de convênio.
 - **Chaves primárias em CUID** (`@default(cuid())`), expostas nas URLs. Nenhum inteiro sequencial em rota.
 - **Toda escrita gera registro em `LogAuditoria`**; leitura de dado sensível também (spec R12).
 - **Testes rodam contra PostgreSQL real**, nunca SQLite.
@@ -1261,6 +1262,16 @@ describe('atualizarUsuario', () => {
     expect(log.diff).toEqual({ nome: { de: 'Nova Pessoa', para: 'Nome Corrigido' } })
   })
 
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(
+      atualizarUsuario(ctx, alvo.id, { nome: 'Tentativa' })
+    ).rejects.toThrow(ErroPermissao)
+  })
+
   it('nunca inclui senhaHash no diff da auditoria', async () => {
     const ctx = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(ctx, dadosValidos)
@@ -1288,6 +1299,16 @@ describe('definirSenha', () => {
     expect(await verificarSenha(depois.senhaHash, 'outra-senha-forte-456')).toBe(true)
     expect(depois.senhaAlteradaEm.getTime()).toBeGreaterThan(antes.senhaAlteradaEm.getTime())
   })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await expect(
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+    ).rejects.toThrow(ErroPermissao)
+  })
 })
 
 describe('desativarUsuario', () => {
@@ -1306,6 +1327,30 @@ describe('desativarUsuario', () => {
     const ctx = ctxDe(usuario)
 
     await expect(desativarUsuario(ctx, usuario.id)).rejects.toThrow(ErroValidacao)
+  })
+
+  it('registra na auditoria o estado anterior real, não um valor presumido', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(ctx, dadosValidos)
+
+    await desativarUsuario(ctx, alvo.id)
+    await desativarUsuario(ctx, alvo.id)
+
+    const logs = await prisma.logAuditoria.findMany({
+      where: { entidade: 'Usuario', entidadeId: alvo.id, acao: 'ATUALIZAR' },
+      orderBy: { criadoEm: 'asc' },
+    })
+
+    expect(logs[0].diff).toEqual({ ativo: { de: true, para: false } })
+    expect(logs[1].diff).toEqual({ ativo: { de: false, para: false } })
+  })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(desativarUsuario(ctx, alvo.id)).rejects.toThrow(ErroPermissao)
   })
 })
 ```
@@ -1518,7 +1563,7 @@ export async function desativarUsuario(ctx: Ctx, id: string): Promise<void> {
       acao: 'ATUALIZAR',
       entidade: 'Usuario',
       entidadeId: id,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
   })
 }
@@ -3166,7 +3211,7 @@ export async function removerResponsavel(ctx: Ctx, id: string): Promise<void> {
       entidade: 'Responsavel',
       entidadeId: id,
       residenteId: atual.residenteId,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
   })
 }
@@ -4476,7 +4521,7 @@ export async function desligarFuncionario(
       acao: 'ATUALIZAR',
       entidade: 'Funcionario',
       entidadeId: id,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
 
     return atualizado
