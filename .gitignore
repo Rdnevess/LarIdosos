@@ -39,3 +39,6 @@ next-env.d.ts
 
 # TypeScript
 *.tsbuildinfo
+
+# Modelos e documentos do convenio (podem conter dados sensiveis)
+docs/convenio/
