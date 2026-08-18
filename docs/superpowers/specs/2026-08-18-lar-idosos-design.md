@@ -106,9 +106,9 @@ Separada da 2A de propósito: é o módulo mais crítico do sistema e se benefic
 
 ### Fase 3 — Financeiro e prestação de contas
 
-Fontes de recurso, contas bancárias, rubricas do plano de trabalho, lançamentos com comprovante, contribuição dos residentes e relatórios de prestação de contas.
+Dados da instituição, contas bancárias, origens de receita, categorias de despesa, fornecedores, lançamentos com comprovante, contribuição dos residentes, e a prestação mensal por conta — com exportação no formato exato do modelo que o órgão já aceita.
 
-**Bloqueio explícito:** a Fase 3 não começa antes de recebidos os modelos de relatório exigidos pelo órgão conveniador (ver §11).
+**Bloqueio levantado:** o modelo foi recebido e analisado em 18/08/2026 (ver §11 e `2026-08-18-modelo-prestacao-contas.md`).
 
 ## 4. Modelo de dados
 
