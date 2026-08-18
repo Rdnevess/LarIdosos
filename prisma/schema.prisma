@@ -114,6 +114,30 @@ model Residente {
   atualizadoEm     DateTime        @updatedAt
   criadoPorId      String?
 
+  avaliacoesDependencia AvaliacaoDependencia[]
+
   @@index([status, nomeCompleto])
   @@map("residentes")
+}
+
+enum GrauDependencia {
+  I
+  II
+  III
+}
+
+model AvaliacaoDependencia {
+  id            String          @id @default(cuid())
+  residenteId   String
+  residente     Residente       @relation(fields: [residenteId], references: [id])
+  grau          GrauDependencia
+  dataAvaliacao DateTime        @db.Date
+  avaliadorNome String
+  avaliadorId   String?
+  justificativa String?
+  criadoEm      DateTime        @default(now())
+  criadoPorId   String?
+
+  @@index([residenteId, dataAvaliacao])
+  @@map("avaliacoes_dependencia")
 }
