@@ -117,6 +117,7 @@ model Residente {
   avaliacoesDependencia AvaliacaoDependencia[]
   responsaveis          Responsavel[]
   documentos            Documento[]
+  anotacoes             Anotacao[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -209,4 +210,31 @@ model Documento {
   @@index([residenteId, ativo])
   @@index([funcionarioId, ativo])
   @@map("documentos")
+}
+
+enum CategoriaAnotacao {
+  COMPORTAMENTO
+  VISITA_FAMILIA
+  OCORRENCIA
+  SOCIAL
+  JURIDICO
+  OUTRO
+}
+
+model Anotacao {
+  id                 String            @id @default(cuid())
+  residenteId        String
+  residente          Residente         @relation(fields: [residenteId], references: [id])
+  categoria          CategoriaAnotacao
+  texto              String
+  editavelAte        DateTime
+  retificaAnotacaoId String?
+  retificaAnotacao   Anotacao?         @relation("Retificacao", fields: [retificaAnotacaoId], references: [id])
+  retificacoes       Anotacao[]        @relation("Retificacao")
+  criadoEm           DateTime          @default(now())
+  atualizadoEm       DateTime          @updatedAt
+  criadoPorId        String
+
+  @@index([residenteId, criadoEm])
+  @@map("anotacoes")
 }
