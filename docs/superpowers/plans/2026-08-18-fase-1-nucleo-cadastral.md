@@ -1019,6 +1019,19 @@ import type { Ctx } from '@/lib/contexto'
 
 export type ClientePrisma = PrismaClient | Prisma.TransactionClient
 
+/**
+ * Quem praticou o ato. `Ctx` satisfaz este tipo, então todo serviço continua
+ * passando o seu `ctx` diretamente. O `usuarioId` aceita `null` porque o
+ * registro de LOGIN_FALHA de um e-mail inexistente não tem usuário a apontar —
+ * e inventar um identificador ali sujaria o índice com uma ficção.
+ */
+export type AtorAuditoria = {
+  usuarioId: string | null
+  email: string
+  ip?: string
+  userAgent?: string
+}
+
 export type Diff = Record<string, { de: unknown; para: unknown }>
 
 export type DadosAuditoria = {
@@ -1054,7 +1067,7 @@ export function calcularDiff(
 
 export async function registrarAuditoria(
   cliente: ClientePrisma,
-  ctx: Ctx,
+  ctx: AtorAuditoria,
   dados: DadosAuditoria
 ): Promise<void> {
   await cliente.logAuditoria.create({
@@ -1671,6 +1684,13 @@ describe('obterCtx', () => {
     await expect(obterCtx()).rejects.toThrow(ErroPermissao)
   })
 
+  it('recusa sessão sem carimbo de emissão', async () => {
+    const usuario = await criarUsuarioDeTeste()
+    mockAuth.mockResolvedValue({ user: { id: usuario.id } })
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+  })
+
   it('reflete imediatamente a mudança de papel no banco', async () => {
     const usuario = await criarUsuarioDeTeste({ papel: 'SAUDE' })
     mockAuth.mockResolvedValue({
@@ -1747,24 +1767,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
       credentials: { email: {}, senha: {} },
-      async authorize(credenciais) {
+      async authorize(credenciais, requisicao) {
         const email = String(credenciais?.email ?? '').trim().toLowerCase()
         const senha = String(credenciais?.senha ?? '')
         if (!email || !senha) return null
 
+        const cabecalhos = requisicao?.headers
+        const ip = cabecalhos?.get('x-forwarded-for')?.split(',')[0]?.trim()
+        const userAgent = cabecalhos?.get('user-agent') ?? undefined
+
         const usuario = await prisma.usuario.findUnique({ where: { email } })
-        const ctxFalha = { usuarioId: 'anonimo', email, papel: 'SAUDE' as const }
+
+        // O ator carrega o id real quando o usuário existe — inclusive quando a
+        // conta está desativada, que é o evento forense mais relevante aqui.
+        // Só um e-mail inexistente grava `null`.
+        const ator = { usuarioId: usuario?.id ?? null, email, ip, userAgent }
 
         if (!usuario || !usuario.ativo) {
-          await registrarAuditoria(prisma, ctxFalha, {
+          await registrarAuditoria(prisma, ator, {
             acao: 'LOGIN_FALHA',
             entidade: 'Usuario',
+            entidadeId: usuario?.id,
           })
           return null
         }
 
         if (!(await verificarSenha(usuario.senhaHash, senha))) {
-          await registrarAuditoria(prisma, { ...ctxFalha, usuarioId: usuario.id }, {
+          await registrarAuditoria(prisma, ator, {
             acao: 'LOGIN_FALHA',
             entidade: 'Usuario',
             entidadeId: usuario.id,
@@ -1777,11 +1806,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { ultimoAcessoEm: new Date() },
         })
 
-        await registrarAuditoria(
-          prisma,
-          { usuarioId: usuario.id, email: usuario.email, papel: usuario.papel },
-          { acao: 'LOGIN', entidade: 'Usuario', entidadeId: usuario.id }
-        )
+        await registrarAuditoria(prisma, ator, {
+          acao: 'LOGIN',
+          entidade: 'Usuario',
+          entidadeId: usuario.id,
+        })
 
         return { id: usuario.id, email: usuario.email, name: usuario.nome }
       },
@@ -1825,6 +1854,13 @@ export async function obterCtx(): Promise<Ctx> {
 
   const usuario = await prisma.usuario.findUnique({ where: { id: sessao.user.id } })
   if (!usuario || !usuario.ativo) {
+    throw new ErroPermissao('Sessão inválida')
+  }
+
+  // Falha fechada: sem carimbo de emissão não há como comparar com a troca de
+  // senha, e uma comparação contra `undefined` seria sempre falsa — aceitaria a
+  // sessão justamente no ponto que existe para recusá-la.
+  if (typeof sessao.emitidoEm !== 'number') {
     throw new ErroPermissao('Sessão inválida')
   }
 
@@ -1885,9 +1921,12 @@ export default auth((req) => {
     return Response.redirect(url)
   }
 
-  if (autenticado && ehLogin) {
-    return Response.redirect(new URL('/residentes', req.nextUrl))
-  }
+  // Deliberadamente NÃO redirecionamos quem tem cookie para fora de /login.
+  // O middleware só enxerga o JWT; ele não sabe se a conta foi desativada ou se
+  // a senha mudou — quem sabe é `obterCtx`, que consulta o banco. Redirecionar
+  // aqui prenderia o usuário de sessão revogada num ciclo: toda página real
+  // recusaria o acesso, e /login o mandaria de volta para elas. Quem decide se
+  // já está autenticado é a própria página de login, com `obterCtxOuNulo`.
 })
 
 export const config = {
@@ -1924,7 +1963,24 @@ export async function entrar(_estadoAnterior: string | null, formData: FormData)
 }
 ```
 
-`src/app/login/page.tsx`:
+`src/app/login/page.tsx` — a página é um Server Component que decide o redirecionamento com base no banco, e delega o formulário a um componente cliente:
+
+```tsx
+import { redirect } from 'next/navigation'
+import { obterCtxOuNulo } from '@/modules/auth/sessao'
+import { FormularioLogin } from './formulario'
+
+export default async function PaginaLogin() {
+  const ctx = await obterCtxOuNulo()
+  if (ctx) redirect('/residentes')
+
+  return <FormularioLogin />
+}
+```
+
+`obterCtxOuNulo` consulta o banco, então um usuário desativado ou com senha trocada vê o formulário em vez de ser devolvido a uma tela que vai recusá-lo.
+
+`src/app/login/formulario.tsx`:
 
 ```tsx
 'use client'
@@ -1932,7 +1988,7 @@ export async function entrar(_estadoAnterior: string | null, formData: FormData)
 import { useActionState } from 'react'
 import { entrar } from './acoes'
 
-export default function PaginaLogin() {
+export function FormularioLogin() {
   const [erro, acao, enviando] = useActionState(entrar, null)
 
   return (
