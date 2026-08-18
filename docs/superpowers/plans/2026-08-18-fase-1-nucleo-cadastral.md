@@ -2897,6 +2897,32 @@ describe('determinismo do grau vigente', () => {
 
     expect(new Set(leituras).size).toBe(1)
   })
+
+  it('mantém leitura estável com dataAvaliacao e criadoEm idênticos', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('SAUDE')
+    const mesmoInstante = new Date('2026-04-10T12:00:00.000Z')
+
+    for (const grau of ['I', 'III'] as const) {
+      await prisma.avaliacaoDependencia.create({
+        data: {
+          residenteId: residente.id,
+          grau,
+          dataAvaliacao: new Date('2026-04-10'),
+          avaliadorNome: 'Enf. Ana',
+          criadoEm: mesmoInstante,
+        },
+      })
+    }
+
+    const leituras = await Promise.all([
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+    ])
+
+    expect(new Set(leituras).size).toBe(1)
+  })
 })
 
 describe('listarAvaliacoes', () => {
