@@ -225,6 +225,15 @@ describe('listarDocumentos', () => {
     await expect(listarDocumentos(ctx, {})).rejects.toThrow(ErroValidacao)
   })
 
+  it('recusa chamada com os dois vínculos ao mesmo tempo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      listarDocumentos(ctx, { residenteId: residente.id, funcionarioId: 'fun_1' })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
   it('omite da lista os documentos que o papel não pode ver', async () => {
     const saude = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()
