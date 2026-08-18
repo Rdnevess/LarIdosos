@@ -1,9 +1,21 @@
 import type { AcaoAuditoria, Prisma, PrismaClient } from '@prisma/client'
-import type { Ctx } from '@/lib/contexto'
 
 export type ClientePrisma = PrismaClient | Prisma.TransactionClient
 
 export type Diff = Record<string, { de: unknown; para: unknown }>
+
+/**
+ * O ator de um evento de auditoria. `Ctx` (usuário autenticado e autorizado)
+ * satisfaz esta forma estruturalmente, mas o login em si precisa registrar
+ * eventos antes de existir um `Ctx` completo — por exemplo, uma tentativa
+ * falha para um e-mail que não existe no sistema não tem `usuarioId` real.
+ */
+export type AtorAuditoria = {
+  usuarioId: string | null
+  email: string
+  ip?: string
+  userAgent?: string
+}
 
 export type DadosAuditoria = {
   acao: AcaoAuditoria
@@ -38,20 +50,20 @@ export function calcularDiff(
 
 export async function registrarAuditoria(
   cliente: ClientePrisma,
-  ctx: Ctx,
+  ator: AtorAuditoria,
   dados: DadosAuditoria
 ): Promise<void> {
   await cliente.logAuditoria.create({
     data: {
-      usuarioId: ctx.usuarioId,
-      usuarioEmail: ctx.email,
+      usuarioId: ator.usuarioId,
+      usuarioEmail: ator.email,
       acao: dados.acao,
       entidade: dados.entidade,
       entidadeId: dados.entidadeId,
       residenteId: dados.residenteId,
       diff: (dados.diff ?? undefined) as Prisma.InputJsonValue | undefined,
-      ip: ctx.ip,
-      userAgent: ctx.userAgent,
+      ip: ator.ip,
+      userAgent: ator.userAgent,
     },
   })
 }

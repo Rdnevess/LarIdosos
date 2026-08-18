@@ -56,6 +56,13 @@ describe('obterCtx', () => {
     await expect(obterCtx()).rejects.toThrow(ErroPermissao)
   })
 
+  it('recusa sessão sem carimbo de emissão', async () => {
+    const usuario = await criarUsuarioDeTeste()
+    mockAuth.mockResolvedValue({ user: { id: usuario.id } })
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+  })
+
   it('reflete imediatamente a mudança de papel no banco', async () => {
     const usuario = await criarUsuarioDeTeste({ papel: 'SAUDE' })
     mockAuth.mockResolvedValue({

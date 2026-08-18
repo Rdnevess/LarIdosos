@@ -19,9 +19,12 @@ export default auth((req) => {
     return Response.redirect(url)
   }
 
-  if (autenticado && ehLogin) {
-    return Response.redirect(new URL('/residentes', req.nextUrl))
-  }
+  // Deliberadamente NÃO redirecionamos quem tem cookie para fora de /login.
+  // O middleware só enxerga o JWT; ele não sabe se a conta foi desativada ou se
+  // a senha mudou — quem sabe é `obterCtx`, que consulta o banco. Redirecionar
+  // aqui prenderia o usuário de sessão revogada num ciclo: toda página real
+  // recusaria o acesso, e /login o mandaria de volta para elas. Quem decide se
+  // já está autenticado é a própria página de login, com `obterCtxOuNulo`.
 })
 
 export const config = {

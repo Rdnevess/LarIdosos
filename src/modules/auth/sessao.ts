@@ -15,6 +15,13 @@ export async function obterCtx(): Promise<Ctx> {
     throw new ErroPermissao('Sessão inválida')
   }
 
+  // Falha fechada: sem carimbo de emissão não há como comparar com a troca de
+  // senha, e uma comparação contra `undefined` seria sempre falsa — aceitaria a
+  // sessão justamente no ponto que existe para recusá-la.
+  if (typeof sessao.emitidoEm !== 'number') {
+    throw new ErroPermissao('Sessão inválida')
+  }
+
   const senhaAlteradaEmSegundos = Math.floor(usuario.senhaAlteradaEm.getTime() / 1000)
   if (senhaAlteradaEmSegundos > sessao.emitidoEm) {
     throw new ErroPermissao('Sessão inválida')
