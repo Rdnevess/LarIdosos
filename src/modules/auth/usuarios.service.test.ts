@@ -103,6 +103,16 @@ describe('atualizarUsuario', () => {
     expect(log.diff).toEqual({ nome: { de: 'Nova Pessoa', para: 'Nome Corrigido' } })
   })
 
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(
+      atualizarUsuario(ctx, alvo.id, { nome: 'Tentativa' })
+    ).rejects.toThrow(ErroPermissao)
+  })
+
   it('nunca inclui senhaHash no diff da auditoria', async () => {
     const ctx = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(ctx, dadosValidos)
@@ -130,6 +140,16 @@ describe('definirSenha', () => {
     expect(await verificarSenha(depois.senhaHash, 'outra-senha-forte-456')).toBe(true)
     expect(depois.senhaAlteradaEm.getTime()).toBeGreaterThan(antes.senhaAlteradaEm.getTime())
   })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await expect(
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+    ).rejects.toThrow(ErroPermissao)
+  })
 })
 
 describe('desativarUsuario', () => {
@@ -148,5 +168,29 @@ describe('desativarUsuario', () => {
     const ctx = ctxDe(usuario)
 
     await expect(desativarUsuario(ctx, usuario.id)).rejects.toThrow(ErroValidacao)
+  })
+
+  it('registra na auditoria o estado anterior real, não um valor presumido', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(ctx, dadosValidos)
+
+    await desativarUsuario(ctx, alvo.id)
+    await desativarUsuario(ctx, alvo.id)
+
+    const logs = await prisma.logAuditoria.findMany({
+      where: { entidade: 'Usuario', entidadeId: alvo.id, acao: 'ATUALIZAR' },
+      orderBy: { criadoEm: 'asc' },
+    })
+
+    expect(logs[0].diff).toEqual({ ativo: { de: true, para: false } })
+    expect(logs[1].diff).toEqual({ ativo: { de: false, para: false } })
+  })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(desativarUsuario(ctx, alvo.id)).rejects.toThrow(ErroPermissao)
   })
 })

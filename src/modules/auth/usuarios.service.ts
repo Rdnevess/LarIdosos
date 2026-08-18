@@ -148,7 +148,7 @@ export async function desativarUsuario(ctx: Ctx, id: string): Promise<void> {
       acao: 'ATUALIZAR',
       entidade: 'Usuario',
       entidadeId: id,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
   })
 }
