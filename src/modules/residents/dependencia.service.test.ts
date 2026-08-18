@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
+import { prisma } from '@/lib/prisma'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import {
   registrarAvaliacao,
@@ -104,7 +105,48 @@ describe('obterGrauVigente', () => {
   })
 })
 
+describe('determinismo do grau vigente', () => {
+  it('devolve sempre o mesmo grau quando duas avaliações têm a mesma data', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('SAUDE')
+    const mesmaData = new Date('2026-04-10')
+
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'I',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'III',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+
+    const leituras = await Promise.all([
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+    ])
+
+    expect(new Set(leituras).size).toBe(1)
+  })
+})
+
 describe('listarAvaliacoes', () => {
+  it('audita a leitura do histórico clínico', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await listarAvaliacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'AvaliacaoDependencia', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve o histórico do mais recente para o mais antigo', async () => {
     const residente = await criarResidenteDeTeste()
     const ctx = await ctxComPapel('SAUDE')

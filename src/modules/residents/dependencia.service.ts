@@ -49,6 +49,13 @@ export async function registrarAvaliacao(
   })
 }
 
+/**
+ * Não audita. Devolve apenas o enum do grau, e é chamada em lote — a ficha do
+ * residente e, na Fase 3, o relatório de residentes por grau. Auditar aqui
+ * geraria uma linha por residente a cada relatório emitido, afogando a trilha
+ * sem acrescentar rastro: o acesso à ficha já é auditado por `obterResidente`,
+ * e a emissão do relatório será auditada como `EXPORTAR`.
+ */
 export async function obterGrauVigente(
   ctx: Ctx,
   residenteId: string,
@@ -58,20 +65,33 @@ export async function obterGrauVigente(
 
   const avaliacao = await prisma.avaliacaoDependencia.findFirst({
     where: { residenteId, dataAvaliacao: { lte: emData } },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return avaliacao?.grau ?? null
 }
 
+/**
+ * Audita. Diferente de `obterGrauVigente`, devolve o histórico clínico completo
+ * de uma pessoa — grau, justificativa e quem avaliou. Isso é abrir dado sensível
+ * de um residente, não uma listagem minimizada.
+ */
 export async function listarAvaliacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<AvaliacaoDependencia[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
-  return prisma.avaliacaoDependencia.findMany({
+  const avaliacoes = await prisma.avaliacaoDependencia.findMany({
     where: { residenteId },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'AvaliacaoDependencia',
+    residenteId,
+  })
+
+  return avaliacoes
 }
