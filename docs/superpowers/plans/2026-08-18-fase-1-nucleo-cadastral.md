@@ -3664,7 +3664,7 @@ export async function listarDocumentos(
 
   const documentos = await prisma.documento.findMany({
     where: { ...alvo, ativo: true },
-    orderBy: { criadoEm: 'desc' },
+    orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return documentos.filter((documento) =>
@@ -4042,7 +4042,7 @@ export async function listarAnotacoes(
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   return prisma.anotacao.findMany({
     where: { residenteId },
-    orderBy: { criadoEm: 'desc' },
+    orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 }
 
@@ -6167,7 +6167,7 @@ export async function consultarAuditoria(
   const [registros, total] = await Promise.all([
     prisma.logAuditoria.findMany({
       where,
-      orderBy: { criadoEm: 'desc' },
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
       skip: (pagina - 1) * POR_PAGINA,
       take: POR_PAGINA,
     }),
@@ -6179,6 +6179,8 @@ export async function consultarAuditoria(
 ```
 
 A consulta da auditoria não se audita: registrar cada consulta geraria crescimento sem informação nova, já que o acesso à tela é restrito a um único papel.
+
+O `orderBy` desempata por `id` de propósito. Com `skip`/`take`, uma ordenação que não distingue dois registros do mesmo milissegundo pode devolvê-los em ordem diferente a cada consulta — e então um registro aparece em duas páginas enquanto outro nunca aparece em nenhuma. Numa trilha de auditoria, um registro que some da paginação é indistinguível de um registro que nunca existiu.
 
 - [ ] **Step 4: Criar a tela**
 
