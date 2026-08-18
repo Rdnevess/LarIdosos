@@ -15,7 +15,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "test": "npm run db:migrate:test && dotenv -e .env.test -- vitest run",
     "test:watch": "dotenv -e .env.test -- vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.1.0",

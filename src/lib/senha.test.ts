@@ -8,6 +8,11 @@ describe('senha', () => {
     expect(hash.startsWith('$argon2id$')).toBe(true)
   })
 
+  it('usa os parâmetros recomendados pela OWASP', async () => {
+    const hash = await hashSenha('senha-forte-123')
+    expect(hash).toContain('m=19456,t=2,p=1')
+  })
+
   it('gera hashes diferentes para a mesma senha', async () => {
     const a = await hashSenha('senha-forte-123')
     const b = await hashSenha('senha-forte-123')
