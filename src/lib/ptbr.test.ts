@@ -5,6 +5,7 @@ import {
   somenteDigitos,
   formatarCpf,
   formatarData,
+  formatarDataHora,
   formatarMoeda,
 } from './ptbr'
 
@@ -49,8 +50,25 @@ describe('formatação', () => {
     expect(somenteDigitos('529.982.247-25')).toBe('52998224725')
   })
 
-  it('formata data no padrão brasileiro', () => {
-    expect(formatarData(new Date(2026, 7, 18))).toBe('18/08/2026')
+  it('formata data pura no padrão brasileiro', () => {
+    expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    expect(formatarData(new Date('2026-01-01T00:00:00Z'))).toBe('01/01/2026')
+  })
+
+  it('formata data pura sem depender do fuso do processo', () => {
+    const tzOriginal = process.env.TZ
+    try {
+      process.env.TZ = 'UTC'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+      process.env.TZ = 'Pacific/Kiritimati'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    } finally {
+      process.env.TZ = tzOriginal
+    }
+  })
+
+  it('formata data e hora no fuso de São Paulo', () => {
+    expect(formatarDataHora(new Date('2026-08-18T14:30:00Z'))).toBe('18/08/2026 11:30')
   })
 
   it('formata moeda em real', () => {

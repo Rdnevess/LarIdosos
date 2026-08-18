@@ -49,8 +49,21 @@ export function formatarData(data: Date): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: 'America/Sao_Paulo',
+    timeZone: 'UTC',
   }).format(data)
+}
+
+export function formatarDataHora(data: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })
+    .format(data)
+    .replace(',', '')
 }
 
 export function formatarMoeda(valor: number): string {
