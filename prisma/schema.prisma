@@ -29,3 +29,35 @@ model Usuario {
 
   @@map("usuarios")
 }
+
+enum AcaoAuditoria {
+  CRIAR
+  ATUALIZAR
+  EXCLUIR
+  VISUALIZAR
+  LOGIN
+  LOGIN_FALHA
+  LOGOUT
+  EXPORTAR
+  DOWNLOAD
+}
+
+model LogAuditoria {
+  id           String        @id @default(cuid())
+  usuarioId    String?
+  usuarioEmail String
+  acao         AcaoAuditoria
+  entidade     String
+  entidadeId   String?
+  residenteId  String?
+  diff         Json?
+  ip           String?
+  userAgent    String?
+  criadoEm     DateTime      @default(now())
+
+  @@index([entidade, entidadeId])
+  @@index([usuarioId, criadoEm])
+  @@index([residenteId, criadoEm])
+  @@index([criadoEm])
+  @@map("logs_auditoria")
+}
