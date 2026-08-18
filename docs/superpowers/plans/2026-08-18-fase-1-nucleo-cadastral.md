@@ -19,7 +19,7 @@
 - **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. **Cada função exportada de um serviço tem um teste que a chama com um papel não autorizado e espera `ErroPermissao`** — inclusive as funções cujo bloco de testes o plano não detalha. Sem isso, uma chamada a `exigirPapel` que alguém remova numa refatoração futura não quebra teste nenhum.
 - **O diff de auditoria registra o estado real anterior, nunca um valor presumido.** Use o campo lido do banco (`atual.campo`) como `de`, não uma constante. Um log que afirma "estava ativo" sobre um registro que já estava inativo é um registro falso — e este sistema responde a fiscalização sanitária e a prestação de contas de convênio.
 - **Chaves primárias em CUID** (`@default(cuid())`), expostas nas URLs. Nenhum inteiro sequencial em rota.
-- **Toda escrita gera registro em `LogAuditoria`**; leitura de dado sensível também (spec R12).
+- **Toda escrita gera registro em `LogAuditoria`.** Leitura audita quando abre o dado sensível de uma pessoa específica: ficha do residente, exame, documento, comprovante financeiro. **Listagem não audita** — em vez disso, devolve só os campos que a tela de lista usa (spec §8: auditar toda leitura de toda tela gera volume que ninguém consegue consultar, e a minimização de dado protege mais que o registro do acesso).
 - **Testes rodam contra PostgreSQL real**, nunca SQLite.
 - TDD obrigatório: o teste é escrito e falha antes da implementação.
 - **Antes de cada commit, rode `npm run typecheck` além dos testes.** O Vitest transpila com esbuild, que remove as anotações de tipo sem verificá-las: uma suíte inteiramente verde convive com código que não compila, e o `next build` só descobre isso muito depois, quando achar a origem já custa caro.
@@ -2343,6 +2343,20 @@ describe('listarResidentes', () => {
     const busca = await listarResidentes(ctx, { busca: 'maria das' })
     expect(busca).toHaveLength(1)
   })
+
+  it('não devolve dado sensível na listagem', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, dadosValidos)
+
+    const [residente] = await listarResidentes(ctx, {})
+
+    expect(residente).not.toHaveProperty('cpf')
+    expect(residente).not.toHaveProperty('rg')
+    expect(residente).not.toHaveProperty('cns')
+    expect(residente).not.toHaveProperty('beneficioValor')
+    expect(residente).not.toHaveProperty('planoSaude')
+    expect(residente.nomeCompleto).toBe('Maria das Dores Silva')
+  })
 })
 
 describe('atualizarResidente', () => {
@@ -2546,10 +2560,32 @@ export async function obterResidente(ctx: Ctx, id: string): Promise<Residente> {
   return residente
 }
 
+/**
+ * Campos que a listagem devolve. Deliberadamente sem CPF, RG, CNS, benefício e
+ * plano de saúde: a tela de lista não precisa deles, e devolvê-los exporia dado
+ * sensível de trinta pessoas a cada busca. Quem precisa do cadastro completo
+ * abre a ficha, e `obterResidente` audita esse acesso.
+ */
+const CAMPOS_LISTA = {
+  id: true,
+  nomeCompleto: true,
+  nomeSocial: true,
+  dataNascimento: true,
+  dataAdmissao: true,
+  quarto: true,
+  leito: true,
+  status: true,
+} as const
+
+export type ResidenteResumo = Pick<
+  Residente,
+  'id' | 'nomeCompleto' | 'nomeSocial' | 'dataNascimento' | 'dataAdmissao' | 'quarto' | 'leito' | 'status'
+>
+
 export async function listarResidentes(
   ctx: Ctx,
   filtro: { busca?: string; status?: StatusResidente } = {}
-): Promise<Residente[]> {
+): Promise<ResidenteResumo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const where: Prisma.ResidenteWhereInput = {}
@@ -2561,7 +2597,11 @@ export async function listarResidentes(
     ]
   }
 
-  return prisma.residente.findMany({ where, orderBy: { nomeCompleto: 'asc' } })
+  return prisma.residente.findMany({
+    where,
+    select: CAMPOS_LISTA,
+    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+  })
 }
 
 export async function atualizarResidente(
@@ -2619,7 +2659,7 @@ export async function desligarResidente(
       entidade: 'Residente',
       entidadeId: id,
       residenteId: id,
-      diff: { status: { de: atual.status, para: entrada.status } },
+      diff: calcularDiff(atual as unknown as Record<string, unknown>, entrada),
     })
 
     return atualizado
