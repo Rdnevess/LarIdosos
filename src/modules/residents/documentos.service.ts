@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { Documento, Papel, TipoDocumento } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
-import { ErroNaoEncontrado, ErroPermissao } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { salvarArquivo, lerArquivo } from '@/lib/arquivos'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -11,6 +11,13 @@ const TODOS: Papel[] = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO']
 const CLINICO: Papel[] = ['COORDENACAO', 'SAUDE']
 const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
 
+/**
+ * A ordem das checagens importa e é deliberada: o vínculo com funcionário vem
+ * ANTES do tipo. Um laudo de funcionário — atestado, perícia — é assunto de
+ * pessoal, não da equipe que cuida dos idosos; por isso fica visível ao
+ * ADMINISTRATIVO e oculto ao SAUDE, ao contrário do laudo de um residente.
+ * Inverter esses dois ifs abriria prontuário de funcionário à equipe clínica.
+ */
 export function papeisQuePodemVer(documento: {
   tipo: TipoDocumento
   funcionarioId: string | null
@@ -50,6 +57,17 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
       funcionarioId: entrada.funcionarioId ?? null,
     })
   )
+
+  // Confere o vínculo ANTES de gravar bytes. Sem isso, um `residenteId`
+  // inexistente só falharia na chave estrangeira do insert — depois do arquivo
+  // já estar no disco, sem registro e sem ninguém para limpá-lo.
+  if (entrada.residenteId) {
+    const residente = await prisma.residente.findUnique({
+      where: { id: entrada.residenteId },
+      select: { id: true },
+    })
+    if (!residente) throw new ErroNaoEncontrado('Residente não encontrado')
+  }
 
   const salvo = await salvarArquivo(entrada.conteudo, entrada.mimeType)
 
@@ -94,14 +112,45 @@ export async function listarDocumentos(
 ): Promise<Documento[]> {
   exigirPapel(ctx, ...TODOS)
 
+  // Sem isso, `alvo` vazio produziria `where: { ativo: true }` — o Prisma ignora
+  // chaves `undefined` — e a função varreria todos os documentos de todos os
+  // residentes e funcionários. O contrato é "escopo em um alvo"; esta validação
+  // é o que impede uma varredura global silenciosa.
+  if (Boolean(alvo.residenteId) === Boolean(alvo.funcionarioId)) {
+    throw new ErroValidacao('Informe exatamente um vínculo: residente ou funcionário')
+  }
+
   const documentos = await prisma.documento.findMany({
-    where: { ...alvo, ativo: true },
+    where: alvo.residenteId
+      ? { residenteId: alvo.residenteId, ativo: true }
+      : { funcionarioId: alvo.funcionarioId, ativo: true },
     orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return documentos.filter((documento) =>
     papeisQuePodemVer(documento).includes(ctx.papel)
   )
+}
+
+export async function excluirDocumento(ctx: Ctx, id: string): Promise<void> {
+  const documento = await prisma.documento.findUnique({ where: { id } })
+  if (!documento || !documento.ativo) {
+    throw new ErroNaoEncontrado('Documento não encontrado')
+  }
+
+  exigirPapel(ctx, ...papeisQuePodemVer(documento))
+
+  await prisma.$transaction(async (tx) => {
+    await tx.documento.update({ where: { id }, data: { ativo: false } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'EXCLUIR',
+      entidade: 'Documento',
+      entidadeId: id,
+      residenteId: documento.residenteId ?? undefined,
+      diff: { ativo: { de: documento.ativo, para: false } },
+    })
+  })
 }
 
 export async function obterDocumentoParaDownload(

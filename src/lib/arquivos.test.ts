@@ -40,4 +40,8 @@ describe('lerArquivo', () => {
     await expect(lerArquivo('../../.env')).rejects.toThrow(ErroValidacao)
     await expect(lerArquivo('/etc/passwd')).rejects.toThrow(ErroValidacao)
   })
+
+  it('recusa caminho vazio', async () => {
+    await expect(lerArquivo('')).rejects.toThrow(ErroValidacao)
+  })
 })

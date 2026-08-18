@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto'
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { ErroValidacao } from './erros'
+import { ErroNaoEncontrado, ErroValidacao } from './erros'
 
 const EXTENSAO_POR_MIME: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -52,12 +52,35 @@ export async function salvarArquivo(
 }
 
 export async function lerArquivo(caminhoRelativo: string): Promise<Buffer> {
-  const base = diretorioBase()
-  const alvo = path.resolve(base, caminhoRelativo)
-
-  if (alvo !== base && !alvo.startsWith(base + path.sep)) {
+  if (!caminhoRelativo?.trim()) {
     throw new ErroValidacao('Caminho de arquivo inválido')
   }
 
-  return readFile(alvo)
+  const base = diretorioBase()
+  const alvo = path.resolve(base, caminhoRelativo)
+
+  // Contenção lexical: o alvo tem de ser filho da base. O `path.sep` no fim é
+  // o que impede um irmão de nome parecido (`/data/uploads-outro`) passar por
+  // prefixo. Ler a própria base nunca é válido, daí não haver caso de igualdade.
+  if (!alvo.startsWith(base + path.sep)) {
+    throw new ErroValidacao('Caminho de arquivo inválido')
+  }
+
+  // Contenção física: `path.resolve` é puramente textual e segue link simbólico
+  // sem perceber. Um link plantado dentro do volume de uploads apontando para
+  // fora dele passaria na checagem acima. `realpath` resolve os links e a
+  // contenção é reavaliada sobre o caminho real.
+  let real: string
+  try {
+    real = await realpath(alvo)
+  } catch {
+    throw new ErroNaoEncontrado('Arquivo não encontrado')
+  }
+
+  const baseReal = await realpath(base)
+  if (!real.startsWith(baseReal + path.sep)) {
+    throw new ErroValidacao('Caminho de arquivo inválido')
+  }
+
+  return readFile(real)
 }
