@@ -36,3 +36,6 @@ playwright-report/
 
 # Next.js
 next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo

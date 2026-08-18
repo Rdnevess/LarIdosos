@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  COORDENACAO
+  SAUDE
+  ADMINISTRATIVO
+}
+
+model Usuario {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  senhaHash      String
+  nome           String
+  papel          Papel
+  ativo          Boolean   @default(true)
+  funcionarioId  String?   @unique
+  ultimoAcessoEm DateTime?
+  senhaAlteradaEm DateTime @default(now())
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+  criadoPorId    String?
+
+  @@map("usuarios")
+}
