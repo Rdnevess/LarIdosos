@@ -115,6 +115,7 @@ model Residente {
   criadoPorId      String?
 
   avaliacoesDependencia AvaliacaoDependencia[]
+  responsaveis          Responsavel[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -140,4 +141,34 @@ model AvaliacaoDependencia {
 
   @@index([residenteId, dataAvaliacao])
   @@map("avaliacoes_dependencia")
+}
+
+model Responsavel {
+  id                  String    @id @default(cuid())
+  residenteId         String
+  residente           Residente @relation(fields: [residenteId], references: [id])
+  nome                String
+  parentesco          String
+  cpf                 String?
+  telefonePrincipal   String
+  telefoneSecundario  String?
+  email               String?
+  logradouro          String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  uf                  String?   @db.Char(2)
+  cep                 String?
+  ehResponsavelLegal  Boolean   @default(false)
+  ehContatoEmergencia Boolean   @default(false)
+  autorizadoVisitar   Boolean   @default(true)
+  observacao          String?
+  ativo               Boolean   @default(true)
+  criadoEm            DateTime  @default(now())
+  atualizadoEm        DateTime  @updatedAt
+  criadoPorId         String?
+
+  @@index([residenteId, ativo])
+  @@map("responsaveis")
 }
