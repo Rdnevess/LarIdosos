@@ -62,10 +62,32 @@ export async function obterResidente(ctx: Ctx, id: string): Promise<Residente> {
   return residente
 }
 
+/**
+ * Campos que a listagem devolve. Deliberadamente sem CPF, RG, CNS, benefício e
+ * plano de saúde: a tela de lista não precisa deles, e devolvê-los exporia dado
+ * sensível de trinta pessoas a cada busca. Quem precisa do cadastro completo
+ * abre a ficha, e `obterResidente` audita esse acesso.
+ */
+const CAMPOS_LISTA = {
+  id: true,
+  nomeCompleto: true,
+  nomeSocial: true,
+  dataNascimento: true,
+  dataAdmissao: true,
+  quarto: true,
+  leito: true,
+  status: true,
+} as const
+
+export type ResidenteResumo = Pick<
+  Residente,
+  'id' | 'nomeCompleto' | 'nomeSocial' | 'dataNascimento' | 'dataAdmissao' | 'quarto' | 'leito' | 'status'
+>
+
 export async function listarResidentes(
   ctx: Ctx,
   filtro: { busca?: string; status?: StatusResidente } = {}
-): Promise<Residente[]> {
+): Promise<ResidenteResumo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const where: Prisma.ResidenteWhereInput = {}
@@ -77,7 +99,11 @@ export async function listarResidentes(
     ]
   }
 
-  return prisma.residente.findMany({ where, orderBy: { nomeCompleto: 'asc' } })
+  return prisma.residente.findMany({
+    where,
+    select: CAMPOS_LISTA,
+    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+  })
 }
 
 export async function atualizarResidente(
@@ -135,7 +161,7 @@ export async function desligarResidente(
       entidade: 'Residente',
       entidadeId: id,
       residenteId: id,
-      diff: { status: { de: atual.status, para: entrada.status } },
+      diff: calcularDiff(atual as unknown as Record<string, unknown>, entrada),
     })
 
     return atualizado

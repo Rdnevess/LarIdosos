@@ -108,6 +108,20 @@ describe('listarResidentes', () => {
     const busca = await listarResidentes(ctx, { busca: 'maria das' })
     expect(busca).toHaveLength(1)
   })
+
+  it('não devolve dado sensível na listagem', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, dadosValidos)
+
+    const [residente] = await listarResidentes(ctx, {})
+
+    expect(residente).not.toHaveProperty('cpf')
+    expect(residente).not.toHaveProperty('rg')
+    expect(residente).not.toHaveProperty('cns')
+    expect(residente).not.toHaveProperty('beneficioValor')
+    expect(residente).not.toHaveProperty('planoSaude')
+    expect(residente.nomeCompleto).toBe('Maria das Dores Silva')
+  })
 })
 
 describe('atualizarResidente', () => {
