@@ -3843,6 +3843,15 @@ describe('listarDocumentos', () => {
     await expect(listarDocumentos(ctx, {})).rejects.toThrow(ErroValidacao)
   })
 
+  it('recusa chamada com os dois vínculos ao mesmo tempo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      listarDocumentos(ctx, { residenteId: residente.id, funcionarioId: 'fun_1' })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
   it('omite da lista os documentos que o papel não pode ver', async () => {
     const saude = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()
@@ -4098,8 +4107,13 @@ export async function GET(
     // 404 também para permissão negada. `listarDocumentos` filtra em vez de
     // recusar justamente para não revelar que existe um exame ali; devolver 403
     // aqui entregaria essa mesma existência de volta, num código de status. Quem
-    // não pode ver não distingue "não existe" de "não é para você" — e a
-    // tentativa fica registrada na auditoria de qualquer forma.
+    // não pode ver não distingue "não existe" de "não é para você".
+    //
+    // Atenção: a tentativa negada NÃO gera registro em `LogAuditoria` —
+    // `obterDocumentoParaDownload` lança antes de auditar, e o mesmo vale para
+    // todo serviço que chama `exigirPapel`. Registrar tentativa indevida é
+    // desejável e está pendente como decisão transversal (exige novo valor no
+    // enum `AcaoAuditoria`); não presuma que existe esse rastro hoje.
     if (erro instanceof ErroPermissao || erro instanceof ErroNaoEncontrado) {
       return NextResponse.json({ erro: 'Documento não encontrado' }, { status: 404 })
     }
