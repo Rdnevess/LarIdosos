@@ -409,7 +409,7 @@ Validação de CPF e CNPJ com dígito verificador e formatação brasileira. Usa
 
 **Interfaces:**
 - Consumes: nada
-- Produces: `validarCpf(valor: string): boolean`, `validarCnpj(valor: string): boolean`, `somenteDigitos(valor: string): string`, `formatarCpf(valor: string): string`, `formatarData(data: Date): string`, `formatarMoeda(valor: number): string`
+- Produces: `validarCpf(valor: string): boolean`, `validarCnpj(valor: string): boolean`, `somenteDigitos(valor: string): string`, `formatarCpf(valor: string): string`, `formatarData(data: Date): string` (campos `@db.Date`, formata em UTC), `formatarDataHora(data: Date): string` (instantes, formata em America/Sao_Paulo), `formatarMoeda(valor: number): string`
 
 - [ ] **Step 1: Escrever os testes (devem falhar)**
 
@@ -423,6 +423,7 @@ import {
   somenteDigitos,
   formatarCpf,
   formatarData,
+  formatarDataHora,
   formatarMoeda,
 } from './ptbr'
 
@@ -467,8 +468,25 @@ describe('formatação', () => {
     expect(somenteDigitos('529.982.247-25')).toBe('52998224725')
   })
 
-  it('formata data no padrão brasileiro', () => {
-    expect(formatarData(new Date(2026, 7, 18))).toBe('18/08/2026')
+  it('formata data pura no padrão brasileiro', () => {
+    expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    expect(formatarData(new Date('2026-01-01T00:00:00Z'))).toBe('01/01/2026')
+  })
+
+  it('formata data pura sem depender do fuso do processo', () => {
+    const tzOriginal = process.env.TZ
+    try {
+      process.env.TZ = 'UTC'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+      process.env.TZ = 'Pacific/Kiritimati'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    } finally {
+      process.env.TZ = tzOriginal
+    }
+  })
+
+  it('formata data e hora no fuso de São Paulo', () => {
+    expect(formatarDataHora(new Date('2026-08-18T14:30:00Z'))).toBe('18/08/2026 11:30')
   })
 
   it('formata moeda em real', () => {
@@ -539,8 +557,21 @@ export function formatarData(data: Date): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: 'America/Sao_Paulo',
+    timeZone: 'UTC',
   }).format(data)
+}
+
+export function formatarDataHora(data: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })
+    .format(data)
+    .replace(',', '')
 }
 
 export function formatarMoeda(valor: number): string {
@@ -554,6 +585,13 @@ export function formatarMoeda(valor: number): string {
 ```
 
 O `replace` no fim de `formatarMoeda` troca o espaço não-quebrável que o `Intl` insere por um espaço comum — sem isso a comparação no teste falha por um caractere invisível, que é das coisas mais frustrantes de depurar.
+
+**As duas funções de data são distintas de propósito, e usar a errada corrompe o dado exibido:**
+
+- `formatarData` serve aos campos `@db.Date` (`dataNascimento`, `dataAdmissao`, `dataAvaliacao`, `dataCompetencia`…). O Prisma devolve esses campos como **meia-noite UTC**. Formatá-los em `America/Sao_Paulo` mostraria 21h do dia anterior — ou seja, **toda data de nascimento e admissão apareceria um dia antes**. Por isso ela formata em `UTC`.
+- `formatarDataHora` serve aos campos de instante real (`criadoEm`, `aferidoEm`, `registradoEm`, `ocorridoEm`). Esses são momentos no tempo e devem ser exibidos no fuso de quem lê — `America/Sao_Paulo`.
+
+Regra prática para as tarefas seguintes: **se o campo é `@db.Date`, use `formatarData`; se é `DateTime` de acontecimento, use `formatarDataHora`.**
 
 - [ ] **Step 4: Rodar os testes**
 
@@ -5107,7 +5145,7 @@ import {
   obterGrauVigente,
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
-import { formatarData, formatarCpf } from '@/lib/ptbr'
+import { formatarData, formatarDataHora, formatarCpf } from '@/lib/ptbr'
 
 export default async function FichaResidente({
   params,
@@ -5170,7 +5208,7 @@ export default async function FichaResidente({
           {anotacoes.map((anotacao) => (
             <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
               <p className="text-sm text-slate-500">
-                {formatarData(anotacao.criadoEm)} · {anotacao.categoria}
+                {formatarDataHora(anotacao.criadoEm)} · {anotacao.categoria}
                 {anotacao.retificaAnotacaoId && ' · retificação'}
               </p>
               <p className="text-slate-800">{anotacao.texto}</p>
@@ -6094,6 +6132,7 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
+import { formatarDataHora } from '@/lib/ptbr'
 
 const ENTIDADES = [
   'Residente',
@@ -6140,13 +6179,6 @@ export default async function PaginaAuditoria({
     busca.set('pagina', String(novaPagina))
     return `?${busca.toString()}`
   }
-
-  const formatarDataHora = (data: Date) =>
-    new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-      timeZone: 'America/Sao_Paulo',
-    }).format(data)
 
   return (
     <section className="space-y-4">
