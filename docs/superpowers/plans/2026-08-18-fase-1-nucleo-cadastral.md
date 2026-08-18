@@ -109,10 +109,10 @@ Entrega o esqueleto executável: projeto Next.js, banco em container, Prisma mig
 
 ```bash
 cd D:/Dev/LarIdosos
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack
+npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack --yes
 ```
 
-Responda **No** se perguntar sobre sobrescrever arquivos existentes que não sejam de código (`.gitignore`, `docs/`). O `docs/` e o `.gitignore` já versionados devem permanecer.
+O diretório **não está vazio** — já contém `.git/`, `.gitignore` e `docs/`. O `--yes` evita que o comando fique preso em prompt interativo. Depois de rodar, confirme com `git status` que `docs/` continua intacto e que o `.gitignore` versionado não foi substituído pelo padrão do Next; se foi, restaure-o com `git checkout .gitignore` e acrescente ao final as linhas que o Next precisa (`.next/`, `next-env.d.ts`).
 
 - [ ] **Step 2: Instalar dependências**
 
@@ -1018,6 +1018,7 @@ git commit -m "Adiciona trilha de auditoria append-only"
 ### Task 6: Serviço de usuários
 
 **Files:**
+- Create: `src/lib/validacao.ts`
 - Create: `src/modules/auth/usuarios.schema.ts`
 - Create: `src/modules/auth/usuarios.service.ts`
 - Create: `tests/helpers/fabricas.ts`
@@ -1026,6 +1027,7 @@ git commit -m "Adiciona trilha de auditoria append-only"
 **Interfaces:**
 - Consumes: `prisma`, `Ctx`, `exigirPapel`, `hashSenha`, `registrarAuditoria`, `calcularDiff`
 - Produces:
+  - `validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S>` em `src/lib/validacao.ts` — **usado por todos os serviços seguintes**
   - `criarUsuario(ctx: Ctx, dados: DadosNovoUsuario): Promise<UsuarioPublico>`
   - `listarUsuarios(ctx: Ctx): Promise<UsuarioPublico[]>`
   - `atualizarUsuario(ctx: Ctx, id: string, dados: DadosAtualizacaoUsuario): Promise<UsuarioPublico>`
@@ -1242,7 +1244,26 @@ O teste de auto-desativação cobre um cenário real: a coordenação se desativ
 Run: `npm test -- src/modules/auth`
 Expected: FAIL — módulo não encontrado.
 
-- [ ] **Step 4: Escrever os schemas Zod**
+- [ ] **Step 4: Criar o helper de validação compartilhado**
+
+`src/lib/validacao.ts` — usado por este serviço e por todos os seguintes:
+
+```typescript
+import type { ZodTypeAny, z } from 'zod'
+import { ErroValidacao } from './erros'
+
+export function validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S> {
+  const resultado = schema.safeParse(valor)
+  if (!resultado.success) {
+    throw new ErroValidacao(resultado.error.issues.map((i) => i.message).join('; '))
+  }
+  return resultado.data
+}
+```
+
+Falha de validação vira `ErroValidacao` com todas as mensagens concatenadas, e não uma exceção do Zod vazando para a camada de cima.
+
+- [ ] **Step 5: Escrever os schemas Zod**
 
 `src/modules/auth/usuarios.schema.ts`:
 
@@ -1269,7 +1290,7 @@ export type DadosNovoUsuario = z.infer<typeof novoUsuarioSchema>
 export type DadosAtualizacaoUsuario = z.infer<typeof atualizacaoUsuarioSchema>
 ```
 
-- [ ] **Step 5: Implementar o serviço**
+- [ ] **Step 6: Implementar o serviço**
 
 `src/modules/auth/usuarios.service.ts`:
 
@@ -1278,6 +1299,7 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { hashSenha } from '@/lib/senha'
+import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
 import {
   novoUsuarioSchema,
@@ -1302,14 +1324,6 @@ export type UsuarioPublico = {
   papel: 'COORDENACAO' | 'SAUDE' | 'ADMINISTRATIVO'
   ativo: boolean
   ultimoAcessoEm: Date | null
-}
-
-function validar<T>(schema: { safeParse: (v: unknown) => { success: boolean; data?: T; error?: { issues: { message: string }[] } } }, valor: unknown): T {
-  const resultado = schema.safeParse(valor)
-  if (!resultado.success) {
-    throw new ErroValidacao(resultado.error!.issues.map((i) => i.message).join('; '))
-  }
-  return resultado.data as T
 }
 
 export async function criarUsuario(
@@ -1441,15 +1455,15 @@ Duas decisões que se repetem em todos os serviços seguintes: `select` explíci
 
 Na auditoria de senha, o diff é textual e não contém nem o hash nem a senha — registra-se que houve troca, não o quê.
 
-- [ ] **Step 6: Rodar os testes**
+- [ ] **Step 7: Rodar os testes**
 
 Run: `npm test -- src/modules/auth`
 Expected: PASS em todos.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/modules/auth/ tests/helpers/fabricas.ts
+git add src/modules/auth/ src/lib/validacao.ts tests/helpers/fabricas.ts
 git commit -m "Adiciona serviço de usuários com auditoria e verificação de papel"
 ```
 
@@ -2289,28 +2303,7 @@ export type DadosAtualizacaoResidente = z.input<typeof atualizacaoResidenteSchem
 export type DadosDesligamento = z.infer<typeof desligamentoSchema>
 ```
 
-- [ ] **Step 5: Extrair o helper de validação compartilhado**
-
-Mover a função `validar` da Task 6 (`usuarios.service.ts`) para `src/lib/validacao.ts`, e importá-la nos dois serviços:
-
-`src/lib/validacao.ts`:
-
-```typescript
-import type { ZodTypeAny, z } from 'zod'
-import { ErroValidacao } from './erros'
-
-export function validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S> {
-  const resultado = schema.safeParse(valor)
-  if (!resultado.success) {
-    throw new ErroValidacao(resultado.error.issues.map((i) => i.message).join('; '))
-  }
-  return resultado.data
-}
-```
-
-Em `src/modules/auth/usuarios.service.ts`, apague a função `validar` local e adicione `import { validar } from '@/lib/validacao'`. Rode `npm test -- src/modules/auth` para confirmar que nada quebrou.
-
-- [ ] **Step 6: Implementar o serviço**
+- [ ] **Step 5: Implementar o serviço**
 
 `src/modules/residents/residentes.service.ts`:
 
@@ -2460,7 +2453,7 @@ export async function desligarResidente(
 }
 ```
 
-- [ ] **Step 7: Adicionar a fábrica de teste**
+- [ ] **Step 6: Adicionar a fábrica de teste**
 
 Em `tests/helpers/fabricas.ts`:
 
@@ -2484,12 +2477,12 @@ export async function criarResidenteDeTeste(
 }
 ```
 
-- [ ] **Step 8: Rodar os testes**
+- [ ] **Step 7: Rodar os testes**
 
 Run: `npm test -- src/modules/residents src/modules/auth`
 Expected: PASS em todos (inclusive os de usuários, após a extração do `validar`).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -3812,16 +3805,19 @@ describe('retificarAnotacao', () => {
     expect(original.texto).toBe('Recebeu visita da filha na tarde de hoje.')
   })
 
-  it('registra a retificação na auditoria', async () => {
+  it('registra a retificação na auditoria apontando para a original', async () => {
     const { anotacao, ctx } = await anotacaoBase()
 
-    await retificarAnotacao(ctx, anotacao.id, { texto: 'Correção do registro anterior.' })
+    const retificacao = await retificarAnotacao(ctx, anotacao.id, {
+      texto: 'Correção do registro anterior.',
+    })
 
     const log = await prisma.logAuditoria.findFirstOrThrow({
-      where: { entidade: 'Anotacao', acao: 'CRIAR', diff: { not: undefined } },
-      orderBy: { criadoEm: 'desc' },
+      where: { entidade: 'Anotacao', acao: 'CRIAR', entidadeId: retificacao.id },
     })
-    expect(log.entidadeId).toBeTruthy()
+    expect(log.diff).toEqual({
+      retificaAnotacaoId: { de: null, para: anotacao.id },
+    })
   })
 })
 
@@ -6331,6 +6327,8 @@ As migrations rodam no start do container, não em passo manual: reimplantar e e
 `docker-compose.yml`:
 
 ```yaml
+name: lar
+
 services:
   db:
     image: postgres:16-alpine
@@ -6385,6 +6383,8 @@ volumes:
   caddy_data:
   caddy_config:
 ```
+
+O `name: lar` no topo fixa o prefixo dos volumes como `lar_` (`lar_uploads`, `lar_pgdata`). Sem ele, o Compose derivaria o prefixo do nome do diretório — e os scripts de backup da Tarefa 18, que referenciam `lar_uploads` por nome, quebrariam na primeira execução, silenciosamente copiando um volume vazio.
 
 `Caddyfile`:
 
@@ -6464,6 +6464,11 @@ git commit -m "Adiciona implantação com Docker, Caddy e migrations no start"
 #!/bin/sh
 set -eu
 
+# Carrega POSTGRES_USER/POSTGRES_DB do mesmo arquivo usado pelo compose.
+ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
+[ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
+. "$ARQUIVO_ENV"
+
 DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
 REMOTO="${RCLONE_REMOTO:-}"
 SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
@@ -6507,6 +6512,10 @@ A criptografia acontece **antes** do envio: o backup contém prontuário e docum
 #!/bin/sh
 set -eu
 
+ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
+[ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
+. "$ARQUIVO_ENV"
+
 ARQUIVO_BANCO="${1:?Informe o arquivo .sql.gz.gpg do banco}"
 ARQUIVO_UPLOADS="${2:?Informe o arquivo .tar.gz.gpg dos uploads}"
 SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
@@ -6538,8 +6547,10 @@ echo "Restauração concluída. Confira a aplicação."
 No `crontab -e` da VPS:
 
 ```
-0 3 * * * cd /opt/lar && SENHA_BACKUP=xxx RCLONE_REMOTO=remoto:lar-backup sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+0 3 * * * cd /opt/lar && SENHA_BACKUP=xxx RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
 ```
+
+O `cron` roda com ambiente mínimo — daí os scripts carregarem o `.env.producao` explicitamente em vez de contarem com variáveis herdadas do shell. Um backup que falha silenciosamente às 3h da manhã só é descoberto no dia da restauração.
 
 - [ ] **Step 4: Executar o teste de restauração — obrigatório**
 
