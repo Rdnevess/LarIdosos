@@ -14,18 +14,18 @@ enum Papel {
 }
 
 model Usuario {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  senhaHash      String
-  nome           String
-  papel          Papel
-  ativo          Boolean   @default(true)
-  funcionarioId  String?   @unique
-  ultimoAcessoEm DateTime?
-  senhaAlteradaEm DateTime @default(now())
-  criadoEm       DateTime  @default(now())
-  atualizadoEm   DateTime  @updatedAt
-  criadoPorId    String?
+  id              String    @id @default(cuid())
+  email           String    @unique
+  senhaHash       String
+  nome            String
+  papel           Papel
+  ativo           Boolean   @default(true)
+  funcionarioId   String?   @unique
+  ultimoAcessoEm  DateTime?
+  senhaAlteradaEm DateTime  @default(now())
+  criadoEm        DateTime  @default(now())
+  atualizadoEm    DateTime  @updatedAt
+  criadoPorId     String?
 
   @@map("usuarios")
 }
@@ -116,6 +116,7 @@ model Residente {
 
   avaliacoesDependencia AvaliacaoDependencia[]
   responsaveis          Responsavel[]
+  documentos            Documento[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -171,4 +172,41 @@ model Responsavel {
 
   @@index([residenteId, ativo])
   @@map("responsaveis")
+}
+
+enum TipoDocumento {
+  RG
+  CPF
+  CNS
+  CERTIDAO
+  LAUDO
+  PROCURACAO
+  TERMO_RESPONSABILIDADE
+  TERMO_LGPD
+  FOTO
+  EXAME
+  COMPROVANTE_FISCAL
+  CONSELHO_PROFISSIONAL
+  OUTRO
+}
+
+model Documento {
+  id                   String        @id @default(cuid())
+  tipo                 TipoDocumento
+  descricao            String?
+  nomeArquivoOriginal  String
+  caminhoArmazenamento String
+  mimeType             String
+  tamanhoBytes         Int
+  hashSha256           String
+  residenteId          String?
+  residente            Residente?    @relation(fields: [residenteId], references: [id])
+  funcionarioId        String?
+  ativo                Boolean       @default(true)
+  criadoEm             DateTime      @default(now())
+  criadoPorId          String?
+
+  @@index([residenteId, ativo])
+  @@index([funcionarioId, ativo])
+  @@map("documentos")
 }
