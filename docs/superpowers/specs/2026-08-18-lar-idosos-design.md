@@ -192,25 +192,42 @@ Restrição única em (`medicacaoId`, `horarioPrevisto`) — impede dupla marca�
 
 ### 4.6 Financeiro (Fase 3)
 
-**`FonteRecurso`** — `nome`, `tipo` (`CONVENIO_PUBLICO` | `DOACAO` | `CONTRIBUICAO_RESIDENTE` | `EVENTO` | `PROPRIO`), `orgaoConcedente?`, `numeroTermo?`, `vigenciaInicio?`, `vigenciaFim?`, `valorPrevisto?`, `contaBancariaId?`, `ativa`, `observacao?`.
+O desenho abaixo foi refeito depois de receber o modelo real exigido pelo órgão. A análise estrutural está em `docs/superpowers/specs/2026-08-18-modelo-prestacao-contas.md`.
 
-Entidade central do módulo: todo lançamento pertence obrigatoriamente a uma fonte.
+**`ConfiguracaoInstituicao`** — registro único: `razaoSocial`, `cnpj`, `enderecoCompleto`, `cidade`, `uf`, `orgaoDestinatario` (o cabeçalho que abre as folhas de despesas e receitas), `nomePresidente`, `nomeTesoureiro`.
 
-**`ContaBancaria`** — `banco`, `agencia`, `numeroConta`, `tipo` (`CORRENTE` | `POUPANCA` | `APLICACAO`), `titular`, `saldoInicial`, `dataSaldoInicial`, `exclusivaDeConvenio`, `ativa`.
+Alimenta a capa, o ofício, os rodapés de assinatura e a declaração de encerramento. Sem isso, esses textos seriam constantes espalhadas pelo código de exportação.
 
-**`RubricaPlanoTrabalho`** — `fonteRecursoId`, `codigo?`, `nome`, `valorPrevisto`, `observacao?`.
+**`ContaBancaria`** — `banco`, `agencia`, `numeroConta`, `tipo` (`CORRENTE` | `POUPANCA` | `APLICACAO`), `titular`, `saldoInicial`, `dataSaldoInicial`, `prestaContas`, `ativa`.
 
-**`CategoriaLancamento`** — `nome`, `natureza` (`RECEITA` | `DESPESA`), `categoriaPaiId?`, `ativa`. Hierarquia rasa (dois níveis).
+`prestaContas` marca as contas que geram prestação mensal. **A conta é o eixo do módulo**: cada lançamento pertence a uma, e cada prestação cobre uma conta num mês.
+
+**`OrigemReceita`** — `nome` (uso interno), `rotuloPrestacao` (o texto que sai no documento), `exigeResidente`, `ativa`.
+
+A separação entre os dois campos é o ponto central do desenho de receitas. A contribuição dos residentes é registrada internamente como origem própria — com o residente vinculado, para o extrato individual — mas sai no documento como **"Doação"**, somando com as demais. O órgão recebe o mesmo agrupamento que recebe hoje, e nenhum nome de idoso entra na prestação.
+
+**`CategoriaDespesa`** — `nome`, `ativa`. Lista aberta, alimentada pelo uso: as categorias já usadas aparecem como sugestão e novas podem ser criadas. Não há lista fechada acordada com o órgão.
 
 **`Fornecedor`** — `nome`, `documento`, `tipoDocumento` (`CNPJ` | `CPF`), `telefone?`, `email?`, `ativo`.
 
-**`Lancamento`** — `natureza` (`RECEITA` | `DESPESA`), `descricao`, `valor`, `dataCompetencia`, `dataMovimento?`, `status` (`PREVISTO` | `REALIZADO` | `CANCELADO`), `fonteRecursoId`, `contaBancariaId`, `categoriaId`, `rubricaId?`, `fornecedorId?`, `residenteId?`, `formaPagamento?`, `numeroDocumentoFiscal?`, `documentoId?` (comprovante), `conciliadoEm?`, `conciliadoPorId?`, `motivoCancelamento?`, `observacao?`.
+Substitui a busca por `XLOOKUP` da planilha, que hoje aponta para uma referência quebrada.
 
-`dataCompetencia` e `dataMovimento` são campos distintos e não intercambiáveis; confundi-los é o que emperra prestação de contas.
+**`Lancamento`** — `natureza` (`RECEITA` | `DESPESA`), `descricao`, `valor`, `data`, `contaBancariaId`, `status` (`PREVISTO` | `REALIZADO` | `CANCELADO`), `prestacaoContasId?`, `documentoId?` (comprovante), `motivoCancelamento?`, `observacao?`.
+
+- **Receita:** `origemReceitaId`, `residenteId?`, `pagadorNome?`, `pagadorDocumento?`
+- **Despesa:** `fornecedorId`, `categoriaDespesaId`, `formaPagamento` (`PIX` | `TED` | `CHEQUE` | `DEBITO` | `OUTRO`), `numeroDocumentoFiscal?`
+
+`prestacaoContasId` é preenchido quando a prestação daquele mês é fechada: é o que congela o conjunto entregue ao órgão e impede que um lançamento posterior mude, em silêncio, um documento já protocolado.
+
+**`PrestacaoContas`** — `contaBancariaId`, `mesCompetencia`, `anoCompetencia`, `saldoAnterior`, `saldoAnteriorAjustado?`, `justificativaAjuste?`, `observacoes`, `status` (`ABERTA` | `FECHADA`), `fechadaEm?`, `fechadaPorId?`.
+
+Única por (`contaBancariaId`, `anoCompetencia`, `mesCompetencia`). `observacoes` alimenta o campo livre da folha de encerramento, onde entram justificativas de valores atípicos e esclarecimentos ao órgão.
 
 **`ContribuicaoResidente`** — `residenteId`, `percentual`, `valorBaseBeneficio`, `vigenciaInicio`, `vigenciaFim?`, `observacao?`.
 
 Modelada com vigência porque a contribuição é percentual sobre o benefício (art. 35, §2º da Lei 10.741/2003), e o benefício é reajustado todo ano. Guardar apenas "valor da mensalidade" quebraria na primeira virada de exercício e corromperia o histórico.
+
+**Removidos do desenho anterior:** `FonteRecurso` e `RubricaPlanoTrabalho`. Eu os havia modelado supondo um plano de trabalho aprovado com valores por rubrica, que é o padrão em termos de colaboração do MROSC. Não é o caso desta instituição: as despesas são gerais e recorrentes, e a única classificação que o órgão recebe é a categoria da conciliação.
 
 ### 4.7 Auditoria
 
@@ -249,9 +266,10 @@ Por residente e por período: doses previstas (derivadas), administradas, recusa
 | R3 | `Anotacao` e `AnotacaoSaude` são editáveis pelo autor por 15 minutos após a criação (`editavelAte`). Depois disso, correção só por nova anotação vinculada à original via `retifica*Id`. A original nunca é alterada. |
 | R4 | Doses previstas são derivadas do esquema medicamentoso. `AdministracaoMedicacao` só existe para eventos ocorridos. Restrição única em (`medicacaoId`, `horarioPrevisto`). |
 | R5 | Alteração de dose ou horário encerra a `Medicacao` vigente (`dataFim`, `ativa = false`) e cria uma nova com `substituiMedicacaoId` apontando para a anterior. Prescrição não é editada no lugar. |
-| R6 | Lançamento de despesa com fonte do tipo `CONVENIO_PUBLICO` só pode assumir `status = REALIZADO` se tiver `rubricaId` e `documentoId` (comprovante) preenchidos. Validação no serviço, não aviso na tela. |
-| R7 | Conta bancária marcada como `exclusivaDeConvenio` só aceita lançamentos da fonte de recurso à qual está vinculada. |
-| R8 | `rubricaId` deve pertencer à mesma `fonteRecursoId` do lançamento. |
+| R6 | Uma despesa só entra numa prestação fechada com `fornecedorId`, `categoriaDespesaId` e `documentoId` (comprovante) preenchidos. Validação no serviço, no momento do fechamento — é quando a nota fiscal ainda está ao alcance de alguém. |
+| R7 | `PrestacaoContas` é única por (`contaBancariaId`, `anoCompetencia`, `mesCompetencia`). Fechar a prestação carimba `prestacaoContasId` em todos os lançamentos do período, congelando o conjunto entregue ao órgão. |
+| R8 | O `saldoAnterior` de uma prestação é derivado do saldo final da prestação anterior **da mesma conta**. Divergência com o extrato é registrada em `saldoAnteriorAjustado` com `justificativaAjuste` obrigatória, e a justificativa aparece nas observações do documento. Nunca se digita o saldo por cima sem rastro. |
+| R8a | O texto que sai na prestação vem de `OrigemReceita.rotuloPrestacao`, nunca da descrição interna do lançamento. É o que mantém a contribuição dos residentes agregada como "Doação", sem nome de idoso no documento. |
 | R9 | `ContribuicaoResidente.percentual` é limitado a 70% (Lei 10.741/2003, art. 35, §2º). Vigências de um mesmo residente não podem se sobrepor. |
 | R10 | A geração mensal de contribuições é **disparada manualmente** pelo administrativo (não há job automático), e cria lançamentos com `status = PREVISTO`, calculados como `percentual × valorBaseBeneficio` da vigência ativa no mês de competência. A confirmação para `REALIZADO` é sempre manual, lançamento a lançamento. Gerar duas vezes o mesmo mês não duplica lançamentos. |
 | R11 | Toda verificação de permissão ocorre na camada de serviço. Nenhuma decisão de acesso depende exclusivamente da interface. |
@@ -302,23 +320,29 @@ A coordenação tem tela de consulta da auditoria, filtrável por usuário, enti
 
 ## 10. Relatórios de prestação de contas
 
-1. Demonstrativo de receitas e despesas por fonte e período
-2. Previsto × executado por rubrica (por convênio)
-3. Relação de pagamentos: data, favorecido, CNPJ/CPF, documento fiscal, rubrica, valor
-4. Conciliação bancária do período
-5. Extrato de contribuições por residente
-6. Relação de residentes por grau de dependência em uma data de referência
+A entrega principal não é um relatório livre: é o **arquivo `.xlsx` no formato exato do modelo que o órgão já aceita**, com as seis folhas — capa, ofício de encaminhamento, despesas, receitas, conciliação e declaração de encerramento.
 
-Cada um exportável em **PDF** (para anexar ao processo) e **CSV** (para o contador e para trabalho em planilha).
+Três decisões sobre a geração:
+
+**O sistema expande as faixas conforme o volume.** Hoje as folhas de despesas e receitas têm cerca de vinte e quatro linhas, e quando o mês estoura esse limite alguém insere linhas e reajusta as fórmulas à mão. A exportação passa a dimensionar as folhas pelo número real de lançamentos.
+
+**As células recebem valores calculados, não fórmulas.** O sistema é a fonte da verdade dos totais, e as fórmulas do modelo são justamente a parte frágil: somas com faixa fixa, agrupamento por texto literal (`"Doação "` com espaço sobrando sai do subtotal sem avisar) e uma busca de CPF/CNPJ que já aponta para referência quebrada. O arquivo entregue fica visualmente idêntico e aritmeticamente confiável.
+
+**Datas saem como data.** No modelo atual elas aparecem como número de série do Excel.
+
+Além do arquivo da prestação, para uso interno: extrato de contribuições por residente, relação de residentes por grau de dependência em uma data de referência, e exportação em **CSV** dos lançamentos para o contador.
 
 A conciliação é manual — marcar lançamento como conciliado contra o extrato. Importação de OFX fica de fora: cada banco tem sua peculiaridade de formato e isso se torna um projeto próprio.
 
 ## 11. Dependências externas
 
-| Dependência | Impacto |
+| Dependência | Situação |
 |---|---|
-| **Modelos de relatório do órgão conveniador** | Bloqueia o início da Fase 3. Os modelos existem e serão fornecidos; as exportações serão desenhadas para bater com eles, evitando retrabalho manual na entrega. |
-| **Contador externo** | Exportação CSV/PDF é suficiente. Não há layout de importação específico a atender. |
+| **Modelo de prestação de contas** | **Recebido em 18/08/2026** e analisado (`2026-08-18-modelo-prestacao-contas.md`). O bloqueio da Fase 3 está levantado. |
+| **Plano de trabalho com rubricas** | Não existe para este convênio — despesas gerais recorrentes. `RubricaPlanoTrabalho` saiu do desenho. |
+| **Portal do órgão** | Não há. O órgão aceita o próprio arquivo, o que torna a fidelidade do `.xlsx` exportado um requisito, não uma conveniência. |
+| **Contador externo** | Exportação CSV é suficiente. Não há layout de importação específico a atender. |
+| **Dados da instituição** | Razão social, CNPJ, endereço, cidade/UF, órgão destinatário e nomes de presidente e tesoureiro precisam ser cadastrados antes da primeira prestação. |
 
 ## 12. Testes
 

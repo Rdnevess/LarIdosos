@@ -60,12 +60,16 @@ Declaração de guarda e conservação dos documentos contábeis, citando conta 
 - **Datas como número de série.** Aparecem como `45995` na origem; a exportação grava data real formatada.
 - **Recontagem manual do saldo anterior**, que hoje depende de alguém copiar o saldo final do mês anterior sem errar.
 
-## 4. Pendências de informação
+## 4. Respostas da instituição
 
-Registradas para confirmação com a instituição:
+1. **Contribuição dos residentes:** entra na prestação, mas **rotulada como "Doação"**, junto com as demais — e **em apenas uma das contas**, não em todas. Internamente o sistema mantém o vínculo com o residente (para o extrato individual e o cálculo sobre o benefício); no documento entregue, sai agregada e sem identificação. Daí a separação entre `OrigemReceita.nome` (interno) e `OrigemReceita.rotuloPrestacao` (documento).
+2. **Volume:** o teto de ~24 linhas **já foi atingido**; hoje inserem linhas e reajustam fórmulas à mão. A exportação precisa dimensionar as folhas pelo número real de lançamentos.
+3. **Categorias de despesa:** livres, sem lista acordada com o órgão, mas na prática repetem-se as mesmas. Lista aberta com sugestão das já usadas.
+4. **Contas bancárias:** mais de uma, cada uma com prestação mensal própria.
+5. **Portal:** não existe; o órgão aceita o próprio arquivo.
 
-1. A contribuição dos residentes (percentual do benefício) entra nesta prestação como receita, ou é controlada à parte?
-2. Volume mensal típico de lançamentos por conta — o teto de ~24 linhas já foi atingido alguma vez?
-3. As categorias de despesa são uma lista fechada acordada com o órgão, ou livres?
-4. Quantas contas bancárias, e todas prestam contas ao mesmo órgão?
-5. O saldo anterior confere sempre com o extrato, ou há ajustes manuais entre um mês e outro?
+## 5. Decisão sobre o saldo anterior
+
+Sem resposta específica sobre divergências com o extrato, e por isso adotada a alternativa que cobre os três cenários possíveis sem custo relevante: o sistema **deriva** o saldo anterior do saldo final da prestação anterior da mesma conta, **exibe** o valor para conferência, e permite **ajustar mediante justificativa obrigatória** — que passa a constar das observações do documento.
+
+Se o saldo sempre fecha, o ajuste nunca é usado e nada se perde. Se diverge de vez em quando, a divergência fica registrada com autor e motivo, em vez de ser sobrescrita em silêncio.
