@@ -6,7 +6,7 @@
 
 **Architecture:** Monolito Next.js 15 (App Router) com camada de serviço separada das Server Actions. Toda regra de negócio e toda verificação de permissão vivem em funções `(ctx, dados)` testáveis sem HTTP; as Server Actions apenas autenticam, validam com Zod e delegam. Persistência em PostgreSQL via Prisma. Arquivos em volume local, servidos só por rota autenticada.
 
-**Tech Stack:** Next.js 15, TypeScript, React Server Components, Prisma 6, PostgreSQL 16, Auth.js v5 (NextAuth), Zod 3, Tailwind CSS + shadcn/ui, Vitest 2 (contra Postgres real), Playwright, Docker Compose + Caddy.
+**Tech Stack:** Next.js 15, TypeScript, React Server Components, Prisma 6, PostgreSQL 18, Auth.js v5 (NextAuth), Zod 3, Tailwind CSS + shadcn/ui, Vitest 2 (contra Postgres real), Playwright, Docker Compose + Caddy.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-lar-idosos-design.md`
 
@@ -109,26 +109,43 @@ Entrega o esqueleto executável: projeto Next.js, banco em container, Prisma mig
 
 ```bash
 cd D:/Dev/LarIdosos
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack --yes
+npx create-next-app@15 . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes
 ```
+
+**Use `@15`, não `@latest`.** Todo o código deste plano é escrito para as APIs do Next 15, Prisma 6, Zod 3 e Vitest 2. Uma tentativa anterior com `@latest` trouxe Next 16 / Prisma 7 / Zod 4 / Vitest 4, e o Prisma 7 rejeitou o `schema.prisma` deste plano de saída (`P1012`: `datasource url` deixou de ser suportado).
 
 O diretório **não está vazio** — já contém `.git/`, `.gitignore` e `docs/`. O `--yes` evita que o comando fique preso em prompt interativo. Depois de rodar, confirme com `git status` que `docs/` continua intacto e que o `.gitignore` versionado não foi substituído pelo padrão do Next; se foi, restaure-o com `git checkout .gitignore` e acrescente ao final as linhas que o Next precisa (`.next/`, `next-env.d.ts`).
 
 - [ ] **Step 2: Instalar dependências**
 
 ```bash
-npm install @prisma/client zod @node-rs/argon2 next-auth@beta
-npm install -D prisma vitest dotenv-cli @playwright/test tsx
+npm install @prisma/client@^6 zod@^3 @node-rs/argon2@^2 next-auth@beta
+npm install -D prisma@^6 vitest@^2 vite-tsconfig-paths@^5 dotenv-cli @playwright/test tsx
 ```
 
-- [ ] **Step 3: Subir os bancos de desenvolvimento e de teste**
+Depois de instalar, **fixe a versão exata do `next-auth`** no `package.json` (troque `^5.0.0-beta.NN` por `5.0.0-beta.NN`, sem o acento circunflexo) e rode `npm install` de novo. É a única dependência ainda em beta do projeto: deixá-la com faixa aberta significa que um `npm install` daqui a três meses pode trazer uma API diferente para o módulo de autenticação, sem ninguém pedir.
 
-Criar `docker-compose.dev.yml`:
+Confira com `npm ls next prisma zod vitest` que as versões maiores são 15, 6, 3 e 2 antes de seguir. O `vite-tsconfig-paths` fica em `^5` por compatibilidade com o Vitest 2 — o Step 10 não precisa instalá-lo de novo.
+
+- [ ] **Step 3: Preparar os bancos de desenvolvimento e de teste**
+
+Dois caminhos, conforme a máquina. **Nesta máquina o caminho é o A** — não há Docker instalado, e há um PostgreSQL 18 nativo rodando como serviço (`postgresql-x64-18`).
+
+**Caminho A — PostgreSQL nativo (esta máquina).** Os bancos `lar_dev` e `lar_test`, e o usuário `lar` dono de ambos, já foram criados pelo controlador antes desta tarefa. Confirme que existem e que você consegue conectar:
+
+```bash
+PGPASSWORD=<senha do usuário lar> "/c/Program Files/PostgreSQL/18/bin/psql.exe" \
+  -U lar -h localhost -p 5432 -d lar_dev -c "select current_database(), current_user;"
+```
+
+Esperado: uma linha com `lar_dev | lar`. Repita com `-d lar_test`. Se algum banco faltar, **pare e reporte NEEDS_CONTEXT** — criar banco exige credencial de superusuário, que você não tem.
+
+**Caminho B — Docker (outras máquinas).** Crie `docker-compose.dev.yml` e suba os dois containers. O arquivo fica versionado de qualquer forma, para quem clonar o projeto em uma máquina com Docker:
 
 ```yaml
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: lar
       POSTGRES_PASSWORD: lar
@@ -138,7 +155,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   db_test:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: lar
       POSTGRES_PASSWORD: lar
@@ -157,23 +174,29 @@ O banco de teste usa `tmpfs`: fica em memória, some ao parar o container e roda
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+No caminho B as portas são 5432 (dev) e 5433 (teste); no caminho A ambos os bancos vivem no mesmo servidor na porta 5432, separados por nome. É por isso que o `.env` e o `.env.test` do próximo passo diferem no **nome do banco**, e não apenas na porta.
+
 - [ ] **Step 4: Configurar variáveis de ambiente**
 
-`.env`:
+**Caminho A (esta máquina)** — o controlador já escreveu `.env` e `.env.test` com a senha real do usuário `lar`. Confira que existem e que apontam para `lar_dev` e `lar_test` respectivamente, ambos na porta 5432. Não sobrescreva esses arquivos.
+
+Formato do `.env`:
 
 ```
-DATABASE_URL="postgresql://lar:lar@localhost:5432/lar_dev?schema=public"
+DATABASE_URL="postgresql://lar:<senha>@localhost:5432/lar_dev?schema=public"
 AUTH_SECRET="troque-por-um-valor-aleatorio-em-producao"
 UPLOADS_DIR="./data/uploads"
 ```
 
-`.env.test`:
+Formato do `.env.test`:
 
 ```
-DATABASE_URL="postgresql://lar:lar@localhost:5433/lar_test?schema=public"
+DATABASE_URL="postgresql://lar:<senha>@localhost:5432/lar_test?schema=public"
 AUTH_SECRET="segredo-de-teste"
 UPLOADS_DIR="./data/uploads-test"
 ```
+
+**Caminho B (Docker)** — mesmos arquivos, com `lar:lar` como credencial e o banco de teste na porta 5433.
 
 `.env.example` recebe as mesmas chaves com valores vazios — é o que vai para o git. `.env` e `.env.test` já estão cobertos pelo `.gitignore`.
 
@@ -6287,7 +6310,7 @@ RUN npx prisma generate && npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache postgresql16-client openssl
+RUN apk add --no-cache postgresql18-client openssl
 
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
@@ -6331,7 +6354,7 @@ name: lar
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

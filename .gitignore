@@ -8,6 +8,7 @@ dist/
 
 # Ambiente — nunca versionar credenciais
 .env
+.env.test
 .env.local
 .env.*.local
 
@@ -32,3 +33,6 @@ playwright-report/
 
 # Workspace do subagent-driven-development
 .superpowers/
+
+# Next.js
+next-env.d.ts

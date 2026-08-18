@@ -30,7 +30,7 @@ O sistema é usado em **celular pela equipe de cuidado** (registro à beira do l
 | Camada | Escolha |
 |---|---|
 | Aplicação | Next.js 15 (App Router), TypeScript, React Server Components + Server Actions |
-| ORM / banco | Prisma + PostgreSQL 16 |
+| ORM / banco | Prisma + PostgreSQL 18 |
 | Autenticação | Auth.js (NextAuth v5), credenciais e-mail + senha, sessão em JWT httpOnly (ver §2.4) |
 | Validação | Zod (compartilhado entre formulário e serviço) |
 | UI | Tailwind CSS + shadcn/ui, interface inteira em pt-BR |
