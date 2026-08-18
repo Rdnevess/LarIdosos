@@ -2765,6 +2765,7 @@ npm run db:migrate:test
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
+import { prisma } from '@/lib/prisma'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import {
   registrarAvaliacao,
@@ -2869,7 +2870,48 @@ describe('obterGrauVigente', () => {
   })
 })
 
+describe('determinismo do grau vigente', () => {
+  it('devolve sempre o mesmo grau quando duas avaliações têm a mesma data', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('SAUDE')
+    const mesmaData = new Date('2026-04-10')
+
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'I',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'III',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+
+    const leituras = await Promise.all([
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+    ])
+
+    expect(new Set(leituras).size).toBe(1)
+  })
+})
+
 describe('listarAvaliacoes', () => {
+  it('audita a leitura do histórico clínico', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await listarAvaliacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'AvaliacaoDependencia', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve o histórico do mais recente para o mais antigo', async () => {
     const residente = await criarResidenteDeTeste()
     const ctx = await ctxComPapel('SAUDE')
@@ -2954,6 +2996,13 @@ export async function registrarAvaliacao(
   })
 }
 
+/**
+ * Não audita. Devolve apenas o enum do grau, e é chamada em lote — a ficha do
+ * residente e, na Fase 3, o relatório de residentes por grau. Auditar aqui
+ * geraria uma linha por residente a cada relatório emitido, afogando a trilha
+ * sem acrescentar rastro: o acesso à ficha já é auditado por `obterResidente`,
+ * e a emissão do relatório será auditada como `EXPORTAR`.
+ */
 export async function obterGrauVigente(
   ctx: Ctx,
   residenteId: string,
@@ -2963,26 +3012,39 @@ export async function obterGrauVigente(
 
   const avaliacao = await prisma.avaliacaoDependencia.findFirst({
     where: { residenteId, dataAvaliacao: { lte: emData } },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return avaliacao?.grau ?? null
 }
 
+/**
+ * Audita. Diferente de `obterGrauVigente`, devolve o histórico clínico completo
+ * de uma pessoa — grau, justificativa e quem avaliou. Isso é abrir dado sensível
+ * de um residente, não uma listagem minimizada.
+ */
 export async function listarAvaliacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<AvaliacaoDependencia[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
-  return prisma.avaliacaoDependencia.findMany({
+  const avaliacoes = await prisma.avaliacaoDependencia.findMany({
     where: { residenteId },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'AvaliacaoDependencia',
+    residenteId,
+  })
+
+  return avaliacoes
 }
 ```
 
-O desempate por `criadoEm` cobre duas avaliações lançadas com a mesma data: vale a registrada por último.
+O desempate cobre duas avaliações lançadas com a mesma data: vale a registrada por último. O terceiro critério (`id`) não é redundante — `criadoEm` é `TIMESTAMP(3)`, e dois registros gravados no mesmo milissegundo empatariam nos dois primeiros critérios. Sem um critério único no fim, a mesma consulta poderia devolver graus diferentes em execuções diferentes, num dado que alimenta relatório ao órgão e dimensionamento de equipe.
 
 `obterGrauVigente` é a única porta pela qual o papel ADMINISTRATIVO alcança dado clínico, exatamente como a spec §7 determina. Nenhum outro serviço de saúde aceita esse papel.
 
