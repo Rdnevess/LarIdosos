@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Node.js 22 LTS**; PostgreSQL **16**.
+- **Node.js 24 LTS**; PostgreSQL **18**.
 - **Interface inteira em pt-BR.** Nenhum texto de interface em inglês. Datas em `dd/mm/aaaa`, moeda em `R$ 0.000,00`.
 - **Nomes de domínio em português** (`Residente`, `Funcionario`, `criarResidente`). Nomes de framework permanecem como o framework exige.
 - **Exclusão é sempre lógica** (spec R1). Nenhum serviço executa `delete` em entidade de domínio.
@@ -6296,18 +6296,18 @@ export default nextConfig
 - [ ] **Step 2: Escrever o Dockerfile**
 
 ```dockerfile
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate && npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache postgresql18-client openssl
