@@ -317,10 +317,17 @@ export async function limparBanco(): Promise<void> {
 
 ```typescript
 import { beforeEach, afterAll } from 'vitest'
+import { rm } from 'node:fs/promises'
 import { limparBanco, prisma } from './banco'
 
 beforeEach(async () => {
   await limparBanco()
+  // Os testes de documento gravam arquivos de verdade. Sem esta limpeza o
+  // diretório cresce a cada execução, guardando anexos de testes já esquecidos.
+  await rm(process.env.UPLOADS_DIR ?? './data/uploads-test', {
+    recursive: true,
+    force: true,
+  })
 })
 
 afterAll(async () => {
@@ -3431,8 +3438,10 @@ Mecanismo único de anexo do sistema — a Fase 2 usa para exames, a Fase 3 para
   - `salvarArquivo(conteudo: Buffer, mimeType: string): Promise<ArquivoSalvo>` onde `ArquivoSalvo = { caminhoRelativo: string; hashSha256: string; tamanhoBytes: number }`
   - `lerArquivo(caminhoRelativo: string): Promise<Buffer>`
   - `anexarDocumento(ctx, dados): Promise<Documento>`
-  - `listarDocumentos(ctx, alvo: { residenteId?: string; funcionarioId?: string }): Promise<Documento[]>`
+  - `listarDocumentos(ctx, alvo: { residenteId?: string; funcionarioId?: string }): Promise<Documento[]>` — exige **exatamente um** vínculo
   - `obterDocumentoParaDownload(ctx, id): Promise<{ documento: Documento; conteudo: Buffer }>` — audita `DOWNLOAD`
+  - `excluirDocumento(ctx, id): Promise<void>` — exclusão lógica, audita `EXCLUIR`
+  - `papeisQuePodemVer(documento: { tipo: TipoDocumento; funcionarioId: string | null }): Papel[]` — oráculo de permissão, reusado pelas Fases 2 e 3
 
 - [ ] **Step 1: Escrever os testes de `arquivos.ts` (devem falhar)**
 
@@ -3639,12 +3648,14 @@ npm run db:migrate:test
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { ErroPermissao } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import {
   anexarDocumento,
   listarDocumentos,
   obterDocumentoParaDownload,
+  excluirDocumento,
+  papeisQuePodemVer,
 } from './documentos.service'
 
 const conteudo = Buffer.from('%PDF-1.4 laudo')
@@ -3748,7 +3759,90 @@ describe('obterDocumentoParaDownload', () => {
   })
 })
 
+describe('papeisQuePodemVer', () => {
+  it('classifica cada tipo de documento', () => {
+    const casos = [
+      { tipo: 'EXAME' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE'] },
+      { tipo: 'LAUDO' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE'] },
+      { tipo: 'COMPROVANTE_FISCAL' as const, funcionarioId: null, esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+      { tipo: 'RG' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+      { tipo: 'TERMO_LGPD' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+      // Documento de funcionário é assunto de pessoal, não da equipe clínica:
+      // mesmo sendo LAUDO, fica com o administrativo e fora do alcance de SAUDE.
+      { tipo: 'LAUDO' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+      { tipo: 'CONSELHO_PROFISSIONAL' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+    ]
+
+    for (const caso of casos) {
+      expect(papeisQuePodemVer({ tipo: caso.tipo, funcionarioId: caso.funcionarioId })).toEqual(
+        caso.esperado
+      )
+    }
+  })
+})
+
+describe('excluirDocumento', () => {
+  it('desativa sem apagar e audita com o estado anterior real', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidenteDeTeste()
+    const documento = await anexarDocumento(ctx, {
+      tipo: 'RG',
+      nomeArquivoOriginal: 'rg.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    await excluirDocumento(ctx, documento.id)
+
+    const registro = await prisma.documento.findUniqueOrThrow({ where: { id: documento.id } })
+    expect(registro.ativo).toBe(false)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Documento', acao: 'EXCLUIR' },
+    })
+    expect(log.diff).toEqual({ ativo: { de: true, para: false } })
+  })
+
+  it('some da listagem depois de excluído', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidenteDeTeste()
+    const documento = await anexarDocumento(ctx, {
+      tipo: 'RG',
+      nomeArquivoOriginal: 'rg.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    await excluirDocumento(ctx, documento.id)
+
+    expect(await listarDocumentos(ctx, { residenteId: residente.id })).toHaveLength(0)
+    await expect(obterDocumentoParaDownload(ctx, documento.id)).rejects.toThrow(ErroNaoEncontrado)
+  })
+
+  it('nega exclusão de documento clínico ao papel ADMINISTRATIVO', async () => {
+    const saude = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const exame = await anexarDocumento(saude, {
+      tipo: 'EXAME',
+      nomeArquivoOriginal: 'hemograma.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    const administrativo = await ctxComPapel('ADMINISTRATIVO')
+    await expect(excluirDocumento(administrativo, exame.id)).rejects.toThrow(ErroPermissao)
+  })
+})
+
 describe('listarDocumentos', () => {
+  it('recusa chamada sem alvo, em vez de varrer a tabela', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    await expect(listarDocumentos(ctx, {})).rejects.toThrow(ErroValidacao)
+  })
+
   it('omite da lista os documentos que o papel não pode ver', async () => {
     const saude = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()
@@ -3793,6 +3887,13 @@ const TODOS: Papel[] = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO']
 const CLINICO: Papel[] = ['COORDENACAO', 'SAUDE']
 const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
 
+/**
+ * A ordem das checagens importa e é deliberada: o vínculo com funcionário vem
+ * ANTES do tipo. Um laudo de funcionário — atestado, perícia — é assunto de
+ * pessoal, não da equipe que cuida dos idosos; por isso fica visível ao
+ * ADMINISTRATIVO e oculto ao SAUDE, ao contrário do laudo de um residente.
+ * Inverter esses dois ifs abriria prontuário de funcionário à equipe clínica.
+ */
 export function papeisQuePodemVer(documento: {
   tipo: TipoDocumento
   funcionarioId: string | null
@@ -3833,6 +3934,17 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
     })
   )
 
+  // Confere o vínculo ANTES de gravar bytes. Sem isso, um `residenteId`
+  // inexistente só falharia na chave estrangeira do insert — depois do arquivo
+  // já estar no disco, sem registro e sem ninguém para limpá-lo.
+  if (entrada.residenteId) {
+    const residente = await prisma.residente.findUnique({
+      where: { id: entrada.residenteId },
+      select: { id: true },
+    })
+    if (!residente) throw new ErroNaoEncontrado('Residente não encontrado')
+  }
+
   const salvo = await salvarArquivo(entrada.conteudo, entrada.mimeType)
 
   return prisma.$transaction(async (tx) => {
@@ -3869,14 +3981,45 @@ export async function listarDocumentos(
 ): Promise<Documento[]> {
   exigirPapel(ctx, ...TODOS)
 
+  // Sem isso, `alvo` vazio produziria `where: { ativo: true }` — o Prisma ignora
+  // chaves `undefined` — e a função varreria todos os documentos de todos os
+  // residentes e funcionários. O contrato é "escopo em um alvo"; esta validação
+  // é o que impede uma varredura global silenciosa.
+  if (Boolean(alvo.residenteId) === Boolean(alvo.funcionarioId)) {
+    throw new ErroValidacao('Informe exatamente um vínculo: residente ou funcionário')
+  }
+
   const documentos = await prisma.documento.findMany({
-    where: { ...alvo, ativo: true },
+    where: alvo.residenteId
+      ? { residenteId: alvo.residenteId, ativo: true }
+      : { funcionarioId: alvo.funcionarioId, ativo: true },
     orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return documentos.filter((documento) =>
     papeisQuePodemVer(documento).includes(ctx.papel)
   )
+}
+
+export async function excluirDocumento(ctx: Ctx, id: string): Promise<void> {
+  const documento = await prisma.documento.findUnique({ where: { id } })
+  if (!documento || !documento.ativo) {
+    throw new ErroNaoEncontrado('Documento não encontrado')
+  }
+
+  exigirPapel(ctx, ...papeisQuePodemVer(documento))
+
+  await prisma.$transaction(async (tx) => {
+    await tx.documento.update({ where: { id }, data: { ativo: false } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'EXCLUIR',
+      entidade: 'Documento',
+      entidadeId: id,
+      residenteId: documento.residenteId ?? undefined,
+      diff: { ativo: { de: documento.ativo, para: false } },
+    })
+  })
 }
 
 export async function obterDocumentoParaDownload(
@@ -3915,7 +4058,23 @@ export async function obterDocumentoParaDownload(
 import { NextResponse } from 'next/server'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterDocumentoParaDownload } from '@/modules/residents/documentos.service'
-import { ErroNaoEncontrado, ErroPermissao } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
+
+/**
+ * Monta o `Content-Disposition` conforme a RFC 6266: um `filename` em ASCII
+ * puro para clientes antigos e um `filename*` em UTF-8 para os demais.
+ * `encodeURIComponent` sozinho no `filename` entregaria "laudo médico.pdf"
+ * como "laudo%20m%C3%A9dico.pdf" — e num sistema em português isso seria
+ * quase todo download.
+ */
+function cabecalhoNomeArquivo(nome: string): string {
+  const ascii = nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '_')
+    .replace(/["\\]/g, '_')
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nome)}`
+}
 
 export async function GET(
   _requisicao: Request,
@@ -3930,18 +4089,25 @@ export async function GET(
     return new NextResponse(new Uint8Array(conteudo), {
       headers: {
         'Content-Type': documento.mimeType,
-        'Content-Disposition': `inline; filename="${encodeURIComponent(documento.nomeArquivoOriginal)}"`,
+        'Content-Disposition': cabecalhoNomeArquivo(documento.nomeArquivoOriginal),
         'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
       },
     })
   } catch (erro) {
-    if (erro instanceof ErroPermissao) {
-      return NextResponse.json({ erro: 'Acesso negado' }, { status: 403 })
-    }
-    if (erro instanceof ErroNaoEncontrado) {
+    // 404 também para permissão negada. `listarDocumentos` filtra em vez de
+    // recusar justamente para não revelar que existe um exame ali; devolver 403
+    // aqui entregaria essa mesma existência de volta, num código de status. Quem
+    // não pode ver não distingue "não existe" de "não é para você" — e a
+    // tentativa fica registrada na auditoria de qualquer forma.
+    if (erro instanceof ErroPermissao || erro instanceof ErroNaoEncontrado) {
       return NextResponse.json({ erro: 'Documento não encontrado' }, { status: 404 })
     }
-    throw erro
+    if (erro instanceof ErroValidacao) {
+      return NextResponse.json({ erro: erro.message }, { status: 400 })
+    }
+    console.error('Falha ao servir documento', { id, erro })
+    return NextResponse.json({ erro: 'Não foi possível abrir o documento' }, { status: 500 })
   }
 }
 ```
