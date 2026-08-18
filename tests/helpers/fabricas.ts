@@ -1,4 +1,4 @@
-import type { Papel, Usuario } from '@prisma/client'
+import type { Papel, Residente, Usuario } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { hashSenha } from '@/lib/senha'
 import type { Ctx } from '@/lib/contexto'
@@ -32,4 +32,20 @@ export function ctxDe(usuario: Usuario): Ctx {
 
 export async function ctxComPapel(papel: Papel): Promise<Ctx> {
   return ctxDe(await criarUsuarioDeTeste({ papel }))
+}
+
+export async function criarResidenteDeTeste(
+  overrides: Partial<{ nomeCompleto: string; quarto: string; cpf: string | null }> = {}
+): Promise<Residente> {
+  contador += 1
+  return prisma.residente.create({
+    data: {
+      nomeCompleto: overrides.nomeCompleto ?? `Residente ${contador}`,
+      dataNascimento: new Date('1940-01-01'),
+      sexo: 'FEMININO',
+      dataAdmissao: new Date('2026-01-01'),
+      quarto: overrides.quarto ?? '1',
+      cpf: overrides.cpf ?? null,
+    },
+  })
 }

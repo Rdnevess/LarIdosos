@@ -61,3 +61,59 @@ model LogAuditoria {
   @@index([criadoEm])
   @@map("logs_auditoria")
 }
+
+enum Sexo {
+  FEMININO
+  MASCULINO
+  OUTRO
+}
+
+enum StatusResidente {
+  ATIVO
+  DESLIGADO
+  FALECIDO
+}
+
+enum TipoBeneficio {
+  APOSENTADORIA
+  BPC
+  PENSAO
+  NENHUM
+}
+
+model Residente {
+  id               String          @id @default(cuid())
+  nomeCompleto     String
+  nomeSocial       String?
+  dataNascimento   DateTime        @db.Date
+  sexo             Sexo
+  estadoCivil      String?
+  naturalidade     String?
+  nacionalidade    String          @default("Brasileira")
+  religiao         String?
+  escolaridade     String?
+  cpf              String?         @unique
+  rg               String?
+  orgaoEmissorRg   String?
+  cns              String?
+  dataAdmissao     DateTime        @db.Date
+  origemAdmissao   String?
+  motivoAdmissao   String?
+  quarto           String?
+  leito            String?
+  planoSaude       String?
+  numeroPlanoSaude String?
+  beneficioTipo    TipoBeneficio?
+  beneficioNumero  String?
+  beneficioValor   Decimal?        @db.Decimal(12, 2)
+  status           StatusResidente @default(ATIVO)
+  dataSaida        DateTime?       @db.Date
+  motivoSaida      String?
+  observacaoSaida  String?
+  criadoEm         DateTime        @default(now())
+  atualizadoEm     DateTime        @updatedAt
+  criadoPorId      String?
+
+  @@index([status, nomeCompleto])
+  @@map("residentes")
+}
