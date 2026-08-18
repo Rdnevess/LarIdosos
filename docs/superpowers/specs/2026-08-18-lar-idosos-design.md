@@ -31,7 +31,7 @@ O sistema é usado em **celular pela equipe de cuidado** (registro à beira do l
 |---|---|
 | Aplicação | Next.js 15 (App Router), TypeScript, React Server Components + Server Actions |
 | ORM / banco | Prisma + PostgreSQL 16 |
-| Autenticação | Auth.js (NextAuth v5), credenciais e-mail + senha, sessão em banco |
+| Autenticação | Auth.js (NextAuth v5), credenciais e-mail + senha, sessão em JWT httpOnly (ver §2.4) |
 | Validação | Zod (compartilhado entre formulário e serviço) |
 | UI | Tailwind CSS + shadcn/ui, interface inteira em pt-BR |
 | Testes | Vitest (serviços, contra Postgres real) + Playwright (fluxos críticos) |
@@ -70,7 +70,15 @@ São servidos **exclusivamente** por uma rota autenticada que verifica a permiss
 
 Não se usa S3 ou storage externo: custo desnecessário na escala do projeto e mais uma credencial sob custódia.
 
-### 2.4 Identificadores
+### 2.4 Sessão e revogação de acesso
+
+O Auth.js v5 só oferece sessão persistida em banco para providers OAuth; com provider de credenciais, a sessão é obrigatoriamente um **JWT**. O risco disso é conhecido: desativar um usuário não invalidaria o token dele até a expiração — inaceitável quando o acesso dá vista a prontuário.
+
+A mitigação é explícita e obrigatória: o callback de sessão **consulta o banco a cada requisição** e recusa a sessão se o usuário estiver inativo, se o papel tiver mudado (recarregando o papel atual) ou se a senha tiver sido alterada após a emissão do token (`senhaAlteradaEm` posterior ao `iat`). Em 8 usuários, o custo de uma consulta por requisição é irrelevante; a propriedade de revogação imediata, não.
+
+Cookie `httpOnly`, `secure`, `sameSite=lax`, expiração de 12 horas — cobre um plantão sem deixar sessão viva indefinidamente em celular compartilhado.
+
+### 2.5 Identificadores
 
 Todas as entidades usam **CUID** como chave primária, exposta nas URLs. Nada de inteiro sequencial em rota — `/residentes/1` convida a enumerar registros de pessoas.
 
@@ -108,7 +116,7 @@ Convenções gerais: as entidades de domínio têm `criadoEm`, `atualizadoEm` e 
 
 ### 4.1 Autenticação e usuários
 
-**`Usuario`** — `email` (único), `senhaHash` (Argon2id), `nome`, `papel` (`COORDENACAO` | `SAUDE` | `ADMINISTRATIVO`), `ativo`, `funcionarioId?` (único), `ultimoAcessoEm?`.
+**`Usuario`** — `email` (único), `senhaHash` (Argon2id), `nome`, `papel` (`COORDENACAO` | `SAUDE` | `ADMINISTRATIVO`), `ativo`, `funcionarioId?` (único), `ultimoAcessoEm?`, `senhaAlteradaEm`.
 
 `Usuario` e `Funcionario` são entidades distintas: nem todo funcionário tem acesso, um voluntário pode ter conta sem ser funcionário registrado, e revogar acesso não pode apagar o histórico de autoria.
 
