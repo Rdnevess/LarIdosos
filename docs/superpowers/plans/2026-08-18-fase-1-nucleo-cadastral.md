@@ -2158,7 +2158,7 @@ git commit -m "Adiciona autenticação com Auth.js, revogação imediata de sess
 - Produces:
   - `criarResidente(ctx, dados: DadosNovoResidente): Promise<Residente>`
   - `obterResidente(ctx, id: string): Promise<Residente>` — audita `VISUALIZAR`
-  - `listarResidentes(ctx, filtro?: { busca?: string; status?: StatusResidente }): Promise<Residente[]>`
+  - `listarResidentes(ctx, filtro?: { busca?: string; status?: StatusResidente }): Promise<ResidenteResumo[]>` — campos reduzidos, sem dado sensível
   - `atualizarResidente(ctx, id, dados: DadosAtualizacaoResidente): Promise<Residente>`
   - `desligarResidente(ctx, id, dados: { status: 'DESLIGADO' | 'FALECIDO'; dataSaida: Date; motivoSaida: string; observacaoSaida?: string }): Promise<Residente>`
   - Fábrica `criarResidenteDeTeste(overrides?): Promise<Residente>`
