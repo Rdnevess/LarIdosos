@@ -21,6 +21,7 @@
 - **Toda escrita gera registro em `LogAuditoria`**; leitura de dado sensível também (spec R12).
 - **Testes rodam contra PostgreSQL real**, nunca SQLite.
 - TDD obrigatório: o teste é escrito e falha antes da implementação.
+- **Antes de cada commit, rode `npm run typecheck` além dos testes.** O Vitest transpila com esbuild, que remove as anotações de tipo sem verificá-las: uma suíte inteiramente verde convive com código que não compila, e o `next build` só descobre isso muito depois, quando achar a origem já custa caro.
 - Commits em português, no imperativo ("Adiciona serviço de residentes").
 
 ---
@@ -268,6 +269,7 @@ O singleton existe porque o hot reload do Next.js recria módulos a cada altera�
     "start": "next start",
     "db:migrate": "prisma migrate dev",
     "db:migrate:test": "dotenv -e .env.test -- prisma migrate deploy",
+    "typecheck": "tsc --noEmit",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test": "npm run db:migrate:test && dotenv -e .env.test -- vitest run",
@@ -632,6 +634,11 @@ describe('senha', () => {
     expect(hash.startsWith('$argon2id$')).toBe(true)
   })
 
+  it('usa os parâmetros recomendados pela OWASP', async () => {
+    const hash = await hashSenha('senha-forte-123')
+    expect(hash).toContain('m=19456,t=2,p=1')
+  })
+
   it('gera hashes diferentes para a mesma senha', async () => {
     const a = await hashSenha('senha-forte-123')
     const b = await hashSenha('senha-forte-123')
@@ -666,10 +673,14 @@ Expected: FAIL — módulo não encontrado.
 `src/lib/senha.ts`:
 
 ```typescript
-import { hash, verify, Algorithm } from '@node-rs/argon2'
+import { hash, verify } from '@node-rs/argon2'
 
+// Parâmetros recomendados pela OWASP para Argon2id: 19 MiB, 2 iterações,
+// paralelismo 1. O algoritmo não é passado explicitamente porque
+// `Algorithm.Argon2id` é um const enum de ambiente, inacessível como valor
+// sob `isolatedModules` (exigido pelo Next). O padrão da biblioteca já é
+// Argon2id, e o teste do prefixo `$argon2id$` trava isso contra regressão.
 const OPCOES = {
-  algorithm: Algorithm.Argon2id,
   memoryCost: 19456,
   timeCost: 2,
   parallelism: 1,
@@ -684,14 +695,15 @@ export async function verificarSenha(
   senha: string
 ): Promise<boolean> {
   try {
-    return await verify(hashArmazenado, senha, OPCOES)
+    // Sem OPCOES: a string PHC do hash carrega os próprios parâmetros, e a
+    // verificação usa os dela. Passá-los aqui sugeriria, falsamente, que
+    // alterar OPCOES invalidaria hashes já gravados.
+    return await verify(hashArmazenado, senha)
   } catch {
     return false
   }
 }
 ```
-
-Os parâmetros seguem a recomendação da OWASP para Argon2id (19 MiB de memória, 2 iterações).
 
 - [ ] **Step 4: Rodar os testes**
 
