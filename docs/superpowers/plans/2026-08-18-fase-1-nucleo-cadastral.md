@@ -5884,6 +5884,9 @@ export default async function FichaResidente({
               <span className="text-slate-500">
                 — {responsavel.parentesco} · {responsavel.telefonePrincipal}
                 {responsavel.ehResponsavelLegal && ' · responsável legal'}
+                {/* Mostra a exceção, não a regra: quase todo responsável pode
+                    visitar, e é a restrição que a recepção precisa enxergar. */}
+                {!responsavel.autorizadoVisitar && ' · visitas não autorizadas'}
               </span>
             </li>
           ))}
@@ -6210,7 +6213,16 @@ test('marca contato de emergência e ele aparece no cabeçalho da ficha', async 
 
   // O cabeçalho é onde alguém procura o telefone numa urgência: se a marcação
   // não for gravada, esta linha fica vazia e o teste falha.
-  await expect(page.getByText('João da Silva (65) 99999-0000')).toBeVisible()
+  await expect(
+    page.locator('dl > div').filter({ hasText: 'Emergência:' })
+  ).toContainText('João da Silva')
+
+  // `autorizadoVisitar` vem marcado por padrão, então a ficha NÃO deve trazer a
+  // ressalva de visitas. Verificar a ausência do aviso na lista prova o valor
+  // gravado no banco — diferente de reabrir o formulário vazio e conferir que a
+  // caixa vem marcada, que só reafirma o padrão do próprio formulário.
+  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
+  await expect(page.getByText('visitas não autorizadas')).toHaveCount(0)
 })
 
 test('corrige um cadastro pela tela de edição', async ({ page }) => {
