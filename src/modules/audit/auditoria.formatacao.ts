@@ -32,6 +32,20 @@ export const ROTULO_VALOR: Record<string, string> = {
   SOCIAL: 'Social',
   JURIDICO: 'Jurídico',
   OUTRO: 'Outro',
+  // TipoDocumento: `anexarDocumento` grava `tipo` no diff a cada anexo, então
+  // sem estes a trilha mostraria "Tipo: — → TERMO_RESPONSABILIDADE".
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
 }
 
 const ISO_DATA = /^\d{4}-\d{2}-\d{2}T/
@@ -58,8 +72,19 @@ export function formatarValorDiff(valor: unknown): string {
 
 // `nomeCompleto` vira "Nome completo". Os campos são nomeados em português,
 // só em camelCase — separar já os torna legíveis, sem exigir um dicionário
-// de dezenas de entradas que envelheceria a cada campo novo do schema.
+// de dezenas de entradas que envelheceria a cada campo novo do schema. As
+// siglas são a exceção: sem este mapa, `cpf`/`cns`/`rg`/`ip`/`uf` sairiam
+// "Cpf", "Cns", "Rg", "Ip", "Uf" — capitalização de palavra comum, não sigla.
+const SIGLAS: Record<string, string> = {
+  cpf: 'CPF',
+  cns: 'CNS',
+  rg: 'RG',
+  ip: 'IP',
+  uf: 'UF',
+}
+
 export function rotularCampo(campo: string): string {
+  if (SIGLAS[campo]) return SIGLAS[campo]
   const separado = campo.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
   return separado.charAt(0).toUpperCase() + separado.slice(1)
 }

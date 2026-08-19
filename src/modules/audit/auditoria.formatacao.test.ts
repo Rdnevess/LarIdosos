@@ -26,6 +26,11 @@ describe('formatarValorDiff', () => {
     expect(formatarValorDiff('Maria Silva')).toBe('Maria Silva')
   })
 
+  it('traduz valor de TipoDocumento — anexarDocumento grava `tipo` cru a cada anexo', () => {
+    expect(formatarValorDiff('TERMO_RESPONSABILIDADE')).toBe('Termo de responsabilidade')
+    expect(formatarValorDiff('COMPROVANTE_FISCAL')).toBe('Comprovante fiscal')
+  })
+
   it('converte outros tipos com String()', () => {
     expect(formatarValorDiff(42)).toBe('42')
   })
@@ -40,6 +45,13 @@ describe('rotularCampo', () => {
   it('capitaliza campo já em uma palavra só', () => {
     expect(rotularCampo('status')).toBe('Status')
   })
+
+  it('mantém sigla em maiúsculas, em vez de capitalizar como palavra comum', () => {
+    expect(rotularCampo('cpf')).toBe('CPF')
+    expect(rotularCampo('cns')).toBe('CNS')
+    expect(rotularCampo('rg')).toBe('RG')
+    expect(rotularCampo('uf')).toBe('UF')
+  })
 })
 
 describe('formatarDiff', () => {
@@ -51,6 +63,12 @@ describe('formatarDiff', () => {
 
   it('traduz um diff com valor booleano — desativação de usuário', () => {
     expect(formatarDiff({ ativo: { de: true, para: false } })).toBe('Ativo: sim → não')
+  })
+
+  it('traduz um diff com valor de TipoDocumento — anexo de documento na ficha', () => {
+    expect(formatarDiff({ tipo: { de: null, para: 'TERMO_RESPONSABILIDADE' } })).toBe(
+      'Tipo: — → Termo de responsabilidade'
+    )
   })
 
   it('traduz múltiplos campos, cada um com seu formato', () => {
