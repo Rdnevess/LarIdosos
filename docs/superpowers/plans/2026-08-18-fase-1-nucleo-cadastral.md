@@ -6550,6 +6550,129 @@ export default async function PaginaFuncionarios({
 }
 ```
 
+- [ ] **Step 5b: Criar a tela de edição e desligamento de funcionário**
+
+Sem ela, `acaoAtualizarFuncionario` e `acaoDesligarFuncionario` ficam sem chamador — e a consequência não é só não poder corrigir um cadastro. **Não haveria caminho de interface para levar `ativo` a `false`**, então todo funcionário cadastrado permanece ativo para sempre. Quem sai da instituição com o COREN vencendo continua aparecendo no aviso de registro profissional vencendo, indefinidamente. O alerta que dá razão de ser à tela passaria a acumular falsos positivos de gente que não trabalha mais lá — e alerta poluído é alerta que a equipe aprende a ignorar.
+
+`src/app/(app)/funcionarios/[id]/editar/page.tsx`:
+
+```tsx
+import { obterCtx } from '@/modules/auth/sessao'
+import { obterFuncionario } from '@/modules/staff/funcionarios.service'
+import { FormularioSimples } from '@/components/formulario-simples'
+import { CAMPOS_FUNCIONARIO } from '@/components/formulario-funcionario'
+import { formatarData } from '@/lib/ptbr'
+import { acaoAtualizarFuncionario, acaoDesligarFuncionario } from '../../acoes'
+
+export default async function PaginaEditarFuncionario({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const ctx = await obterCtx()
+  const funcionario = await obterFuncionario(ctx, id)
+
+  const valorInicial = (nome: string): string | undefined => {
+    const valor = funcionario[nome as keyof typeof funcionario]
+    if (valor instanceof Date) return valor.toISOString().slice(0, 10)
+    return valor == null ? undefined : String(valor)
+  }
+
+  return (
+    <section className="space-y-6">
+      <h1 className="text-lg font-semibold text-slate-800">
+        {funcionario.nomeCompleto}
+      </h1>
+
+      <div className="rounded border bg-white p-4">
+        <h2 className="mb-3 font-medium text-slate-800">Dados cadastrais</h2>
+        <FormularioSimples
+          acao={acaoAtualizarFuncionario}
+          ocultos={{ id: funcionario.id }}
+          rotuloBotao="Salvar alterações"
+          campos={CAMPOS_FUNCIONARIO.map((campo) => ({
+            ...campo,
+            valorInicial: valorInicial(campo.nome),
+          }))}
+        />
+      </div>
+
+      {funcionario.ativo ? (
+        <div className="rounded border bg-white p-4">
+          <h2 className="mb-1 font-medium text-slate-800">Desligamento</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            O registro é preservado; o funcionário deixa de aparecer nas listas e
+            nos avisos de registro profissional.
+          </p>
+          <FormularioSimples
+            acao={acaoDesligarFuncionario}
+            ocultos={{ id: funcionario.id }}
+            rotuloBotao="Registrar desligamento"
+            campos={[
+              {
+                nome: 'dataDesligamento',
+                rotulo: 'Data do desligamento',
+                tipo: 'date',
+                obrigatorio: true,
+              },
+              { nome: 'motivoDesligamento', rotulo: 'Motivo', obrigatorio: true },
+            ]}
+          />
+        </div>
+      ) : (
+        <p className="rounded border bg-slate-50 p-4 text-sm text-slate-600">
+          Desligado em{' '}
+          {funcionario.dataDesligamento
+            ? formatarData(funcionario.dataDesligamento)
+            : '—'}{' '}
+          — {funcionario.motivoDesligamento ?? 'sem motivo registrado'}
+        </p>
+      )}
+    </section>
+  )
+}
+```
+
+Na lista de funcionários, cada item vira link para esta tela:
+
+```tsx
+<Link href={`/funcionarios/${funcionario.id}/editar`} className="block p-3 hover:bg-slate-50">
+```
+
+E o E2E ganha um caso que fecha o ciclo do aviso:
+
+```typescript
+test('funcionário desligado sai do aviso de conselho vencendo', async ({ page }) => {
+  const nome = `Enfermeira Saida ${Date.now()}`
+  const cpf = gerarCpfValido()
+  const emVinteDias = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10)
+
+  await page.goto('/funcionarios/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('CPF').fill(cpf)
+  await page.getByLabel('Cargo').fill('Enfermeira')
+  await page.getByLabel('Vínculo').selectOption('CLT')
+  await page.getByLabel('Data de admissão').fill('2025-01-10')
+  await page.getByLabel('Conselho (COREN, CRM, CRN…)').fill('COREN')
+  await page.getByLabel('Número do registro').fill('999999')
+  await page.getByLabel('Validade do registro').fill(emVinteDias)
+  await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
+
+  // Antes do desligamento, o aviso cita a pessoa.
+  await expect(page.getByRole('status')).toContainText(nome)
+
+  await page.getByRole('link', { name: new RegExp(nome) }).click()
+  await page.getByLabel('Data do desligamento').fill('2026-08-01')
+  await page.getByLabel('Motivo').fill('Pedido de demissão')
+  await page.getByRole('button', { name: 'Registrar desligamento' }).click()
+
+  // Depois, some — é isso que impede o aviso de encher de gente que já saiu.
+  await page.goto('/funcionarios')
+  await expect(page.getByText(nome)).toHaveCount(0)
+})
+```
+
 - [ ] **Step 6: Criar as ações e a tela de usuários**
 
 `src/app/(app)/usuarios/acoes.ts`:
@@ -6625,11 +6748,13 @@ import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarData } from '@/lib/ptbr'
 import { acaoCriarUsuario, acaoDefinirSenha, acaoDesativarUsuario } from './acoes'
 
-const ROTULO_PAPEL = {
+// Tipado contra o enum do Prisma de propósito: um papel novo no schema quebra o
+// typecheck aqui, em vez de vazar cru para a tela. Mesmo padrão de ROTULO_VINCULO.
+const ROTULO_PAPEL: Record<Papel, string> = {
   COORDENACAO: 'Coordenação',
   SAUDE: 'Saúde',
   ADMINISTRATIVO: 'Administrativo',
-} as const
+}
 
 export default async function PaginaUsuarios() {
   const ctx = await obterCtx()
@@ -6701,7 +6826,9 @@ export default async function PaginaUsuarios() {
 }
 ```
 
-A própria conta não exibe os botões de desativar e trocar senha — `desativarUsuario` já recusa (Task 6), e esconder evita o erro previsível.
+A própria conta não exibe os botões de desativar e trocar senha. As duas omissões têm força diferente, e vale ser preciso: **`desativarUsuario` recusa o auto-alvo no serviço** (Tarefa 6), então esconder o botão só evita um erro previsível. **`definirSenha` não tem essa guarda** — ela é omitida da tela por decisão de interface, não por barreira do serviço.
+
+Isso é deliberado: com uma única coordenação, uma guarda de auto-alvo deixaria a pessoa sem como trocar a própria senha. O caminho correto — uma tela "alterar minha senha" que exija a senha atual — fica registrado para uma fase futura. Até lá, quem controla a sessão da coordenação consegue trocar a senha dela sem conhecer a anterior.
 
 - [ ] **Step 7: Rodar os testes**
 
