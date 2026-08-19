@@ -19,7 +19,7 @@
 - **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. **Cada função exportada de um serviço tem um teste que a chama com um papel não autorizado e espera `ErroPermissao`** — inclusive as funções cujo bloco de testes o plano não detalha. Sem isso, uma chamada a `exigirPapel` que alguém remova numa refatoração futura não quebra teste nenhum.
 - **O diff de auditoria registra o estado real anterior, nunca um valor presumido.** Use o campo lido do banco (`atual.campo`) como `de`, não uma constante. Um log que afirma "estava ativo" sobre um registro que já estava inativo é um registro falso — e este sistema responde a fiscalização sanitária e a prestação de contas de convênio.
 - **Chaves primárias em CUID** (`@default(cuid())`), expostas nas URLs. Nenhum inteiro sequencial em rota.
-- **Toda escrita gera registro em `LogAuditoria`.** Leitura audita quando abre o dado sensível de uma pessoa específica: ficha do residente, exame, documento, comprovante financeiro. **Listagem não audita** — em vez disso, devolve só os campos que a tela de lista usa (spec §8: auditar toda leitura de toda tela gera volume que ninguém consegue consultar, e a minimização de dado protege mais que o registro do acesso).
+- **Toda escrita gera registro em `LogAuditoria`.** Leitura audita quando abre o dado sensível de uma pessoa específica: ficha do residente, exame, documento, comprovante financeiro. **Listagem, em regra, não audita** — devolve só os campos que a tela de lista usa (spec §8: auditar toda leitura de toda tela gera volume que ninguém consegue consultar, e a minimização protege mais que o registro do acesso). **Exceção:** quando o dado sensível *é* o conteúdo listado e minimizar tornaria a lista inútil — histórico de anotações, histórico de avaliações —, a listagem audita, porque nesse caso ela abre o dado da pessoa em vez de apenas apontá-lo.
 - **Testes rodam contra PostgreSQL real**, nunca SQLite.
 - TDD obrigatório: o teste é escrito e falha antes da implementação.
 - **Antes de cada commit, rode `npm run typecheck` além dos testes.** O Vitest transpila com esbuild, que remove as anotações de tipo sem verificá-las: uma suíte inteiramente verde convive com código que não compila, e o `next build` só descobre isso muito depois, quando achar a origem já custa caro.
@@ -4327,6 +4327,17 @@ describe('retificarAnotacao', () => {
 })
 
 describe('listarAnotacoes', () => {
+  it('audita a leitura do histórico de anotações', async () => {
+    const { residente, ctx } = await anotacaoBase()
+
+    await listarAnotacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Anotacao', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve da mais recente para a mais antiga', async () => {
     const { residente, ctx } = await anotacaoBase()
     await criarAnotacao(ctx, {
@@ -4422,15 +4433,31 @@ export async function criarAnotacao(
   })
 }
 
+/**
+ * Audita. A regra do projeto oferece duas saídas para leitura de dado sensível
+ * — minimizar campos ou registrar o acesso — e aqui só a segunda existe: o
+ * texto da anotação É o dado sensível, então uma lista sem ele não serve para
+ * nada. Devolver o histórico inteiro de visitas, ocorrências e questões
+ * jurídicas de um residente é abrir o dado dessa pessoa, não listar muitas.
+ */
 export async function listarAnotacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<Anotacao[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
-  return prisma.anotacao.findMany({
+
+  const anotacoes = await prisma.anotacao.findMany({
     where: { residenteId },
     orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'Anotacao',
+    residenteId,
+  })
+
+  return anotacoes
 }
 
 export async function editarAnotacao(
