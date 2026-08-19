@@ -1,14 +1,18 @@
+import type { Papel } from '@prisma/client'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarDataHora } from '@/lib/ptbr'
 import { acaoCriarUsuario, acaoDefinirSenha, acaoDesativarUsuario } from './acoes'
 
-const ROTULO_PAPEL = {
+// Tipado contra o enum do Prisma de propósito: um papel novo no schema quebra
+// o typecheck aqui, em vez de vazar cru para a tela. Mesmo padrão de
+// `ROTULO_VINCULO` em `formulario-funcionario.tsx`.
+const ROTULO_PAPEL: Record<Papel, string> = {
   COORDENACAO: 'Coordenação',
   SAUDE: 'Saúde',
   ADMINISTRATIVO: 'Administrativo',
-} as const
+}
 
 export default async function PaginaUsuarios() {
   const ctx = await obterCtx()
@@ -60,10 +64,19 @@ export default async function PaginaUsuarios() {
             </div>
 
             {/*
-              A própria conta não exibe os botões de desativar e trocar senha:
-              `desativarUsuario` já recusa a auto-desativação (`ErroValidacao`
-              na camada de serviço), mas esconder aqui evita o erro previsível
-              em vez de deixar quem está logado descobrir clicando.
+              A própria conta não exibe os botões de desativar e trocar senha.
+              As duas omissões têm força diferente: `desativarUsuario` recusa
+              o auto-alvo no serviço (Tarefa 6, `ErroValidacao`), então
+              esconder o botão só evita um erro previsível. `definirSenha`
+              não tem essa guarda — ela é omitida da tela por decisão de
+              interface, não por barreira do serviço.
+
+              Isso é deliberado: com uma única coordenação, uma guarda de
+              auto-alvo deixaria a pessoa sem como trocar a própria senha. O
+              caminho correto — uma tela "alterar minha senha" que exija a
+              senha atual — fica registrado para uma fase futura. Até lá,
+              quem controla a sessão da coordenação consegue trocar a senha
+              dela sem conhecer a anterior.
             */}
             {usuario.ativo && usuario.id !== ctx.usuarioId && (
               <div className="flex flex-wrap gap-2">

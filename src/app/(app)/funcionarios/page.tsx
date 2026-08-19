@@ -71,14 +71,22 @@ export default async function PaginaFuncionarios({
 
       <ul className="divide-y rounded border bg-white">
         {funcionarios.map((funcionario) => (
-          <li key={funcionario.id} className="p-3">
-            <span className="block font-medium text-slate-800">
-              {funcionario.nomeCompleto}
-            </span>
-            <span className="block text-sm text-slate-500">
-              {funcionario.cargo} · {ROTULO_VINCULO[funcionario.vinculo]} · desde{' '}
-              {formatarData(funcionario.dataAdmissao)}
-            </span>
+          <li key={funcionario.id}>
+            <Link
+              href={`/funcionarios/${funcionario.id}/editar`}
+              className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50"
+            >
+              <span>
+                <span className="block font-medium text-slate-800">
+                  {funcionario.nomeCompleto}
+                </span>
+                <span className="block text-sm text-slate-500">
+                  {funcionario.cargo} · {ROTULO_VINCULO[funcionario.vinculo]} · desde{' '}
+                  {formatarData(funcionario.dataAdmissao)}
+                </span>
+              </span>
+              <span aria-hidden className="text-slate-400">›</span>
+            </Link>
           </li>
         ))}
         {funcionarios.length === 0 && (
