@@ -23,8 +23,10 @@
     "@prisma/client": "^6.19.3",
     "next": "15.5.23",
     "next-auth": "5.0.0-beta.32",
+    "prisma": "^6.19.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "tsx": "^4.23.12",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -37,9 +39,7 @@
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
-    "prisma": "^6.19.3",
     "tailwindcss": "^4",
-    "tsx": "^4.23.12",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^2.1.9"

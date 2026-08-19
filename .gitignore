@@ -11,6 +11,8 @@ dist/
 .env.test
 .env.local
 .env.*.local
+.env.producao
+!.env.producao.example
 
 # Uploads (documentos, exames, comprovantes) — dados sensíveis, ficam em volume
 /data/
