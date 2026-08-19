@@ -1,7 +1,7 @@
 export type PropsCampo = {
   nome: string
   rotulo: string
-  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox'
+  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox' | 'password'
   obrigatorio?: boolean
   opcoes?: { valor: string; rotulo: string }[]
   valorInicial?: string
