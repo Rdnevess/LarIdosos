@@ -120,6 +120,17 @@ describe('retificarAnotacao', () => {
 })
 
 describe('listarAnotacoes', () => {
+  it('audita a leitura do histórico de anotações', async () => {
+    const { residente, ctx } = await anotacaoBase()
+
+    await listarAnotacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Anotacao', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve da mais recente para a mais antiga', async () => {
     const { residente, ctx } = await anotacaoBase()
     await criarAnotacao(ctx, {

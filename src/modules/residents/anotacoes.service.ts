@@ -72,15 +72,31 @@ export async function criarAnotacao(
   })
 }
 
+/**
+ * Audita. A regra do projeto oferece duas saídas para leitura de dado sensível
+ * — minimizar campos ou registrar o acesso — e aqui só a segunda existe: o
+ * texto da anotação É o dado sensível, então uma lista sem ele não serve para
+ * nada. Devolver o histórico inteiro de visitas, ocorrências e questões
+ * jurídicas de um residente é abrir o dado dessa pessoa, não listar muitas.
+ */
 export async function listarAnotacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<Anotacao[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
-  return prisma.anotacao.findMany({
+
+  const anotacoes = await prisma.anotacao.findMany({
     where: { residenteId },
     orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'Anotacao',
+    residenteId,
+  })
+
+  return anotacoes
 }
 
 export async function editarAnotacao(
