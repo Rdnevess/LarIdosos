@@ -4557,11 +4557,11 @@ git commit -m "Adiciona anotações gerais com janela de edição e retificaçã
 - Consumes: `prisma`, `Ctx`, `exigirPapel`, `registrarAuditoria`, `calcularDiff`, `validarCpf`
 - Produces:
   - `criarFuncionario(ctx, dados): Promise<Funcionario>`
-  - `listarFuncionarios(ctx, filtro?: { busca?: string; apenasAtivos?: boolean }): Promise<Funcionario[]>`
+  - `listarFuncionarios(ctx, filtro?: { busca?: string; apenasAtivos?: boolean }): Promise<FuncionarioResumo[]>` — campos reduzidos, sem dado pessoal
   - `obterFuncionario(ctx, id): Promise<Funcionario>`
   - `atualizarFuncionario(ctx, id, dados): Promise<Funcionario>`
   - `desligarFuncionario(ctx, id, dados: { dataDesligamento: Date; motivoDesligamento: string }): Promise<Funcionario>`
-  - `listarConselhosVencendo(ctx, ateDias: number): Promise<Funcionario[]>`
+  - `listarConselhosVencendo(ctx, ateDias: number): Promise<ConselhoVencendo[]>`
 
 - [ ] **Step 1: Adicionar o modelo**
 
@@ -4863,10 +4863,30 @@ export async function obterFuncionario(ctx: Ctx, id: string): Promise<Funcionari
   return exigirFuncionario(id)
 }
 
+/**
+ * Campos da tela de lista. Sem CPF, RG, endereço nem contatos: a listagem
+ * aponta para a pessoa, quem precisa do cadastro completo abre a ficha. Mesmo
+ * critério aplicado a `listarResidentes`.
+ */
+const CAMPOS_LISTA_FUNCIONARIO = {
+  id: true,
+  nomeCompleto: true,
+  cargo: true,
+  vinculo: true,
+  dataAdmissao: true,
+  dataDesligamento: true,
+  ativo: true,
+} as const
+
+export type FuncionarioResumo = Pick<
+  Funcionario,
+  'id' | 'nomeCompleto' | 'cargo' | 'vinculo' | 'dataAdmissao' | 'dataDesligamento' | 'ativo'
+>
+
 export async function listarFuncionarios(
   ctx: Ctx,
   filtro: { busca?: string; apenasAtivos?: boolean } = {}
-): Promise<Funcionario[]> {
+): Promise<FuncionarioResumo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
 
   const where: Prisma.FuncionarioWhereInput = {}
@@ -4878,7 +4898,11 @@ export async function listarFuncionarios(
     ]
   }
 
-  return prisma.funcionario.findMany({ where, orderBy: { nomeCompleto: 'asc' } })
+  return prisma.funcionario.findMany({
+    where,
+    select: CAMPOS_LISTA_FUNCIONARIO,
+    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+  })
 }
 
 export async function atualizarFuncionario(
@@ -4942,17 +4966,30 @@ export async function desligarFuncionario(
   })
 }
 
+export type ConselhoVencendo = Pick<
+  Funcionario,
+  'id' | 'nomeCompleto' | 'conselhoSigla' | 'conselhoNumero' | 'conselhoUf' | 'conselhoValidade'
+>
+
 export async function listarConselhosVencendo(
   ctx: Ctx,
   ateDias: number
-): Promise<Funcionario[]> {
+): Promise<ConselhoVencendo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
 
   const limite = new Date(Date.now() + ateDias * 86_400_000)
 
   return prisma.funcionario.findMany({
     where: { ativo: true, conselhoValidade: { not: null, lte: limite } },
-    orderBy: { conselhoValidade: 'asc' },
+    select: {
+      id: true,
+      nomeCompleto: true,
+      conselhoSigla: true,
+      conselhoNumero: true,
+      conselhoUf: true,
+      conselhoValidade: true,
+    },
+    orderBy: [{ conselhoValidade: 'asc' }, { id: 'asc' }],
   })
 }
 ```
