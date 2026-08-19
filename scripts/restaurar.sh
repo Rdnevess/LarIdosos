@@ -4,8 +4,10 @@
 #
 # DESTRUTIVO: substitui o banco de dados e TODOS os documentos anexados
 # atuais pelo conteúdo dos dois arquivos informados. Qualquer cadastro
-# feito depois da data desse backup é perdido. Não existe desfazer depois
-# de confirmar.
+# feito depois da data desse backup é perdido. Guarda uma cópia do
+# estado atual antes de sobrescrever (passo [1/6]) para o caso de o
+# arquivo errado ter sido escolhido — mas não existe desfazer a
+# substituição em si.
 #
 # Procedimento completo (incluindo o teste de restauração obrigatório
 # antes de colocar o sistema em uso real) e o registro dos testes já
@@ -16,106 +18,112 @@
 #   sh scripts/restaurar.sh <banco.sql.gz.gpg> <uploads.tar.gz.gpg>
 set -eu
 
-# Mesmo arquivo de ambiente usado por scripts/backup.sh e pelo
-# `docker compose` de produção — ver o comentário equivalente em
-# backup.sh sobre o cron rodar com ambiente vazio.
+# Mesmo arquivo de ambiente usado por scripts/backup.sh — ver o
+# comentário equivalente lá sobre extrair só as duas variáveis
+# necessárias em vez de carregar o arquivo inteiro como script.
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
-[ -f "$ARQUIVO_ENV" ] || {
-  echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2
-  exit 1
-}
-. "$ARQUIVO_ENV"
+[ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
+PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
+PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+[ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes." >&2; exit 1; }
 
 ARQUIVO_BANCO="${1:?Informe o arquivo .sql.gz.gpg do banco. Uso: sh scripts/restaurar.sh <banco.sql.gz.gpg> <uploads.tar.gz.gpg>}"
 ARQUIVO_UPLOADS="${2:?Informe o arquivo .tar.gz.gpg dos uploads. Uso: sh scripts/restaurar.sh <banco.sql.gz.gpg> <uploads.tar.gz.gpg>}"
-SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
+[ -f "$ARQUIVO_BANCO" ] || { echo "Não encontrei: $ARQUIVO_BANCO" >&2; exit 1; }
+[ -f "$ARQUIVO_UPLOADS" ] || { echo "Não encontrei: $ARQUIVO_UPLOADS" >&2; exit 1; }
 
-[ -f "$ARQUIVO_BANCO" ] || {
-  echo "Arquivo não encontrado: $ARQUIVO_BANCO" >&2
-  exit 1
-}
-[ -f "$ARQUIVO_UPLOADS" ] || {
-  echo "Arquivo não encontrado: $ARQUIVO_UPLOADS" >&2
-  exit 1
-}
+ARQUIVO_SENHA="${ARQUIVO_SENHA_BACKUP:-/opt/lar/.senha-backup}"
+[ -f "$ARQUIVO_SENHA" ] || { echo "Arquivo de senha não encontrado: $ARQUIVO_SENHA" >&2; exit 1; }
 
-echo "============================================================"
-echo "ATENÇÃO: esta operação é destrutiva e não pode ser desfeita."
-echo
-echo "Ela vai substituir AGORA:"
-echo "  - todo o banco de dados atual (residentes, avaliações,"
-echo "    responsáveis, anotações, auditoria, usuários)"
-echo "  - todos os documentos anexados atuais"
-echo
-echo "pelo conteúdo destes dois arquivos de backup:"
-echo "  banco:   $ARQUIVO_BANCO"
-echo "  uploads: $ARQUIVO_UPLOADS"
-echo
-echo "Qualquer cadastro feito DEPOIS da data desse backup será perdido."
-echo "Se não tiver certeza, pressione Ctrl+C agora e confira novamente"
-echo "qual arquivo pretendia usar."
-echo "============================================================"
-printf 'Digite RESTAURAR (tudo em maiúsculas) para confirmar: '
-read -r CONFIRMACAO
-if [ "$CONFIRMACAO" != "RESTAURAR" ]; then
-  echo "Cancelado. Nada foi alterado." >&2
-  exit 1
-fi
+DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
+COMPOSE="docker compose --env-file $ARQUIVO_ENV"
+CARIMBO=$(date +%Y-%m-%d_%H%M)
 
-# Diretório temporário próprio para esta restauração (em vez de nomes
-# fixos em /tmp): evita colisão com outra restauração rodando ao mesmo
-# tempo e, no passo 3, monta no container efêmero só esta pasta — não o
-# /tmp inteiro da VPS, que pode ter outros arquivos de outros processos.
-# O trap remove tudo (inclusive o prontuário em texto claro, temporário)
-# mesmo se o script falhar no meio.
-TEMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TEMP_DIR"' EXIT
+# Diretório de trabalho próprio (não nomes fixos em /tmp): evita colisão
+# entre restaurações concorrentes e, no passo [3/6], monta no container
+# efêmero só esta pasta — não o /tmp inteiro da VPS. O trap remove tudo
+# (inclusive o dump do banco em texto claro, temporário) mesmo se o
+# script falhar no meio.
+TRABALHO=$(mktemp -d)
+trap 'rm -rf "$TRABALHO"' EXIT
 
-echo "[1/3] Descriptografando..."
-gpg --batch --yes --pinentry-mode loopback --passphrase "$SENHA_GPG" \
-  -o "$TEMP_DIR/banco.sql.gz" -d "$ARQUIVO_BANCO"
-gpg --batch --yes --pinentry-mode loopback --passphrase "$SENHA_GPG" \
-  -o "$TEMP_DIR/uploads.tar.gz" -d "$ARQUIVO_UPLOADS"
+echo "ATENÇÃO: isto SUBSTITUI o banco e TODOS os documentos atuais."
+echo "  Banco:    $ARQUIVO_BANCO"
+echo "  Arquivos: $ARQUIVO_UPLOADS"
+echo "Confira os carimbos de data acima antes de continuar."
+printf 'Digite RESTAURAR para confirmar: '
+read -r resposta
+[ "$resposta" = "RESTAURAR" ] || { echo "Abortado."; exit 1; }
 
-# Descompacta para arquivo (não para um pipe direto ao psql): pelo mesmo
-# motivo do backup.sh — sem "pipefail" neste shell, um "gunzip | psql"
-# esconderia uma falha do gunzip (arquivo corrompido, senha errada) atrás
-# do código de saída do psql. Assim, uma falha aqui interrompe o script
-# ANTES de mexer no banco.
-gunzip -c "$TEMP_DIR/banco.sql.gz" > "$TEMP_DIR/banco.sql"
-[ -s "$TEMP_DIR/banco.sql" ] || {
-  echo "O dump do banco descriptografado ficou vazio — abortando sem tocar no banco atual." >&2
-  exit 1
-}
+echo "[1/6] Guardando o estado atual antes de sobrescrever..."
+# O erro provável não é ignorar que a operação é destrutiva — é escolher
+# o carimbo errado entre dois nomes quase idênticos, de madrugada, num
+# incidente. Sem esta cópia não há volta.
+mkdir -p "$DESTINO"
+# Mesma proteção de scripts/backup.sh: esta pasta guarda, a partir de
+# agora, um dump em texto claro do banco atual (sem criptografia — ver
+# aviso no fim deste script e em docs/operacao/backup.md).
+chmod 700 "$DESTINO"
+RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
+mkdir -p "$RESGUARDO"
+$COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
+  > "$RESGUARDO/banco.sql"
+docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
+  tar czf /saida/uploads.tar.gz -C /dados .
+echo "      Estado anterior guardado em $RESGUARDO"
 
-echo "[2/3] Restaurando o banco..."
-docker compose --env-file "$ARQUIVO_ENV" stop app
-# Sem "-v ON_ERROR_STOP=1" de propósito: o entrypoint do container `app`
-# já rodou "prisma migrate deploy" e criou as tabelas (vazias) na
-# primeira subida — então este dump, que também contém os comandos
-# "CREATE TABLE"/"CREATE TYPE" de quando foi gerado, imprime uma leva de
-# erros "já existe" no início. Isso é esperado e aparece no terminal;
-# com ON_ERROR_STOP o script pararia bem ali, ANTES de restaurar
-# qualquer linha de dado. Sem ele, o psql segue adiante e os comandos
-# "COPY" (os dados de verdade) rodam normalmente contra as tabelas já
-# existentes.
-docker compose --env-file "$ARQUIVO_ENV" exec -T db \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" < "$TEMP_DIR/banco.sql"
+echo "[2/6] Descriptografando..."
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/banco.sql.gz" -d "$ARQUIVO_BANCO"
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/uploads.tar.gz" -d "$ARQUIVO_UPLOADS"
 
-echo "[3/3] Restaurando os arquivos..."
-# Os três padrões de glob (não só "/dados/*") são de propósito: "*"
-# sozinho não alcança arquivos começados por ponto, e o volume ficaria
-# com lixo de uma restauração anterior num caso raro. É o idioma padrão
-# de shell POSIX para esvaziar um diretório por completo, inclusive
-# ocultos — sem depender de "find -delete" (o "find" do BusyBox, usado
-# na imagem "alpine", nem sempre traz esse recurso). O "-f" do "rm" evita
-# erro quando algum dos padrões não casa com nada.
-docker run --rm -v lar_uploads:/dados -v "$TEMP_DIR":/entrada alpine \
-  sh -c "rm -rf /dados/* /dados/.[!.]* /dados/..?* && tar xzf /entrada/uploads.tar.gz -C /dados"
+echo "[3/6] Validando os pacotes ANTES de tocar nos dados..."
+# Sem esta validação, um tarball corrompido só seria descoberto depois
+# de o volume já ter sido esvaziado — os documentos apagados e nada
+# para repor.
+gunzip -t "$TRABALHO/banco.sql.gz"
+docker run --rm -v "$TRABALHO":/entrada alpine:3.20 \
+  tar tzf /entrada/uploads.tar.gz > /dev/null
 
-docker compose --env-file "$ARQUIVO_ENV" start app
+echo "[4/6] Restaurando o banco..."
+$COMPOSE stop app
+gunzip -c "$TRABALHO/banco.sql.gz" > "$TRABALHO/banco.sql"
+# "-v ON_ERROR_STOP=1" é o que impede a restauração de "concluir com
+# sucesso" sem ter restaurado nada: sobre um banco já povoado, sem essa
+# opção, um COPY que colidisse com uma linha existente abortaria só
+# aquela tabela — o psql seguiria adiante e sairia com código 0, e o
+# "set -e" nunca dispararia. É seguro usar ON_ERROR_STOP aqui porque o
+# dump foi gerado com "--clean --if-exists" (scripts/backup.sh): cada
+# tabela é apagada e recriada, não há mais erro de "já existe" para
+# interromper o script no lugar errado.
+$COMPOSE exec -T db psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d "$PGDB" < "$TRABALHO/banco.sql"
+
+echo "[5/6] Restaurando os arquivos..."
+# Extrai ao lado (".novo") e só então troca: o volume nunca fica vazio
+# sem substituto — se o "tar xzf" falhasse aqui (algo que a validação do
+# passo [3/6] não pegou), o conteúdo atual continuaria intacto. Termina
+# ajustando o dono para 1001:1001 porque o container "app" roda como o
+# usuário não-root "lar" (uid 1001, ver Dockerfile) — arquivos escritos
+# por este container efêmero, que roda como root, ficariam ilegíveis
+# para a aplicação sem este chown.
+docker run --rm -v lar_uploads:/dados -v "$TRABALHO":/entrada alpine:3.20 sh -c '
+  set -e
+  rm -rf /dados/.novo && mkdir -p /dados/.novo
+  tar xzf /entrada/uploads.tar.gz -C /dados/.novo
+  find /dados -mindepth 1 -maxdepth 1 ! -name .novo -exec rm -rf {} +
+  mv /dados/.novo/* /dados/ 2>/dev/null || true
+  mv /dados/.novo/.[!.]* /dados/ 2>/dev/null || true
+  rmdir /dados/.novo
+  chown -R 1001:1001 /dados
+'
+
+echo "[6/6] Subindo a aplicação..."
+$COMPOSE start app
 
 echo "Restauração concluída."
-echo "Confira agora, pela tela do sistema: entre com um usuário existente,"
-echo "confirme que os cadastros aparecem e que um documento anexado abre"
-echo "de fato (não só que aparece listado)."
+echo "Confira na aplicação: o residente aparece E o documento anexado abre."
+echo "Estado anterior, se precisar voltar: $RESGUARDO"
+echo "Esse estado anterior NÃO está criptografado — depois de confirmar"
+echo "que a restauração foi a que você queria, apague-o (rm -rf) ou"
+echo "criptografe-o manualmente antes de deixar a VPS sem supervisão."
