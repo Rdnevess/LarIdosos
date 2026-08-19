@@ -7541,7 +7541,8 @@ docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine:3.20 \
 # O dump ganhou verificacao de completude; o tarball ficaria sem nenhuma, e o
 # defeito so apareceria no dia da restauracao. Mesma checagem que restaurar.sh
 # faz antes de tocar nos dados: barata aqui, cara la.
-docker run --rm -v "$DESTINO":/entrada alpine:3.20 \n  tar tzf "/entrada/uploads_$CARIMBO.tar.gz" > /dev/null
+docker run --rm -v "$DESTINO":/entrada alpine:3.20 \
+  tar tzf "/entrada/uploads_$CARIMBO.tar.gz" > /dev/null
 
 echo "[4/6] Criptografando..."
 for arquivo in "$BANCO.gz" "$UPLOADS"; do
@@ -7691,17 +7692,25 @@ No `crontab -e` da VPS:
 
 ```
 MAILTO=coordenacao@lar.exemplo.org.br
-0 3 * * * cd /opt/lar && RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+
+# `>>` leva só a saída normal para o log. O erro (stderr) NÃO é redirecionado:
+# é o que sobra nos descritores que o cron observa, e é o que faz o MAILTO
+# valer alguma coisa. Com `2>&1` aqui, o cron não veria byte nenhum e o
+# MAILTO ficaria decorativo.
+0 3 * * * cd /opt/lar && RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log
 
 # Alerta diário se o último sucesso envelhecer OU nunca tiver existido.
 # A ordem importa: `[ -f marca ] && ...` ficaria mudo justamente no pior caso —
 # backup quebrado desde o primeiro dia, marca nunca criada, nenhum aviso jamais.
-0 8 * * * find /var/backups/lar/ultimo_sucesso -mtime -2 2>/dev/null | grep -q . || echo "$(date): ALERTA - backup do Lar sem sucesso ha mais de 2 dias" >> /var/log/lar-backup.log
+# O `tee` grava no log E deixa passar para o cron, que então envia o e-mail.
+0 8 * * * find /var/backups/lar/ultimo_sucesso -mtime -2 2>/dev/null | grep -q . || echo "$(date): ALERTA - backup do Lar sem sucesso ha mais de 2 dias" | tee -a /var/log/lar-backup.log
 ```
 
 A senha **não** entra na linha do cron: ela vive em `/opt/lar/.senha-backup`, com modo 600, e o script a lê por `--passphrase-file`. Senha em linha de comando fica visível em `ps` para qualquer usuário da máquina e entra no histórico do shell de quem editar o crontab.
 
-O `MAILTO` faz o cron enviar a saída de erro por e-mail. Sem ele — e com o `2>&1` mandando tudo para o arquivo —, uma falha do backup fica indistinguível de um sucesso até alguém abrir o log por conta própria, o que numa instituição pequena pode levar meses.
+**O `MAILTO` só funciona porque as duas linhas deixam a saída chegar ao cron.** Ele envia por e-mail o que o comando agendado escreve nos próprios descritores — se a linha redireciona tudo para um arquivo (`>> log 2>&1`), não sobra nada para enviar e o `MAILTO` vira enfeite. Por isso o backup redireciona só a saída normal, e o alerta usa `tee` em vez de `>>`.
+
+Ainda assim, o e-mail depende de a VPS ter um agente de envio configurado — muitas não têm por padrão. **Confirme que chega**: rode `echo teste | mail -s teste seu@email` depois de configurar. Se não chegar, o log continua sendo a fonte de verdade, e vale combinar com alguém a rotina de abri-lo.
 
 O `cron` roda com ambiente mínimo — daí os scripts carregarem o `.env.producao` explicitamente em vez de contarem com variáveis herdadas do shell. Um backup que falha silenciosamente às 3h da manhã só é descoberto no dia da restauração.
 
