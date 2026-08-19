@@ -29,7 +29,8 @@ test('registra e mostra a criação de um residente, com rótulos em pt-BR', asy
   // Rótulo em pt-BR na tela, não o valor cru do enum `AcaoAuditoria`.
   await expect(linhaCriacao).not.toContainText('CRIAR')
   await expect(linhaCriacao).toContainText('Residente')
-  await expect(linhaCriacao).toContainText(`nomeCompleto: — → ${nome}`)
+  // O nome do campo também é traduzido: `nomeCompleto` vira "Nome completo".
+  await expect(linhaCriacao).toContainText(`Nome completo: — → ${nome}`)
 
   const linhaVisualizacao = page.locator('tbody tr', { hasText: idResidente! }).filter({
     hasText: 'Visualização',
@@ -55,6 +56,44 @@ test('filtra por período e mostra o total e a página', async ({ page }) => {
   await expect(page).toHaveURL(/de=2000-01-01/)
   await expect(page.getByText('0 registro(s) · página 1 de 1')).toBeVisible()
   await expect(page.getByText('Nenhum registro no filtro selecionado.')).toBeVisible()
+})
+
+test('traduz o valor booleano da desativação de um usuário, sem vazar true/false em inglês', async ({
+  page,
+}) => {
+  const nome = `Usuário Auditoria ${Date.now()}`
+  const email = `auditoria.${Date.now()}@lar.local`
+
+  // Gera um evento real de auditoria (ATUALIZAR/Usuario com
+  // `ativo: { de: true, para: false }`) passando pelo fluxo de verdade — é a
+  // própria tela de usuários quem chama `desativarUsuario`, cujo diff é
+  // exatamente o caso que a coluna "Alteração" vazava em inglês antes desta
+  // correção.
+  await page.goto('/usuarios')
+  await page.getByLabel('Nome').fill(nome)
+  await page.getByLabel('E-mail').fill(email)
+  await page.getByLabel('Papel').selectOption('ADMINISTRATIVO')
+  await page.getByLabel('Senha inicial (mínimo 8 caracteres)').fill('senha-de-teste-123')
+  await page.getByRole('button', { name: 'Criar usuário' }).click()
+
+  const linhaUsuario = page.locator('li', { hasText: nome })
+  await expect(linhaUsuario).toBeVisible()
+  const idUsuario = await linhaUsuario.locator('input[name="id"]').first().getAttribute('value')
+
+  await linhaUsuario.getByRole('button', { name: 'Desativar acesso' }).click()
+  await expect(page.locator('li', { hasText: nome })).toContainText('(inativo)')
+
+  await page.goto('/auditoria')
+  await page.getByLabel('Entidade').selectOption('Usuario')
+  await page.getByRole('button', { name: 'Filtrar' }).click()
+
+  const linhaDesativacao = page
+    .locator('tbody tr', { hasText: idUsuario! })
+    .filter({ hasText: 'Atualização' })
+  await expect(linhaDesativacao).toBeVisible()
+  await expect(linhaDesativacao).toContainText('Ativo: sim → não')
+  await expect(linhaDesativacao).not.toContainText('true')
+  await expect(linhaDesativacao).not.toContainText('false')
 })
 
 test('a tabela rola dentro do próprio contêiner, sem empurrar a página', async ({ page }) => {

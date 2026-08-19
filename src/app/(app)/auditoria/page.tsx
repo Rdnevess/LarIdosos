@@ -3,6 +3,7 @@ import type { AcaoAuditoria } from '@prisma/client'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
+import { formatarDiff } from '@/modules/audit/auditoria.formatacao'
 import { formatarDataHora } from '@/lib/ptbr'
 
 // Tipado contra o enum do Prisma de propósito: uma ação nova em
@@ -41,12 +42,10 @@ function rotularEntidade(entidade: string): string {
   return ROTULO_ENTIDADE[entidade] ?? entidade
 }
 
-function formatarDiff(diff: unknown): string {
-  if (!diff || typeof diff !== 'object') return '—'
-  return Object.entries(diff as Record<string, { de: unknown; para: unknown }>)
-    .map(([campo, { de, para }]) => `${campo}: ${String(de ?? '—')} → ${String(para ?? '—')}`)
-    .join(' · ')
-}
+// `formatarDiff` mora em `auditoria.formatacao.ts` (não aqui): ela traduz
+// cada valor dentro do diff (enum, booleano, data ISO), não só o rótulo da
+// ação/entidade da linha. Ficou num módulo puro à parte para poder ser
+// testada sem carregar esta página inteira.
 
 // `Number('abc')` é `NaN`, e `?pagina=` é digitável à mão na barra de
 // endereço. Sem este resguardo, uma página inválida chegaria a
