@@ -5189,6 +5189,7 @@ export function Campo({
   obrigatorio,
   opcoes,
   valorInicial,
+  marcadoInicial,
 }: PropsCampo) {
   const classe = 'w-full rounded border border-slate-300 px-3 py-2 text-base'
 
@@ -5383,6 +5384,14 @@ export function FormularioResidente({
       {estado?.erro && (
         <p role="alert" className="text-sm text-red-600">
           {estado.erro}
+        </p>
+      )}
+
+      {/* A edição não redireciona; sem este aviso ela salva sem dar sinal
+          nenhum ao usuário, que fica sem saber se a alteração pegou. */}
+      {estado?.sucesso && (
+        <p role="status" className="text-sm text-green-700">
+          Cadastro salvo.
         </p>
       )}
 
