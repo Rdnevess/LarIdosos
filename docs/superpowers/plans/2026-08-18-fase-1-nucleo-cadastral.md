@@ -4751,6 +4751,39 @@ describe('listarConselhosVencendo', () => {
 
     expect(vencendo.map((f) => f.nomeCompleto)).toEqual(['Ana Paula Souza'])
   })
+
+  it('não inclui funcionário desligado, mesmo com conselho vencendo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const emVinteDias = new Date(Date.now() + 20 * 86_400_000)
+
+    const funcionario = await criarFuncionario(ctx, {
+      ...dadosValidos,
+      conselhoValidade: emVinteDias,
+    })
+    await desligarFuncionario(ctx, funcionario.id, {
+      dataDesligamento: new Date('2026-06-30'),
+      motivoDesligamento: 'Pedido de demissão',
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
+
+  it('não inclui funcionário ativo sem data de validade de conselho', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    await criarFuncionario(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Carlos Lima',
+      cpf: '123.456.789-09',
+      cargo: 'Cozinheiro',
+      conselhoSigla: undefined,
+      conselhoNumero: undefined,
+      conselhoUf: undefined,
+      conselhoValidade: undefined,
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
 })
 ```
 
@@ -4966,6 +4999,14 @@ export async function desligarFuncionario(
   })
 }
 
+/**
+ * Não audita, ao contrário de `listarAnotacoes`. É relatório operacional
+ * multi-pessoa, com campos já reduzidos: sigla, número, UF e validade de
+ * registro profissional são dados verificáveis no cadastro público do próprio
+ * conselho, não a categoria que o resto do módulo trata como sensível (CPF, RG,
+ * endereço — todos fora do `select`). Cai na regra geral de listagem, não na
+ * exceção.
+ */
 export type ConselhoVencendo = Pick<
   Funcionario,
   'id' | 'nomeCompleto' | 'conselhoSigla' | 'conselhoNumero' | 'conselhoUf' | 'conselhoValidade'
