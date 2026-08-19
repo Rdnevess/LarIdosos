@@ -7285,6 +7285,15 @@ COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# O processo não precisa de root para servir HTTP nem para gravar em /data.
+# Num sistema que guarda documento e prontuário de idoso, rodar como usuário
+# dedicado é redução de superfície barata: se a aplicação for comprometida, o
+# invasor não herda o container inteiro.
+RUN addgroup -g 1001 -S lar && adduser -u 1001 -S lar -G lar \
+ && mkdir -p /data/uploads \
+ && chown -R lar:lar /app /data
+USER lar
+
 EXPOSE 3000
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
@@ -7302,7 +7311,15 @@ echo "Aplicando migrations..."
 npx prisma migrate deploy
 
 echo "Executando seed (idempotente)..."
-npx tsx prisma/seed.ts || echo "Seed ignorado."
+if ! npx tsx prisma/seed.ts; then
+  # O seed falhar não impede o sistema de subir — mas precisa aparecer no log
+  # com destaque. O cenário caro é o binário nativo do Argon2 não carregar:
+  # o servidor sobe, o HTTPS funciona, a tela de login aparece, e ninguém
+  # consegue entrar porque o usuário inicial nunca foi criado. Sem esta linha,
+  # o diagnóstico disso numa VPS remota custa horas.
+  echo "AVISO: o seed falhou. Se este for o primeiro deploy, NÃO haverá"
+  echo "usuário para entrar. Veja o erro acima antes de tentar acessar."
+fi
 
 exec "$@"
 ```
@@ -7407,7 +7424,13 @@ SEED_ADMIN_SENHA=
 
 - [ ] **Step 5: Documentar a implantação**
 
-`docs/operacao/implantacao.md` deve conter, em ordem executável: requisitos da VPS (2 GB de RAM, Docker e Docker Compose), apontamento do DNS para o IP, cópia do `.env.producao.example` para `.env`, geração do `AUTH_SECRET` com `openssl rand -base64 32`, `docker compose up -d --build`, verificação em `https://<dominio>/login`, **troca imediata da senha do usuário inicial**, e o procedimento de atualização (`git pull && docker compose up -d --build`).
+`docs/operacao/implantacao.md` deve conter, em ordem executável: requisitos da VPS (2 GB de RAM, Docker e Docker Compose), apontamento do DNS para o IP, **liberação das portas 80 e 443 no firewall** (muitos provedores bloqueiam por padrão, e o Caddy falha ao emitir o certificado sem elas), cópia do `.env.producao.example`, geração do `AUTH_SECRET` com `openssl rand -base64 32`, `docker compose up -d --build`, verificação em `https://<dominio>/login`, **troca imediata da senha do usuário inicial**, o procedimento de atualização (`git pull && docker compose up -d --build`) e como parar o sistema (`docker compose down`, e a diferença para `down -v`, que apaga os volumes).
+
+A seção de problemas comuns precisa cobrir, além do certificado e do `UntrustedHost`:
+
+> **A tela de login abre, mas nenhuma senha funciona.** Procure `AVISO: o seed falhou` nos logs (`docker compose logs app`). Se aparecer, o usuário inicial não foi criado — o erro logo acima diz por quê. A causa mais provável num primeiro deploy é o binário nativo do Argon2 não carregar na arquitetura do servidor.
+
+Esse cenário é o mais caro de diagnosticar às cegas: tudo parece funcionar — HTTPS, tela, banco — e o sistema é inutilizável.
 
 - [ ] **Step 6: Verificar localmente**
 
