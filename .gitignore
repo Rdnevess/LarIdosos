@@ -30,6 +30,7 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+tests/e2e/.sessao.json
 
 # Workspace do subagent-driven-development
 .superpowers/
