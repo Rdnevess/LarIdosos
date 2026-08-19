@@ -18,8 +18,16 @@ set -eu
 # este script.
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
 [ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
-PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
-PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+# Tolera espaço em volta do "=" e aspas em volta do valor — são as
+# variações que uma pessoa introduz ao editar o .env.producao à mão
+# (POSTGRES_USER = lar, POSTGRES_USER="lar" etc.), e um `sed` ingênuo
+# ("s/^POSTGRES_USER=//p") não reconheceria nenhuma das duas.
+ler_env() {
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$ARQUIVO_ENV" \
+    | head -1 | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+PGUSER=$(ler_env POSTGRES_USER)
+PGDB=$(ler_env POSTGRES_DB)
 [ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes em $ARQUIVO_ENV" >&2; exit 1; }
 
 DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"

@@ -23,8 +23,15 @@ set -eu
 # necessárias em vez de carregar o arquivo inteiro como script.
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
 [ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
-PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
-PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+# Tolera espaço em volta do "=" e aspas em volta do valor — mesma função
+# de scripts/backup.sh, pelo mesmo motivo (o .env.producao é editado à
+# mão).
+ler_env() {
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$ARQUIVO_ENV" \
+    | head -1 | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+PGUSER=$(ler_env POSTGRES_USER)
+PGDB=$(ler_env POSTGRES_DB)
 [ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes." >&2; exit 1; }
 
 ARQUIVO_BANCO="${1:?Informe o arquivo .sql.gz.gpg do banco. Uso: sh scripts/restaurar.sh <banco.sql.gz.gpg> <uploads.tar.gz.gpg>}"
@@ -60,17 +67,26 @@ echo "[1/6] Guardando o estado atual antes de sobrescrever..."
 # o carimbo errado entre dois nomes quase idênticos, de madrugada, num
 # incidente. Sem esta cópia não há volta.
 mkdir -p "$DESTINO"
-# Mesma proteção de scripts/backup.sh: esta pasta guarda, a partir de
-# agora, um dump em texto claro do banco atual (sem criptografia — ver
-# aviso no fim deste script e em docs/operacao/backup.md).
 chmod 700 "$DESTINO"
 RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
 mkdir -p "$RESGUARDO"
+chmod 700 "$RESGUARDO"
 $COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
   > "$RESGUARDO/banco.sql"
 docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
   tar czf /saida/uploads.tar.gz -C /dados .
-echo "      Estado anterior guardado em $RESGUARDO"
+
+# O resguardo é o mesmo prontuário que o backup protege — não pode ficar
+# em texto claro no disco esperando alguém lembrar de apagá-lo depois.
+# Passa pelo mesmo GPG e com a mesma senha do backup normal, e o
+# original em texto claro é removido, exatamente como scripts/backup.sh
+# faz com os arquivos que ele mesmo gera.
+for arquivo in "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"; do
+  gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+      --symmetric --cipher-algo AES256 "$arquivo"
+  rm -f "$arquivo"
+done
+echo "      Estado anterior guardado (criptografado) em $RESGUARDO"
 
 echo "[2/6] Descriptografando..."
 gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
@@ -123,7 +139,6 @@ $COMPOSE start app
 
 echo "Restauração concluída."
 echo "Confira na aplicação: o residente aparece E o documento anexado abre."
-echo "Estado anterior, se precisar voltar: $RESGUARDO"
-echo "Esse estado anterior NÃO está criptografado — depois de confirmar"
-echo "que a restauração foi a que você queria, apague-o (rm -rf) ou"
-echo "criptografe-o manualmente antes de deixar a VPS sem supervisão."
+echo "Estado anterior, se precisar voltar: $RESGUARDO (criptografado com a"
+echo "mesma senha de $ARQUIVO_SENHA — descriptografe com gpg -d, como"
+echo "qualquer outro backup, antes de restaurá-lo de volta)."

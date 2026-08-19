@@ -169,15 +169,30 @@ leia o aviso que aparece na tela antes de digitar.
 
 Antes de sobrescrever qualquer coisa, o próprio script guarda uma cópia
 do estado **atual** (antes da restauração) em
-`$DESTINO/pre-restauracao_<carimbo>/` — um `banco.sql` e um
-`uploads.tar.gz`, **sem criptografia**. Essa cópia existe para o caso de
-o arquivo errado ter sido escolhido para restaurar (dois nomes de backup
-quase idênticos, escolhidos errado num incidente de madrugada, é o erro
-mais provável aqui — não esquecer que a operação é destrutiva). Depois de
-confirmar que a restauração foi a que você queria, **apague essa pasta ou
-criptografe-a manualmente** — ela é um prontuário em texto claro sentado
-no disco, e nem a retenção automática nem a criptografia da rotina normal
-alcançam essa pasta específica.
+`$DESTINO/pre-restauracao_<carimbo>/` — um `banco.sql.gpg` e um
+`uploads.tar.gz.gpg`, **criptografados com a mesma chave** de
+`/opt/lar/.senha-backup` (ou o caminho de `ARQUIVO_SENHA_BACKUP`, se você
+mudou o padrão). Essa cópia existe para o caso de o arquivo errado ter
+sido escolhido para restaurar (dois nomes de backup quase idênticos,
+escolhidos errado num incidente de madrugada, é o erro mais provável aqui
+— não esquecer que a operação é destrutiva). Ela passa pelo mesmo GPG que
+os backups normais, e o texto claro é removido logo depois de
+criptografar — é o prontuário inteiro de novo, então não podia ficar em
+claro no disco esperando alguém lembrar de protegê-lo à mão. Para abrir,
+descriptografe do mesmo jeito que qualquer arquivo de backup normal:
+
+```bash
+gpg --batch --yes --pinentry-mode loopback \
+  --passphrase-file /opt/lar/.senha-backup \
+  -o banco.sql -d /var/backups/lar/pre-restauracao_<carimbo>/banco.sql.gpg
+```
+
+Essa pasta não entra na retenção automática de 30 dias do `backup.sh`
+(que só olha arquivos `*.gpg` soltos direto em `$DESTINO`, não dentro de
+subpastas) — como já está criptografada, não há mais urgência de
+confidencialidade em apagá-la, mas ela também não desaparece sozinha.
+Depois de confirmar que a restauração foi a que você queria, apague-a
+(`rm -rf`) para não acumular pastas antigas sem necessidade.
 
 ```bash
 cd /opt/lar
@@ -324,11 +339,14 @@ não arrisca dado real nenhum.
    de teste normalmente pela tela do sistema (o botão de exclusão do
    próprio cadastro), para não ficar misturado com os residentes reais.
 
-10. **Limpe a cópia de resguardo.** O `restaurar.sh` do passo 7 criou
-    `/var/backups/lar/pre-restauracao_<carimbo>/`, com uma cópia **em
-    texto claro** do banco e dos uploads de antes da restauração. Depois
-    de confirmar o passo 8, apague essa pasta (`rm -rf`) ou
-    criptografe-a manualmente antes de deixar a VPS sem supervisão.
+10. **Limpe a cópia de resguardo, se quiser.** O `restaurar.sh` do
+    passo 7 criou `/var/backups/lar/pre-restauracao_<carimbo>/`, já
+    **criptografada** (mesma senha dos backups normais) com o banco e os
+    uploads de antes da restauração. Não há urgência de confidencialidade
+    — mas ela também não é apagada sozinha (a retenção automática de 30
+    dias só olha os arquivos soltos em `/var/backups/lar`, não essa
+    subpasta), então, depois de confirmar o passo 8, vale apagá-la
+    (`rm -rf`) para não acumular pastas antigas sem necessidade.
 
 11. **Registre o resultado** na tabela abaixo: data, quem executou, e o
     resultado de cada item do passo 8.
@@ -441,9 +459,10 @@ armazenamento escolhido.
 ar no fim, depois de todos os passos terem terminado. Se algo falhar no
 meio, é preferível que o sistema fique fora do ar até alguém investigar
 do que voltar ao ar com dados possivelmente incompletos — e a cópia de
-resguardo do passo `[1/6]` continua disponível em
+resguardo do passo `[1/6]` continua disponível, já criptografada, em
 `$DESTINO/pre-restauracao_<carimbo>` se for preciso voltar ao estado
-anterior manualmente. Leia a mensagem de erro acima no terminal, corrija
+anterior manualmente (ver "Como restaurar" para o comando de
+descriptografar). Leia a mensagem de erro acima no terminal, corrija
 a causa e rode `sh scripts/restaurar.sh` de novo com os mesmos dois
 arquivos — ou, se preferir só recolocar a aplicação no ar sem restaurar
 de novo (por exemplo, se o problema era só o `db` momentaneamente fora do
