@@ -355,7 +355,7 @@ não arrisca dado real nenhum.
 
 | Data | Executado por | 8a (residente voltou) | 8b (documento listado) | 8c (documento abre) | Observações |
 |---|---|---|---|---|---|
-| _PENDENTE_ | — | — | — | — | Este teste não foi executado ainda. A Tarefa 18 escreveu, revisou e corrigiu os scripts e esta documentação em duas rodadas, mas **não pôde rodar o teste real** — a máquina onde os scripts foram escritos não tem Docker. Preencha esta linha (data real, no formato AAAA-MM-DD, e resultado observado) na primeira vez que alguém rodar o procedimento acima na VPS de produção. Só depois disso o sistema deve receber o cadastro dos ~30 residentes reais (ver "Ao terminar a Fase 1" em `docs/superpowers/plans/2026-08-18-fase-1-nucleo-cadastral.md`). |
+| _PENDENTE_ | — | — | — | — | Este teste não foi executado ainda. A Tarefa 18 escreveu, revisou e corrigiu os scripts e esta documentação em três rodadas de correção, mas **não pôde rodar o teste real** — a máquina onde os scripts foram escritos não tem Docker. Preencha esta linha (data real, no formato AAAA-MM-DD, e resultado observado) na primeira vez que alguém rodar o procedimento acima na VPS de produção. Só depois disso o sistema deve receber o cadastro dos ~30 residentes reais (ver "Ao terminar a Fase 1" em `docs/superpowers/plans/2026-08-18-fase-1-nucleo-cadastral.md`). |
 
 Repita o teste completo **a cada 6 meses**. A partir do segundo teste
 (quando já houver residentes reais cadastrados), **não repita os passos
