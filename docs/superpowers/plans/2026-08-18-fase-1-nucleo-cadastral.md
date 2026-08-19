@@ -7485,8 +7485,14 @@ set -eu
 # por humano, e um `$(...)` ali viraria comando executado como root pelo cron.
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
 [ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
-PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
-PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+# Tolera espaço em volta do `=` e aspas em volta do valor, que são as variações
+# que um humano introduz ao editar o arquivo à mão.
+ler_env() {
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$ARQUIVO_ENV" \
+    | head -1 | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+PGUSER=$(ler_env POSTGRES_USER)
+PGDB=$(ler_env POSTGRES_DB)
 [ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes em $ARQUIVO_ENV" >&2; exit 1; }
 
 DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
@@ -7606,11 +7612,21 @@ echo "[1/6] Guardando o estado atual antes de sobrescrever..."
 # Sem esta cópia não há volta.
 RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
 mkdir -p "$RESGUARDO"
+chmod 700 "$RESGUARDO"
 $COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
   > "$RESGUARDO/banco.sql"
 docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
   tar czf /saida/uploads.tar.gz -C /dados .
-echo "      Estado anterior guardado em $RESGUARDO"
+
+# O resguardo é o mesmo prontuário que o backup protege — não pode ficar em
+# texto claro no disco esperando alguém lembrar de apagá-lo. Criptografa com a
+# mesma chave e remove o original, como o backup faz.
+for arquivo in "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"; do
+  gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+      --symmetric --cipher-algo AES256 "$arquivo"
+  rm -f "$arquivo"
+done
+echo "      Estado anterior guardado (criptografado) em $RESGUARDO"
 
 echo "[2/6] Descriptografando..."
 gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
