@@ -4,7 +4,7 @@ Guia passo a passo para colocar o sistema no ar numa VPS própria, usando
 Docker. Siga na ordem — cada passo depende do anterior. Comandos são para
 rodar direto no terminal da VPS (via SSH), com Linux (Ubuntu/Debian nos
 exemplos abaixo; noutra distribuição os comandos de instalação do Docker
-mudam, o resto é igual).
+e do firewall mudam, o resto é igual).
 
 Se travar em algum passo, veja "Problemas comuns" no fim deste documento
 antes de tentar de novo.
@@ -17,7 +17,7 @@ antes de tentar de novo.
   `lar.suaorganizacao.org.br`. É ele que vai receber o certificado HTTPS
   automático.
 - **Acesso root (ou sudo) por SSH** à VPS.
-- O **build da imagem roda na própria VPS** (o comando do Passo 6 faz
+- O **build da imagem roda na própria VPS** (o comando do Passo 7 faz
   isso). Não construa a imagem numa máquina diferente (seu notebook, por
   exemplo) e envie pronta — o sistema usa bibliotecas nativas (Argon2,
   motor do Prisma) que são compiladas para a arquitetura de processador
@@ -36,9 +36,37 @@ ping lar.suaorganizacao.org.br
 ```
 
 Se o IP que aparecer não for o da VPS, aguarde e tente de novo antes de
-seguir — o Passo 6 depende disso para emitir o certificado HTTPS.
+seguir — o Passo 7 depende disso para emitir o certificado HTTPS.
 
-## Passo 2 — Instalar o Docker
+## Passo 2 — Liberar as portas 80 e 443 no firewall
+
+Muitos provedores de VPS bloqueiam todas as portas por padrão, exceto a
+de SSH. Sem as portas 80 (HTTP) e 443 (HTTPS) livres, o Caddy não
+consegue completar a validação do Let's Encrypt e **falha ao emitir o
+certificado** — de um jeito silencioso do ponto de vista de quem só
+olha o navegador (a página simplesmente não abre).
+
+Se a VPS usa `ufw` (padrão no Ubuntu):
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+**Não pule o `allow OpenSSH`** (ou `allow 22/tcp`) antes do `enable` —
+esquecer essa linha derruba o próprio acesso SSH à VPS.
+
+Se a VPS estiver atrás de um firewall do próprio provedor de nuvem
+(grupo de segurança, "cloud firewall", "network security group" —
+comum na AWS, Lightsail, DigitalOcean, Hetzner, Azure etc.), libere as
+portas 80 e 443 lá também, no painel do provedor. O `ufw` só controla o
+firewall de dentro do sistema operacional; o do provedor é outra
+camada, e as duas precisam estar liberadas.
+
+## Passo 3 — Instalar o Docker
 
 Pule este passo se `docker compose version` já funcionar na VPS.
 
@@ -53,7 +81,7 @@ Compose). Confirme ao final:
 docker compose version
 ```
 
-## Passo 3 — Obter o código
+## Passo 4 — Obter o código
 
 ```bash
 sudo mkdir -p /opt/lar
@@ -68,7 +96,7 @@ padrão.
 
 Daqui em diante, todo comando deste guia é rodado dentro de `/opt/lar`.
 
-## Passo 4 — Configurar as variáveis de ambiente
+## Passo 5 — Configurar as variáveis de ambiente
 
 ```bash
 cp .env.producao.example .env.producao
@@ -83,15 +111,15 @@ Preencha cada campo do arquivo:
 | `POSTGRES_USER` | Pode manter `lar` |
 | `POSTGRES_PASSWORD` | Uma senha forte — gere com `openssl rand -base64 24`, por exemplo. Ninguém precisa digitar esta senha no dia a dia. |
 | `POSTGRES_DB` | Pode manter `lar` |
-| `AUTH_SECRET` | Ver Passo 5 |
+| `AUTH_SECRET` | Ver Passo 6 |
 | `SEED_ADMIN_EMAIL` | O e-mail da pessoa que vai logar pela primeira vez como Coordenação |
-| `SEED_ADMIN_SENHA` | Uma senha temporária — será trocada no primeiro login (Passo 9) |
+| `SEED_ADMIN_SENHA` | Uma senha temporária — será trocada no primeiro login (Passo 10) |
 
 **Nunca envie este arquivo preenchido para o repositório Git.** Ele já
 está listado no `.gitignore`, mas vale conferir com `git status` que
 `.env.producao` não aparece como "a ser adicionado".
 
-## Passo 5 — Gerar o AUTH_SECRET
+## Passo 6 — Gerar o AUTH_SECRET
 
 Esta chave assina as sessões de login. Gere uma aleatória:
 
@@ -101,7 +129,7 @@ openssl rand -base64 32
 
 Copie o resultado para `AUTH_SECRET=` dentro de `.env.producao`.
 
-## Passo 6 — Subir os containers
+## Passo 7 — Subir os containers
 
 ```bash
 docker compose --env-file .env.producao up -d --build
@@ -121,7 +149,7 @@ base e compilando).
 > compose` deste guia já inclui a opção — mantenha o padrão em qualquer
 > comando novo que você rodar.
 
-## Passo 7 — Acompanhar os logs
+## Passo 8 — Acompanhar os logs
 
 ```bash
 docker compose --env-file .env.producao logs -f app
@@ -142,24 +170,30 @@ Espere aparecer, nesta ordem:
 de log com `Ctrl+C` — isso não para o container, só para de exibir o
 log.
 
+**Se aparecer `[entrypoint] AVISO: o seed falhou`**, pare aqui — veja
+"A tela de login abre, mas nenhuma senha funciona" em "Problemas
+comuns" antes de seguir para o Passo 9. Um servidor que sobe sem erro
+não é garantia de que exista usuário para entrar.
+
 Se a emissão do certificado HTTPS ainda não tiver terminado, veja também:
 
 ```bash
 docker compose --env-file .env.producao logs -f caddy
 ```
 
-## Passo 8 — Verificar o acesso
+## Passo 9 — Verificar o acesso
 
 Abra `https://<seu-dominio>/login` num navegador (troque
 `<seu-dominio>` pelo valor de `DOMINIO`). Deve aparecer a tela de login,
 com um cadeado válido no navegador.
 
-Se a página não abrir: confira o DNS (Passo 1) e os logs do `caddy`
-acima. A emissão do certificado só funciona com o domínio já apontando
-para o IP correto e as portas 80 e 443 livres na VPS (nenhum outro
-serviço usando-as).
+Se a página não abrir: confira o DNS (Passo 1), as portas 80/443
+liberadas (Passo 2) e os logs do `caddy` acima. A emissão do
+certificado só funciona com o domínio já apontando para o IP correto e
+as portas 80 e 443 livres e alcançáveis de fora (nenhum outro serviço
+nem firewall bloqueando-as).
 
-## Passo 9 — Trocar a senha do usuário inicial (obrigatório, agora)
+## Passo 10 — Trocar a senha do usuário inicial (obrigatório, agora)
 
 Faça login com `SEED_ADMIN_EMAIL` e a senha temporária de
 `SEED_ADMIN_SENHA`, e troque a senha imediatamente pela tela do sistema.
@@ -181,10 +215,33 @@ docker compose --env-file .env.producao up -d --build
 
 Isso reconstrói a imagem e reinicia os containers — as migrations do
 banco rodam de novo automaticamente no início do container `app` (é o
-mesmo entrypoint do Passo 6). **Não existe passo manual de migration**:
+mesmo entrypoint do Passo 7). **Não existe passo manual de migration**:
 rodar este comando é sempre suficiente, e esquecer de rodá-lo depois de
 um `git pull` é o erro mais comum — o sintoma costuma ser a aplicação
 não refletir a mudança esperada, sem nenhum erro visível.
+
+## Parando o sistema
+
+```bash
+docker compose --env-file .env.producao down
+```
+
+Para os containers e os remove, mas **preserva os dados** — os volumes
+nomeados (`lar_pgdata`, o banco; `lar_uploads`, os documentos anexados)
+continuam intactos no disco. Rodar `docker compose --env-file
+.env.producao up -d --build` de novo depois disso recria tudo do jeito
+que estava.
+
+```bash
+docker compose --env-file .env.producao down -v
+```
+
+**Isto é diferente e destrutivo.** O `-v` apaga também os volumes —
+ou seja, apaga o banco de dados inteiro e todos os documentos anexados,
+sem confirmação adicional. Não existe uso rotineiro para este comando
+neste sistema. Se algum dia parecer necessário rodá-lo, faça um backup
+manual antes (`docs/operacao/backup.md`) e tenha certeza absoluta do
+que está fazendo — não há como desfazer depois.
 
 ## Por que TZ=America/Sao_Paulo não é opcional
 
@@ -242,14 +299,27 @@ docker compose --env-file .env.producao exec app sh -c 'psql "$DATABASE_URL"'
 
 **A tela de login não abre, e os logs do `caddy` mostram erro de
 certificado.**
-Confirme que o DNS já propagou (`ping <dominio>`) e que nada mais na VPS
-está usando as portas 80/443 (`sudo ss -tlnp | grep -E ':80|:443'`
-deveria mostrar só o Caddy).
+Confirme que o DNS já propagou (`ping <dominio>`), que as portas 80 e
+443 estão liberadas no firewall do sistema **e** no do provedor de
+nuvem (Passo 2), e que nada mais na VPS está usando essas portas
+(`sudo ss -tlnp | grep -E ':80|:443'` deveria mostrar só o Caddy).
 
 **Login falha com algo sobre "UntrustedHost" nos logs do `app`.**
 Confere se `DOMINIO` em `.env.producao` está correto e sem `http://` ou
 `https://` na frente (só o domínio, ex.: `lar.suaorganizacao.org.br`) —
 o `docker-compose.yml` já monta a URL completa a partir dele.
+
+**A tela de login abre, mas nenhuma senha funciona.**
+Procure `AVISO: o seed falhou` nos logs (`docker compose --env-file
+.env.producao logs app`). Se aparecer, o usuário inicial não foi
+criado — o erro logo acima dessa linha diz por quê. A causa mais
+provável num primeiro deploy é o binário nativo do Argon2 não carregar
+na arquitetura do servidor (ver "Antes de começar", sobre construir a
+imagem na própria VPS). Este é o cenário mais caro de diagnosticar às
+cegas: HTTPS funciona, a tela aparece, o banco está de pé — e o sistema
+é inutilizável até o seed rodar com sucesso. Depois de corrigir a
+causa, rode novamente `docker compose --env-file .env.producao up -d
+--build` para o entrypoint tentar o seed de novo.
 
 **O container `app` reinicia sem parar (`docker compose ps` mostra
 "Restarting").**
