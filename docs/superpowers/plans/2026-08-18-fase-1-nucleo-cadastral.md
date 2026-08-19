@@ -7289,9 +7289,15 @@ RUN chmod +x /docker-entrypoint.sh
 # Num sistema que guarda documento e prontuário de idoso, rodar como usuário
 # dedicado é redução de superfície barata: se a aplicação for comprometida, o
 # invasor não herda o container inteiro.
+#
+# A posse de /app vem de `--chown=lar:lar` em cada `COPY` deste estágio, não de
+# um `chown -R` no fim: sobre um filesystem overlay, o `chown` recursivo força
+# copy-up de cada arquivo tocado para uma camada nova — com `node_modules`, isso
+# duplica mais de 100 MB na imagem. Já `/data` pode usar `chown -R` sem custo,
+# porque está vazio neste ponto: são só os dois diretórios recém-criados.
 RUN addgroup -g 1001 -S lar && adduser -u 1001 -S lar -G lar \
  && mkdir -p /data/uploads \
- && chown -R lar:lar /app /data
+ && chown -R lar:lar /data
 USER lar
 
 EXPOSE 3000
