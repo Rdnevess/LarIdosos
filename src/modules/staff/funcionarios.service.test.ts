@@ -234,6 +234,39 @@ describe('listarConselhosVencendo', () => {
     expect(vencendo.map((f) => f.nomeCompleto)).toEqual(['Ana Paula Souza'])
   })
 
+  it('não inclui funcionário desligado, mesmo com conselho vencendo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const emVinteDias = new Date(Date.now() + 20 * 86_400_000)
+
+    const funcionario = await criarFuncionario(ctx, {
+      ...dadosValidos,
+      conselhoValidade: emVinteDias,
+    })
+    await desligarFuncionario(ctx, funcionario.id, {
+      dataDesligamento: new Date('2026-06-30'),
+      motivoDesligamento: 'Pedido de demissão',
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
+
+  it('não inclui funcionário ativo sem data de validade de conselho', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    await criarFuncionario(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Carlos Lima',
+      cpf: '123.456.789-09',
+      cargo: 'Cozinheiro',
+      conselhoSigla: undefined,
+      conselhoNumero: undefined,
+      conselhoUf: undefined,
+      conselhoValidade: undefined,
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
+
   it('nega para o papel SAUDE', async () => {
     const ctx = await ctxComPapel('SAUDE')
     await expect(listarConselhosVencendo(ctx, 30)).rejects.toThrow(ErroPermissao)

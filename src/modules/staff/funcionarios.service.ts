@@ -167,6 +167,14 @@ export async function desligarFuncionario(
   })
 }
 
+/**
+ * Não audita, ao contrário de `listarAnotacoes`. É relatório operacional
+ * multi-pessoa, com campos já reduzidos: sigla, número, UF e validade de
+ * registro profissional são dados verificáveis no cadastro público do próprio
+ * conselho, não a categoria que o resto do módulo trata como sensível (CPF, RG,
+ * endereço — todos fora do `select`). Cai na regra geral de listagem, não na
+ * exceção.
+ */
 export type ConselhoVencendo = Pick<
   Funcionario,
   'id' | 'nomeCompleto' | 'conselhoSigla' | 'conselhoNumero' | 'conselhoUf' | 'conselhoValidade'
