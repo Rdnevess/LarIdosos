@@ -74,6 +74,9 @@ test('registra anotação, responsável e avaliação na ficha', async ({ page }
 
   const secaoAnotacoes = page.getByRole('group').filter({ hasText: 'Anotações (' })
   await expect(secaoAnotacoes).toContainText('Queda sem lesão no banho.')
+  // Rótulo em pt-BR, não o valor cru do enum ("OCORRENCIA").
+  await expect(secaoAnotacoes).toContainText('Ocorrência')
+  await expect(secaoAnotacoes).not.toContainText('OCORRENCIA')
   await expect(secaoAnotacoes.getByText('Anotações (1)')).toBeVisible()
 
   // Responsáveis — seção fechada por padrão.
@@ -173,4 +176,55 @@ test('anexa um documento na ficha e o entrega pelo endpoint autenticado', async 
   expect(resposta.status()).toBe(200)
   expect(resposta.headers()['content-type']).toBe('application/pdf')
   expect(await resposta.text()).toContain('conteúdo de teste')
+})
+
+test('marca contato de emergência e ele aparece no cabeçalho da ficha', async ({ page }) => {
+  const nome = `Idosa Emergencia ${Date.now()}`
+  await cadastrarResidente(page, nome)
+
+  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
+  await page.getByLabel('Nome').fill('João da Silva')
+  await page.getByLabel('Parentesco').fill('Filho')
+  await page.getByLabel('Telefone principal').fill('(65) 99999-0000')
+  await page.getByLabel('É contato de emergência').check()
+  await page.getByRole('button', { name: 'Adicionar responsável' }).click()
+
+  // O cabeçalho é onde alguém procura o telefone numa urgência: se a marcação
+  // não for gravada, esta linha fica vazia e o teste falha.
+  const linhaEmergencia = page.locator('dl > div').filter({ hasText: 'Emergência:' })
+  await expect(linhaEmergencia).toContainText('João da Silva ((65) 99999-0000)')
+
+  // E o padrão `true` de `autorizadoVisitar` continua de pé: a caixa vem
+  // marcada, então o responsável não pode ser gravado como proibido de visitar.
+  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
+  await expect(page.getByLabel('Autorizado a visitar')).toBeChecked()
+})
+
+test('corrige um cadastro pela tela de edição', async ({ page }) => {
+  const nome = `Idoso Edicao ${Date.now()}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1941-09-14')
+  await page.getByLabel('Sexo').selectOption('MASCULINO')
+  await page.getByLabel('Data de admissão').fill('2026-03-10')
+  await page.getByLabel('Quarto').fill('2')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+
+  await page.getByRole('link', { name: 'Editar cadastro' }).click()
+  await expect(page.getByLabel('Quarto')).toHaveValue('2')
+  await page.getByLabel('Quarto').fill('9')
+  await page.getByRole('button', { name: 'Salvar alterações' }).click()
+
+  await expect(page.getByRole('status')).toBeVisible()
+
+  // A confirmação na tela não prova gravação: a ficha é que mostra o que ficou
+  // no banco.
+  await page.getByRole('link', { name: 'Residentes' }).click()
+  await page.getByLabel('Buscar por nome').fill(nome)
+  await page.getByRole('button', { name: 'Filtrar' }).click()
+  await page.getByRole('link', { name: new RegExp(nome) }).click()
+  await expect(page.locator('dl > div').filter({ hasText: 'Quarto/leito:' })).toContainText(
+    '9 / —'
+  )
 })

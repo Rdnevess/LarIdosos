@@ -45,6 +45,19 @@ export function FormularioResponsavel({ residenteId }: { residenteId: string }) 
         { nome: 'telefonePrincipal', rotulo: 'Telefone principal', obrigatorio: true },
         { nome: 'telefoneSecundario', rotulo: 'Telefone secundário' },
         { nome: 'email', rotulo: 'E-mail', tipo: 'email' },
+        // Sem estas três, a ação lê `dados.get(...) === 'on'` de campos que não
+        // existem e grava tudo como `false`: o contato de emergência nunca
+        // apareceria no cabeçalho da ficha — exatamente o dado que alguém
+        // procura numa urgência —, e `autorizadoVisitar` sobrescreveria com
+        // `false` o padrão `true` do schema.
+        { nome: 'ehResponsavelLegal', rotulo: 'É responsável legal', tipo: 'checkbox' },
+        { nome: 'ehContatoEmergencia', rotulo: 'É contato de emergência', tipo: 'checkbox' },
+        {
+          nome: 'autorizadoVisitar',
+          rotulo: 'Autorizado a visitar',
+          tipo: 'checkbox',
+          marcadoInicial: true,
+        },
       ]}
     />
   )

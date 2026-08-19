@@ -1,10 +1,11 @@
 export type PropsCampo = {
   nome: string
   rotulo: string
-  tipo?: 'text' | 'date' | 'number' | 'email'
+  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox'
   obrigatorio?: boolean
   opcoes?: { valor: string; rotulo: string }[]
   valorInicial?: string
+  marcadoInicial?: boolean
 }
 
 export function Campo({
@@ -14,11 +15,29 @@ export function Campo({
   obrigatorio,
   opcoes,
   valorInicial,
+  marcadoInicial,
 }: PropsCampo) {
   // `text-base` (16px) é deliberado: em iOS, fonte menor faz o navegador dar
   // zoom automático ao focar o campo — atrapalha justamente quem está com o
   // celular na mão, em pé no corredor.
   const classe = 'w-full rounded border border-slate-300 px-3 py-2 text-base'
+
+  // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
+  // alvo de toque grande o bastante para o dedo (`h-5 w-5`), sem `w-full`.
+  if (tipo === 'checkbox') {
+    return (
+      <label htmlFor={nome} className="flex items-center gap-2 py-2">
+        <input
+          id={nome}
+          name={nome}
+          type="checkbox"
+          defaultChecked={marcadoInicial}
+          className="h-5 w-5 rounded border-slate-300"
+        />
+        <span className="text-sm font-medium text-slate-700">{rotulo}</span>
+      </label>
+    )
+  }
 
   return (
     <div className="space-y-1">

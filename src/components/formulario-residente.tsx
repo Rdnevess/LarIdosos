@@ -68,6 +68,10 @@ export function FormularioResidente({
 
   return (
     <form action={enviar} className="space-y-4">
+      {/* Sem isto `acaoAtualizarResidente` não sabe quem atualizar: é ela quem
+          lê `dados.get('id')`. No cadastro não há residente, e nada é emitido. */}
+      {residente && <input type="hidden" name="id" value={residente.id} />}
+
       <div className="grid gap-4 sm:grid-cols-2">
         {CAMPOS_RESIDENTE.map((campo) => (
           <Campo key={campo.nome} {...campo} valorInicial={valorInicial(campo.nome)} />
@@ -77,6 +81,14 @@ export function FormularioResidente({
       {estado?.erro && (
         <p role="alert" className="text-sm text-red-600">
           {estado.erro}
+        </p>
+      )}
+
+      {/* A edição não redireciona: sem este aviso o usuário salva e não recebe
+          sinal nenhum de que a correção foi gravada. */}
+      {estado?.sucesso && (
+        <p role="status" className="text-sm text-green-700">
+          Cadastro salvo.
         </p>
       )}
 

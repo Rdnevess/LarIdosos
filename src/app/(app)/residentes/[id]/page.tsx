@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterResidente } from '@/modules/residents/residentes.service'
 import { listarResponsaveis } from '@/modules/residents/responsaveis.service'
@@ -14,6 +15,35 @@ import {
   FormularioAvaliacao,
 } from '@/components/formularios-ficha'
 import { FormularioDocumento } from '@/components/formulario-documento'
+
+// A tela nunca mostra o valor cru do enum. "VISITA_FAMILIA" é identificador de
+// código; quem lê a ficha é a equipe do Lar, e a interface é toda em pt-BR. O
+// `??` adiante deixa o valor cru aparecer se surgir um enum novo — melhor um
+// rótulo feio que um campo vazio na ficha.
+const ROTULO_CATEGORIA: Record<string, string> = {
+  COMPORTAMENTO: 'Comportamento',
+  VISITA_FAMILIA: 'Visita da família',
+  OCORRENCIA: 'Ocorrência',
+  SOCIAL: 'Social',
+  JURIDICO: 'Jurídico',
+  OUTRO: 'Outro',
+}
+
+const ROTULO_TIPO_DOCUMENTO: Record<string, string> = {
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+  OUTRO: 'Outro',
+}
 
 export default async function FichaResidente({
   params,
@@ -45,9 +75,19 @@ export default async function FichaResidente({
   return (
     <section className="space-y-4">
       <header className="rounded border bg-white p-4">
-        <h1 className="text-lg font-semibold text-slate-800">
-          {residente.nomeSocial || residente.nomeCompleto}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-lg font-semibold text-slate-800">
+            {residente.nomeSocial || residente.nomeCompleto}
+          </h1>
+          {podeCadastrar && (
+            <Link
+              href={`/residentes/${residente.id}/editar`}
+              className="whitespace-nowrap text-sm text-slate-600 underline"
+            >
+              Editar cadastro
+            </Link>
+          )}
+        </div>
         <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
           <div className="flex gap-2">
             <dt className="text-slate-500">Nascimento:</dt>
@@ -84,7 +124,8 @@ export default async function FichaResidente({
           {anotacoes.map((anotacao) => (
             <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
               <p className="text-sm text-slate-500">
-                {formatarDataHora(anotacao.criadoEm)} · {anotacao.categoria}
+                {formatarDataHora(anotacao.criadoEm)} ·{' '}
+                {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
                 {anotacao.retificaAnotacaoId && ' · retificação'}
               </p>
               <p className="text-slate-800">{anotacao.texto}</p>
@@ -137,7 +178,8 @@ export default async function FichaResidente({
                 rel="noreferrer"
                 className="text-slate-800 underline"
               >
-                {documento.tipo} — {documento.nomeArquivoOriginal}
+                {ROTULO_TIPO_DOCUMENTO[documento.tipo] ?? documento.tipo} —{' '}
+                {documento.nomeArquivoOriginal}
               </a>
             </li>
           ))}
