@@ -7480,41 +7480,85 @@ git commit -m "Adiciona implantação com Docker, Caddy e migrations no start"
 #!/bin/sh
 set -eu
 
-# Carrega POSTGRES_USER/POSTGRES_DB do mesmo arquivo usado pelo compose.
+# Só as duas variáveis necessárias, extraídas — não `.` no arquivo inteiro.
+# O env-file do Compose não é script de shell: a senha do Postgres é escolhida
+# por humano, e um `$(...)` ali viraria comando executado como root pelo cron.
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
 [ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
-. "$ARQUIVO_ENV"
+PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
+PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+[ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes em $ARQUIVO_ENV" >&2; exit 1; }
 
 DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
 REMOTO="${RCLONE_REMOTO:-}"
-SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
+COMPOSE="docker compose --env-file $ARQUIVO_ENV"
 CARIMBO=$(date +%Y-%m-%d_%H%M)
 
+# A senha vai por arquivo, não por argumento: `--passphrase` na linha de comando
+# fica visível em `ps` para qualquer usuário da máquina enquanto o gpg roda.
+ARQUIVO_SENHA="${ARQUIVO_SENHA_BACKUP:-/opt/lar/.senha-backup}"
+[ -f "$ARQUIVO_SENHA" ] || { echo "Arquivo de senha não encontrado: $ARQUIVO_SENHA" >&2; exit 1; }
+
+case "$DESTINO" in
+  /|/root|/home|/var|/etc|/usr) echo "DESTINO_BACKUP perigoso: $DESTINO" >&2; exit 1 ;;
+esac
+
 mkdir -p "$DESTINO"
+chmod 700 "$DESTINO"
 
-echo "[1/4] Exportando o banco..."
-docker compose exec -T db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
-  | gzip > "$DESTINO/banco_$CARIMBO.sql.gz"
+BANCO="$DESTINO/banco_$CARIMBO.sql"
+UPLOADS="$DESTINO/uploads_$CARIMBO.tar.gz"
+trap 'rm -f "$BANCO" "$BANCO.gz" "$UPLOADS"' EXIT
 
-echo "[2/4] Empacotando os arquivos enviados..."
-docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine \
+echo "[1/6] Conferindo que o volume de uploads existe..."
+# `docker run -v lar_uploads:...` CRIA o volume se ele não existir — um erro de
+# nome produziria um tar de diretório vazio, criptografado e enviado como se
+# fosse backup. Volume legitimamente vazio é válido; volume inexistente não.
+docker volume inspect lar_uploads >/dev/null
+
+echo "[2/6] Exportando o banco..."
+# Sem pipe: o código de saída de `a | b` é o de `b`, então um pg_dump que
+# falhasse seria mascarado por um gzip bem-sucedido sobre entrada vazia.
+# `--clean --if-exists` é o que permite restaurar sobre banco povoado.
+$COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" > "$BANCO"
+
+# `[ -s ]` só pega arquivo vazio. Um dump truncado (disco cheio, conexão
+# perdida no meio) passaria. O pg_dump sempre termina com esta linha.
+tail -5 "$BANCO" | grep -q 'PostgreSQL database dump complete' \
+  || { echo "Dump incompleto — abortando sem enviar nada." >&2; exit 1; }
+gzip -f "$BANCO"
+
+echo "[3/6] Empacotando os arquivos enviados..."
+docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine:3.20 \
   tar czf "/saida/uploads_$CARIMBO.tar.gz" -C /dados .
 
-echo "[3/4] Criptografando..."
-for arquivo in "$DESTINO/banco_$CARIMBO.sql.gz" "$DESTINO/uploads_$CARIMBO.tar.gz"; do
-  gpg --batch --yes --passphrase "$SENHA_GPG" --symmetric --cipher-algo AES256 "$arquivo"
-  rm "$arquivo"
+echo "[4/6] Criptografando..."
+for arquivo in "$BANCO.gz" "$UPLOADS"; do
+  gpg --batch --yes --pinentry-mode loopback \
+      --passphrase-file "$ARQUIVO_SENHA" \
+      --symmetric --cipher-algo AES256 "$arquivo"
+  rm -f "$arquivo"
 done
 
-echo "[4/4] Enviando para fora da VPS..."
+echo "[5/6] Enviando para fora da VPS..."
 if [ -n "$REMOTO" ]; then
   rclone copy "$DESTINO" "$REMOTO" --include "*_$CARIMBO.*.gpg"
+  # `rclone copy` com filtro que não casa copia zero arquivo e sai 0.
+  enviados=$(rclone lsf "$REMOTO" --include "*_$CARIMBO.*.gpg" | wc -l)
+  [ "$enviados" -eq 2 ] || { echo "Esperava 2 arquivos no remoto, encontrei $enviados." >&2; exit 1; }
 else
   echo "AVISO: RCLONE_REMOTO não definido — a cópia ficou apenas local."
 fi
 
-find "$DESTINO" -name "*.gpg" -mtime +30 -delete
+echo "[6/6] Aplicando retenção de 30 dias..."
+find "$DESTINO" -maxdepth 1 -type f -name "*.gpg" -mtime +30 -delete
 
+# Marca de sucesso: um segundo cron semanal reclama se este arquivo envelhecer.
+# Sem isso, backup quebrado é indistinguível de backup saudável até alguém
+# abrir o log por conta própria — e o modo de falha aqui é "ninguém percebe".
+date +%Y-%m-%dT%H:%M > "$DESTINO/ultimo_sucesso"
+
+trap - EXIT
 echo "Backup $CARIMBO concluído."
 ```
 
@@ -7530,32 +7574,85 @@ set -eu
 
 ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
 [ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
-. "$ARQUIVO_ENV"
+PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
+PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+[ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes." >&2; exit 1; }
 
 ARQUIVO_BANCO="${1:?Informe o arquivo .sql.gz.gpg do banco}"
 ARQUIVO_UPLOADS="${2:?Informe o arquivo .tar.gz.gpg dos uploads}"
-SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
+[ -f "$ARQUIVO_BANCO" ] || { echo "Não encontrei: $ARQUIVO_BANCO" >&2; exit 1; }
+[ -f "$ARQUIVO_UPLOADS" ] || { echo "Não encontrei: $ARQUIVO_UPLOADS" >&2; exit 1; }
 
-echo "ATENÇÃO: isto substitui os dados atuais. Ctrl+C para abortar."
-sleep 5
+ARQUIVO_SENHA="${ARQUIVO_SENHA_BACKUP:-/opt/lar/.senha-backup}"
+[ -f "$ARQUIVO_SENHA" ] || { echo "Arquivo de senha não encontrado: $ARQUIVO_SENHA" >&2; exit 1; }
 
-echo "[1/3] Descriptografando..."
-gpg --batch --yes --passphrase "$SENHA_GPG" -o /tmp/banco.sql.gz -d "$ARQUIVO_BANCO"
-gpg --batch --yes --passphrase "$SENHA_GPG" -o /tmp/uploads.tar.gz -d "$ARQUIVO_UPLOADS"
+DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
+COMPOSE="docker compose --env-file $ARQUIVO_ENV"
+CARIMBO=$(date +%Y-%m-%d_%H%M)
+TRABALHO=$(mktemp -d)
+trap 'rm -rf "$TRABALHO"' EXIT
 
-echo "[2/3] Restaurando o banco..."
-docker compose stop app
-gunzip -c /tmp/banco.sql.gz \
-  | docker compose exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+echo "ATENÇÃO: isto SUBSTITUI o banco e TODOS os documentos atuais."
+echo "  Banco:    $ARQUIVO_BANCO"
+echo "  Arquivos: $ARQUIVO_UPLOADS"
+echo "Confira os carimbos de data acima antes de continuar."
+printf 'Digite RESTAURAR para confirmar: '
+read -r resposta
+[ "$resposta" = "RESTAURAR" ] || { echo "Abortado."; exit 1; }
 
-echo "[3/3] Restaurando os arquivos..."
-docker run --rm -v lar_uploads:/dados -v /tmp:/entrada alpine \
-  sh -c "rm -rf /dados/* && tar xzf /entrada/uploads.tar.gz -C /dados"
+echo "[1/6] Guardando o estado atual antes de sobrescrever..."
+# O erro provável não é ignorar que a operação é destrutiva — é escolher o
+# carimbo errado entre dois nomes quase idênticos, de madrugada, num incidente.
+# Sem esta cópia não há volta.
+RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
+mkdir -p "$RESGUARDO"
+$COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
+  > "$RESGUARDO/banco.sql"
+docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
+  tar czf /saida/uploads.tar.gz -C /dados .
+echo "      Estado anterior guardado em $RESGUARDO"
 
-docker compose start app
-rm -f /tmp/banco.sql.gz /tmp/uploads.tar.gz
+echo "[2/6] Descriptografando..."
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/banco.sql.gz" -d "$ARQUIVO_BANCO"
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/uploads.tar.gz" -d "$ARQUIVO_UPLOADS"
 
-echo "Restauração concluída. Confira a aplicação."
+echo "[3/6] Validando os pacotes ANTES de tocar nos dados..."
+gunzip -t "$TRABALHO/banco.sql.gz"
+# Sem esta validação, um tarball corrompido só seria descoberto depois de o
+# volume já ter sido esvaziado — os documentos apagados e nada para repor.
+docker run --rm -v "$TRABALHO":/entrada alpine:3.20 \
+  tar tzf /entrada/uploads.tar.gz > /dev/null
+
+echo "[4/6] Restaurando o banco..."
+$COMPOSE stop app
+gunzip -c "$TRABALHO/banco.sql.gz" > "$TRABALHO/banco.sql"
+# `ON_ERROR_STOP=1` é o que impede a restauração de "concluir com sucesso" sem
+# ter restaurado nada: sem ele, um COPY que colida com linha existente aborta só
+# aquela tabela, o psql segue adiante e sai com código 0. É seguro porque o dump
+# é gerado com `--clean --if-exists`, então não há erro de "já existe".
+$COMPOSE exec -T db psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d "$PGDB" < "$TRABALHO/banco.sql"
+
+echo "[5/6] Restaurando os arquivos..."
+# Extrai ao lado e só então troca: o volume nunca fica vazio sem substituto.
+docker run --rm -v lar_uploads:/dados -v "$TRABALHO":/entrada alpine:3.20 sh -c '
+  set -e
+  rm -rf /dados/.novo && mkdir -p /dados/.novo
+  tar xzf /entrada/uploads.tar.gz -C /dados/.novo
+  find /dados -mindepth 1 -maxdepth 1 ! -name .novo -exec rm -rf {} +
+  mv /dados/.novo/* /dados/ 2>/dev/null || true
+  mv /dados/.novo/.[!.]* /dados/ 2>/dev/null || true
+  rmdir /dados/.novo
+  chown -R 1001:1001 /dados
+'
+
+echo "[6/6] Subindo a aplicação..."
+$COMPOSE start app
+
+echo "Restauração concluída."
+echo "Confira na aplicação: o residente aparece E o documento anexado abre."
+echo "Estado anterior, se precisar voltar: $RESGUARDO"
 ```
 
 - [ ] **Step 3: Agendar a execução diária**
@@ -7572,11 +7669,17 @@ O `cron` roda com ambiente mínimo — daí os scripts carregarem o `.env.produc
 
 Este passo não é opcional e não pode ser marcado sem ter sido feito de verdade:
 
-1. Cadastre um residente com nome reconhecível e anexe um documento
-2. Rode `sh scripts/backup.sh`
-3. Apague o residente diretamente no banco e remova o arquivo do volume
-4. Rode `sh scripts/restaurar.sh <banco.gpg> <uploads.gpg>`
-5. Confirme na aplicação que o residente voltou **e que o documento anexado abre**
+1. Cadastre um residente com nome reconhecível e anexe um documento. **Não cadastre mais nada nele** — responsável, anotação ou avaliação criam vínculos que fazem o passo 3 falhar por chave estrangeira.
+2. Anote o `caminhoArmazenamento` do documento: `docker compose --env-file .env.producao exec -T db psql -U lar -d lar -c "select \"caminhoArmazenamento\" from documentos;"`
+3. Rode `sh scripts/backup.sh`
+4. Apague o residente **e o arquivo**, nesta ordem:
+   - `delete from documentos where "residenteId" = '<id>';` e `delete from residentes where id = '<id>';`
+   - `docker run --rm -v lar_uploads:/dados alpine:3.20 rm -f /dados/<caminhoArmazenamento>`
+5. **Confirme que quebrou antes de restaurar:** o residente sumiu da lista e, se você tinha o link do documento aberto, ele agora dá 404. Sem este passo o teste pode passar por acidente.
+6. Rode `sh scripts/restaurar.sh <banco.gpg> <uploads.gpg>`
+7. Confirme na aplicação que o residente voltou **e que o documento anexado abre** — não basta aparecer na lista; clique e veja o conteúdo.
+
+O passo 4 apaga o arquivo de propósito, mesmo que o `restaurar.sh` esvazie o volume de qualquer forma. Depender desse efeito colateral tornaria o teste inútil no dia em que aquela linha do script mudasse — e o teste existe justamente para pegar a divergência entre banco e arquivos.
 
 Um backup de banco que restaura sem os arquivos é uma falha silenciosa: a tela mostra o documento na lista e o download quebra. É exatamente o tipo de defeito que só aparece no dia em que já é tarde.
 
