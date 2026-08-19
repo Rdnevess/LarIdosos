@@ -123,40 +123,66 @@ que você der ao remoto ali (ex.: `b2` ou `s3`) é o que entra em
 crontab -e
 ```
 
-Adicione a linha (troque o valor de `RCLONE_REMOTO` pelo remoto
-configurado — remova essa variável se ainda não tiver envio remoto
-configurado, mas veja o aviso em "Para onde vai" sobre isso):
+Adicione as linhas (troque `coordenacao@lar.exemplo.org.br` por um
+e-mail de verdade que alguém confira, e o valor de `RCLONE_REMOTO` pelo
+remoto configurado — remova essa variável se ainda não tiver envio
+remoto configurado, mas veja o aviso em "Para onde vai" sobre isso):
 
 ```
+MAILTO=coordenacao@lar.exemplo.org.br
 0 3 * * * cd /opt/lar && RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+
+# Alerta diário se o último sucesso envelhecer OU nunca tiver existido.
+0 8 * * * find /var/backups/lar/ultimo_sucesso -mtime -2 2>/dev/null | grep -q . || echo "$(date): ALERTA - backup do Lar sem sucesso ha mais de 2 dias" >> /var/log/lar-backup.log
 ```
 
-Repare que **não há senha nenhuma nesta linha** — `scripts/backup.sh` lê
-`/opt/lar/.senha-backup` sozinho (ver seção anterior). O cron roda com um
+Repare que **não há senha nenhuma nestas linhas** — `scripts/backup.sh`
+lê `/opt/lar/.senha-backup` sozinho (ver seção anterior). Colocar a
+senha na linha do `crontab`, mesmo que fosse mais conveniente, ficaria
+visível para qualquer processo que rodasse `crontab -l` e entraria no
+histórico do shell de quem editasse o arquivo. O cron roda com um
 ambiente praticamente vazio — bem diferente do shell de quem loga por
-SSH. Por isso a linha acima define o que o script precisa
+SSH. Por isso a primeira linha define o que o script precisa
 (`RCLONE_REMOTO`, `ARQUIVO_ENV`), e o próprio `scripts/backup.sh` extrai
 `POSTGRES_USER`/`POSTGRES_DB` de dentro do `.env.producao` em vez de
 esperar que o ambiente já os tenha.
 
+O `MAILTO` faz o `cron` enviar por e-mail qualquer saída de erro dos
+comandos agendados (depende de a VPS ter um serviço de envio de e-mail
+configurado — a maioria das imagens de VPS já vem com um mínimo
+funcional para isso; se o seu provedor não tiver, o alerta abaixo ainda
+funciona, só que só aparece no log). Sem o `MAILTO` — e com o `2>&1`
+mandando tudo para o arquivo —, uma falha do backup fica indistinguível
+de um sucesso até alguém abrir o log por conta própria, o que numa
+instituição pequena pode levar meses.
+
 Um backup que falha silenciosamente às 3h da manhã só costuma ser
-descoberto no dia em que alguém precisa restaurar — daí duas proteções
-além do `>> /var/log/lar-backup.log 2>&1`:
+descoberto no dia em que alguém precisa restaurar — daí a segunda linha
+de cron acima, que depende de uma marca que `scripts/backup.sh` grava:
+só em caso de sucesso completo, ele escreve a hora atual em
+`$DESTINO/ultimo_sucesso` (por padrão,
+`/var/backups/lar/ultimo_sucesso`).
 
-1. `scripts/backup.sh` grava, só em caso de sucesso completo, a hora
-   atual em `$DESTINO/ultimo_sucesso` (por padrão,
-   `/var/backups/lar/ultimo_sucesso`).
-2. Um segundo agendamento, semanal, pode conferir a idade desse arquivo e
-   deixar um alerta visível no mesmo log se ele estiver velho demais:
+**A ordem do teste importa.** Uma versão mais óbvia desse alerta seria
+"se a marca existe e está velha, avise":
+`[ -f ultimo_sucesso ] && ! find ... -mtime -2 | grep -q . && echo ALERTA`.
+Essa versão fica **muda exatamente no pior caso**: se o backup nunca
+funcionou desde o primeiro dia (arquivo de senha nunca criado, usuário
+do banco errado, nome do volume errado — qualquer coisa que aborte o
+script antes da linha que grava a marca), o arquivo `ultimo_sucesso`
+nunca chega a existir, a primeira condição (`-f`) já é falsa, e nenhum
+alerta é emitido — para sempre. A versão usada acima inverte a lógica
+(`find ... | grep -q . || echo ALERTA`): dispara tanto se a marca está
+velha **quanto** se ela nunca existiu, porque `find` sobre um caminho
+inexistente também não imprime nada e a condição de ausência de saída
+(`grep -q .` falhando) cobre os dois casos igualmente. Rodar diariamente
+(não semanalmente) também importa: verificar só uma vez por semana um
+limite de 2 dias deixa até 7 dias de janela cega entre uma falha
+acontecer e alguém ser avisado.
 
-```
-0 8 * * 1 [ -f /var/backups/lar/ultimo_sucesso ] && ! find /var/backups/lar/ultimo_sucesso -mtime -2 | grep -q . && echo "$(date): ALERTA - o backup do Lar nao conclui com sucesso ha mais de 2 dias" >> /var/log/lar-backup.log
-```
-
-Isso não manda e-mail nem SMS sozinho (a maioria das VPS não tem um
-serviço de e-mail configurado por padrão) — só torna o problema visível
-no log. Continue conferindo `tail -50 /var/log/lar-backup.log` de vez em
-quando, não só quando algo já pareceu dar errado.
+Continue conferindo `tail -50 /var/log/lar-backup.log` de vez em quando,
+mesmo com o alerta — ele cobre "o backup parou de funcionar", não
+"o backup está funcionando mas produzindo algo errado".
 
 ## Como restaurar
 
@@ -178,8 +204,14 @@ escolhidos errado num incidente de madrugada, é o erro mais provável aqui
 — não esquecer que a operação é destrutiva). Ela passa pelo mesmo GPG que
 os backups normais, e o texto claro é removido logo depois de
 criptografar — é o prontuário inteiro de novo, então não podia ficar em
-claro no disco esperando alguém lembrar de protegê-lo à mão. Para abrir,
-descriptografe do mesmo jeito que qualquer arquivo de backup normal:
+claro no disco esperando alguém lembrar de protegê-lo à mão, mesmo se o
+script falhar no meio dessa criptografia (o `trap` de limpeza cobre esse
+caso também). Diferente dos backups normais, essa cópia **não** sai para
+o armazenamento remoto: o filtro do `rclone copy` só alcança os arquivos
+com o carimbo do backup sendo feito ali, então o resguardo é sempre
+local, e serve só para desfazer um engano cometido nesta mesma VPS. Para
+abrir, descriptografe do mesmo jeito que qualquer arquivo de backup
+normal:
 
 ```bash
 gpg --batch --yes --pinentry-mode loopback \
@@ -399,18 +431,18 @@ gpg --batch --yes --pinentry-mode loopback \
   --passphrase-file /opt/lar/.senha-backup \
   -o uploads.tar.gz -d /var/backups/lar/uploads_<carimbo>.tar.gz.gpg
 
-# 3. Carregue o dump no Postgres descartável (banco novo e vazio - os
-#    "DROP TABLE IF EXISTS" do --clean nao encontram nada para apagar,
-#    e ON_ERROR_STOP aqui tambem serve para acusar qualquer erro real)
+# 3. Carregue o dump no Postgres descartável (banco novo e vazio — os
+#    "DROP TABLE IF EXISTS" do --clean não encontram nada para apagar,
+#    e ON_ERROR_STOP aqui também serve para acusar qualquer erro real)
 cat banco.sql | docker exec -i teste-restauracao psql -v ON_ERROR_STOP=1 -U lar -d lar
 
 # 4. Confira que um residente real (ou o de teste, se ainda estiver
-#    dentro do prazo de 30 dias de retencao) esta presente
+#    dentro do prazo de 30 dias de retenção) está presente
 docker exec teste-restauracao psql -U lar -d lar -c "SELECT \"nomeCompleto\" FROM residentes ORDER BY \"criadoEm\" DESC LIMIT 5;"
 
 # 5. Confira a integridade de um documento sem precisar de interface
-#    grafica: compare o hash do arquivo dentro do pacote com o hash
-#    gravado no banco pela propria aplicacao no momento do envio
+#    gráfica: compare o hash do arquivo dentro do pacote com o hash
+#    gravado no banco pela própria aplicação no momento do envio
 #    (coluna "hashSha256" de "documentos"). Troque o caminho pelo que
 #    aparecer na coluna "caminhoArmazenamento" do documento escolhido.
 tar xzf uploads.tar.gz '2026/08/<arquivo>.pdf'
@@ -419,15 +451,21 @@ docker exec teste-restauracao psql -U lar -d lar -c "SELECT \"hashSha256\" FROM 
 # os dois hashes (o do "awk" acima e o da consulta) tem que ser iguais,
 # caractere por caractere.
 
-# 6. Derrube tudo - nada disto tocou a producao
+# 6. Derrube tudo — nada disto tocou a produção
 docker rm -f teste-restauracao
 rm -rf /tmp/teste-restauracao
 ```
 
-Isto confirma exatamente a mesma coisa que o teste completo (o backup
-descriptografa, o banco carrega, o arquivo bate byte a byte com o que
-estava registrado) sem arriscar nenhum dado real da produção. Registre
-esse teste na mesma tabela acima.
+Isto confirma os mesmos três fatos que o teste completo confirma — o
+backup descriptografa, o banco carrega os dados, o arquivo bate byte a
+byte com o que estava registrado — só que por um caminho diferente
+(comparação de hash em vez de abrir o link pelo navegador). Não é a
+mesma verificação: o teste completo também exercita a rota autenticada
+de download da aplicação (`/api/documentos/...`), não só o arquivo em
+si, e este atalho isolado não passa por ali. Ele serve para repetir a
+checagem periodicamente sem arriscar dado real da produção — não para
+substituir o teste completo na primeira vez. Registre esse teste na
+mesma tabela acima.
 
 ## Problemas comuns
 

@@ -94,6 +94,13 @@ echo "[3/6] Empacotando os arquivos enviados..."
 docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine:3.20 \
   tar czf "/saida/uploads_$CARIMBO.tar.gz" -C /dados .
 
+# O dump ganhou verificação de completude; o tarball ficaria sem
+# nenhuma, e o defeito só apareceria no dia da restauração. Mesma
+# checagem que scripts/restaurar.sh faz antes de tocar nos dados:
+# barata aqui, cara lá.
+docker run --rm -v "$DESTINO":/entrada alpine:3.20 \
+  tar tzf "/entrada/uploads_$CARIMBO.tar.gz" > /dev/null
+
 echo "[4/6] Criptografando..."
 for arquivo in "$BANCO.gz" "$UPLOADS"; do
   # --pinentry-mode loopback: sem isto, o GPG pode tentar abrir um
@@ -130,10 +137,11 @@ echo "[6/6] Aplicando retenção de 30 dias..."
 # backup.
 find "$DESTINO" -maxdepth 1 -type f -name "*.gpg" -mtime +30 -delete
 
-# Marca de sucesso: um segundo cron (semanal, por exemplo) pode conferir
-# a idade deste arquivo e alertar se envelhecer demais. Sem isto, um
-# backup quebrado é indistinguível de um saudável até alguém abrir o log
-# por conta própria — e o modo de falha que mais importa aqui é
+# Marca de sucesso: um segundo agendamento no cron (diário — ver
+# docs/operacao/backup.md) confere a idade deste arquivo e alerta se
+# ele envelhecer demais, ou se nunca tiver existido. Sem isto, um
+# backup quebrado é indistinguível de um saudável até alguém abrir o
+# log por conta própria — e o modo de falha que mais importa aqui é
 # "ninguém percebe".
 date +%Y-%m-%dT%H:%M > "$DESTINO/ultimo_sucesso"
 

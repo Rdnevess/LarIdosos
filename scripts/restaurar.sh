@@ -71,6 +71,12 @@ chmod 700 "$DESTINO"
 RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
 mkdir -p "$RESGUARDO"
 chmod 700 "$RESGUARDO"
+# O trap passa a cobrir também o texto claro do resguardo: se o gpg
+# falhar no segundo arquivo, ou se algo morrer entre o pg_dump e o laço
+# de criptografia logo abaixo, o "rm" daquela iteração nunca roda sob
+# "set -e" — e o prontuário de todos os residentes ficaria em claro no
+# disco para sempre. Restaurado ao trap original depois do laço.
+trap 'rm -rf "$TRABALHO"; rm -f "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"' EXIT
 $COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
   > "$RESGUARDO/banco.sql"
 docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
@@ -78,14 +84,16 @@ docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
 
 # O resguardo é o mesmo prontuário que o backup protege — não pode ficar
 # em texto claro no disco esperando alguém lembrar de apagá-lo depois.
-# Passa pelo mesmo GPG e com a mesma senha do backup normal, e o
-# original em texto claro é removido, exatamente como scripts/backup.sh
-# faz com os arquivos que ele mesmo gera.
+# Criptografa com a mesma chave e remove o original. Diferente dos
+# backups normais, ele NÃO é enviado ao remoto: o filtro do rclone só
+# casa os arquivos com o carimbo do backup, então o resguardo é sempre
+# local e serve só a esta máquina.
 for arquivo in "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"; do
   gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
       --symmetric --cipher-algo AES256 "$arquivo"
   rm -f "$arquivo"
 done
+trap 'rm -rf "$TRABALHO"' EXIT
 echo "      Estado anterior guardado (criptografado) em $RESGUARDO"
 
 echo "[2/6] Descriptografando..."
@@ -130,6 +138,7 @@ docker run --rm -v lar_uploads:/dados -v "$TRABALHO":/entrada alpine:3.20 sh -c 
   find /dados -mindepth 1 -maxdepth 1 ! -name .novo -exec rm -rf {} +
   mv /dados/.novo/* /dados/ 2>/dev/null || true
   mv /dados/.novo/.[!.]* /dados/ 2>/dev/null || true
+  mv /dados/.novo/..?* /dados/ 2>/dev/null || true
   rmdir /dados/.novo
   chown -R 1001:1001 /dados
 '
