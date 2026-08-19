@@ -192,12 +192,16 @@ test('marca contato de emergência e ele aparece no cabeçalho da ficha', async 
   // O cabeçalho é onde alguém procura o telefone numa urgência: se a marcação
   // não for gravada, esta linha fica vazia e o teste falha.
   const linhaEmergencia = page.locator('dl > div').filter({ hasText: 'Emergência:' })
-  await expect(linhaEmergencia).toContainText('João da Silva ((65) 99999-0000)')
+  await expect(linhaEmergencia).toContainText('João da Silva')
+  await expect(linhaEmergencia).toContainText('(65) 99999-0000')
 
-  // E o padrão `true` de `autorizadoVisitar` continua de pé: a caixa vem
-  // marcada, então o responsável não pode ser gravado como proibido de visitar.
-  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
-  await expect(page.getByLabel('Autorizado a visitar')).toBeChecked()
+  // `autorizadoVisitar` vem marcado por padrão, então a ficha NÃO deve trazer a
+  // ressalva de visitas. Verificar a ausência do aviso na lista prova o valor
+  // gravado no banco — diferente de reabrir o formulário vazio e conferir que a
+  // caixa vem marcada, que só reafirma o padrão do próprio formulário.
+  const secaoResponsaveis = page.getByRole('group').filter({ hasText: 'Responsáveis (' })
+  await expect(secaoResponsaveis.getByText('João da Silva')).toBeVisible()
+  await expect(page.getByText('visitas não autorizadas')).toHaveCount(0)
 })
 
 test('corrige um cadastro pela tela de edição', async ({ page }) => {

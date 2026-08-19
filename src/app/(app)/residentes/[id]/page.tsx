@@ -151,6 +151,9 @@ export default async function FichaResidente({
               <span className="text-slate-500">
                 — {responsavel.parentesco} · {responsavel.telefonePrincipal}
                 {responsavel.ehResponsavelLegal && ' · responsável legal'}
+                {/* Mostra a exceção, não a regra: quase todo responsável pode
+                    visitar, e é a restrição que a recepção precisa enxergar. */}
+                {!responsavel.autorizadoVisitar && ' · visitas não autorizadas'}
               </span>
             </li>
           ))}
