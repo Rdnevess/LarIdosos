@@ -5175,10 +5175,11 @@ A navegação é montada a partir do papel, mas isso é conveniência — quem b
 export type PropsCampo = {
   nome: string
   rotulo: string
-  tipo?: 'text' | 'date' | 'number' | 'email'
+  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox'
   obrigatorio?: boolean
   opcoes?: { valor: string; rotulo: string }[]
   valorInicial?: string
+  marcadoInicial?: boolean
 }
 
 export function Campo({
@@ -5190,6 +5191,23 @@ export function Campo({
   valorInicial,
 }: PropsCampo) {
   const classe = 'w-full rounded border border-slate-300 px-3 py-2 text-base'
+
+  // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
+  // alvo de toque grande o bastante para o dedo (`h-5 w-5`), sem `w-full`.
+  if (tipo === 'checkbox') {
+    return (
+      <label htmlFor={nome} className="flex items-center gap-2 py-2">
+        <input
+          id={nome}
+          name={nome}
+          type="checkbox"
+          defaultChecked={marcadoInicial}
+          className="h-5 w-5 rounded border-slate-300"
+        />
+        <span className="text-sm font-medium text-slate-700">{rotulo}</span>
+      </label>
+    )
+  }
 
   return (
     <div className="space-y-1">
@@ -5680,6 +5698,56 @@ export default function PaginaNovoResidente() {
 }
 ```
 
+- [ ] **Step 6b: Criar a tela de edição do cadastro**
+
+Sem ela, `acaoAtualizarResidente` fica sem chamador e **um cadastro digitado errado não tem como ser corrigido pela interface** — nome trocado, data de nascimento errada, quarto desatualizado. Numa instituição onde a admissão é digitada às pressas, isso não é hipótese remota.
+
+`src/app/(app)/residentes/[id]/editar/page.tsx`:
+
+```tsx
+import { obterCtx } from '@/modules/auth/sessao'
+import { obterResidente } from '@/modules/residents/residentes.service'
+import { FormularioResidente } from '@/components/formulario-residente'
+import { acaoAtualizarResidente } from '../../acoes'
+
+export default async function PaginaEditarResidente({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const ctx = await obterCtx()
+  const residente = await obterResidente(ctx, id)
+
+  return (
+    <section className="space-y-4">
+      <h1 className="text-lg font-semibold text-slate-800">
+        Editar {residente.nomeSocial || residente.nomeCompleto}
+      </h1>
+      <FormularioResidente
+        acao={acaoAtualizarResidente}
+        residente={residente}
+        rotuloBotao="Salvar alterações"
+      />
+    </section>
+  )
+}
+```
+
+O `FormularioResidente` precisa emitir o `id` que a ação lê — acrescente, dentro do `<form>`:
+
+```tsx
+{residente && <input type="hidden" name="id" value={residente.id} />}
+```
+
+E a ficha ganha o link para chegar aqui, no cabeçalho, visível apenas a quem pode editar (`ctx.papel !== 'SAUDE'`):
+
+```tsx
+<Link href={`/residentes/${residente.id}/editar`} className="text-sm text-slate-600 underline">
+  Editar cadastro
+</Link>
+```
+
 - [ ] **Step 7: Criar a ficha do residente**
 
 `src/app/(app)/residentes/[id]/page.tsx`:
@@ -5695,6 +5763,33 @@ import {
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
 import { formatarData, formatarDataHora, formatarCpf } from '@/lib/ptbr'
+
+// A tela nunca mostra o valor cru do enum. "VISITA_FAMILIA" é identificador de
+// código; quem lê a ficha é a equipe do Lar, e a interface é toda em pt-BR.
+const ROTULO_CATEGORIA: Record<string, string> = {
+  COMPORTAMENTO: 'Comportamento',
+  VISITA_FAMILIA: 'Visita da família',
+  OCORRENCIA: 'Ocorrência',
+  SOCIAL: 'Social',
+  JURIDICO: 'Jurídico',
+  OUTRO: 'Outro',
+}
+
+const ROTULO_TIPO_DOCUMENTO: Record<string, string> = {
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+  OUTRO: 'Outro',
+}
 
 export default async function FichaResidente({
   params,
@@ -5757,7 +5852,7 @@ export default async function FichaResidente({
           {anotacoes.map((anotacao) => (
             <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
               <p className="text-sm text-slate-500">
-                {formatarDataHora(anotacao.criadoEm)} · {anotacao.categoria}
+                {formatarDataHora(anotacao.criadoEm)} · {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
                 {anotacao.retificaAnotacaoId && ' · retificação'}
               </p>
               <p className="text-slate-800">{anotacao.texto}</p>
@@ -5802,7 +5897,7 @@ export default async function FichaResidente({
                 rel="noreferrer"
                 className="text-slate-800 underline"
               >
-                {documento.tipo} — {documento.nomeArquivoOriginal}
+                {ROTULO_TIPO_DOCUMENTO[documento.tipo] ?? documento.tipo} — {documento.nomeArquivoOriginal}
               </a>
             </li>
           ))}
@@ -5888,6 +5983,19 @@ export function FormularioResponsavel({ residenteId }: { residenteId: string }) 
         { nome: 'telefonePrincipal', rotulo: 'Telefone principal', obrigatorio: true },
         { nome: 'telefoneSecundario', rotulo: 'Telefone secundário' },
         { nome: 'email', rotulo: 'E-mail', tipo: 'email' },
+        // Sem estas três, a ação lê `dados.get(...) === 'on'` de campos que não
+        // existem e grava tudo como `false`: o contato de emergência nunca
+        // apareceria no cabeçalho da ficha — exatamente o dado que alguém
+        // procura numa urgência —, e `autorizadoVisitar` sobrescreveria com
+        // `false` o padrão `true` do schema.
+        { nome: 'ehResponsavelLegal', rotulo: 'É responsável legal', tipo: 'checkbox' },
+        { nome: 'ehContatoEmergencia', rotulo: 'É contato de emergência', tipo: 'checkbox' },
+        {
+          nome: 'autorizadoVisitar',
+          rotulo: 'Autorizado a visitar',
+          tipo: 'checkbox',
+          marcadoInicial: true,
+        },
       ]}
     />
   )
@@ -6070,6 +6178,48 @@ test('exibe erro ao cadastrar com CPF inválido', async ({ page }) => {
   await page.getByRole('button', { name: 'Cadastrar residente' }).click()
 
   await expect(page.getByRole('alert')).toContainText('CPF inválido')
+})
+
+test('marca contato de emergência e ele aparece no cabeçalho da ficha', async ({ page }) => {
+  const nome = `Idosa Emergencia ${Date.now()}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1938-05-02')
+  await page.getByLabel('Sexo').selectOption('FEMININO')
+  await page.getByLabel('Data de admissão').fill('2026-02-01')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+
+  await expect(page.getByRole('heading', { name: nome })).toBeVisible()
+
+  await page.getByText('Responsáveis').click()
+  await page.getByLabel('Nome', { exact: true }).fill('João da Silva')
+  await page.getByLabel('Parentesco').fill('Filho')
+  await page.getByLabel('Telefone principal').fill('(65) 99999-0000')
+  await page.getByLabel('É contato de emergência').check()
+  await page.getByRole('button', { name: 'Adicionar responsável' }).click()
+
+  // O cabeçalho é onde alguém procura o telefone numa urgência: se a marcação
+  // não for gravada, esta linha fica vazia e o teste falha.
+  await expect(page.getByText('João da Silva (65) 99999-0000')).toBeVisible()
+})
+
+test('corrige um cadastro pela tela de edição', async ({ page }) => {
+  const nome = `Idoso Edicao ${Date.now()}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1941-09-14')
+  await page.getByLabel('Sexo').selectOption('MASCULINO')
+  await page.getByLabel('Data de admissão').fill('2026-03-10')
+  await page.getByLabel('Quarto').fill('2')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+
+  await page.getByRole('link', { name: 'Editar cadastro' }).click()
+  await page.getByLabel('Quarto').fill('9')
+  await page.getByRole('button', { name: 'Salvar alterações' }).click()
+
+  await expect(page.getByRole('status')).toBeVisible()
 })
 ```
 
