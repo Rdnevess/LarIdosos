@@ -7538,6 +7538,11 @@ echo "[3/6] Empacotando os arquivos enviados..."
 docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine:3.20 \
   tar czf "/saida/uploads_$CARIMBO.tar.gz" -C /dados .
 
+# O dump ganhou verificacao de completude; o tarball ficaria sem nenhuma, e o
+# defeito so apareceria no dia da restauracao. Mesma checagem que restaurar.sh
+# faz antes de tocar nos dados: barata aqui, cara la.
+docker run --rm -v "$DESTINO":/entrada alpine:3.20 \n  tar tzf "/entrada/uploads_$CARIMBO.tar.gz" > /dev/null
+
 echo "[4/6] Criptografando..."
 for arquivo in "$BANCO.gz" "$UPLOADS"; do
   gpg --batch --yes --pinentry-mode loopback \
@@ -7613,6 +7618,11 @@ echo "[1/6] Guardando o estado atual antes de sobrescrever..."
 RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
 mkdir -p "$RESGUARDO"
 chmod 700 "$RESGUARDO"
+# O trap passa a cobrir também o texto claro do resguardo: se o gpg falhar no
+# segundo arquivo, ou se algo morrer entre o pg_dump e o laço, o prontuário de
+# trinta idosos ficaria em claro no disco para sempre. `set -e` faz o `rm` da
+# iteração nunca rodar nesse caso.
+trap 'rm -rf "$TRABALHO"; rm -f "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"' EXIT
 $COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
   > "$RESGUARDO/banco.sql"
 docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
@@ -7620,12 +7630,15 @@ docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
 
 # O resguardo é o mesmo prontuário que o backup protege — não pode ficar em
 # texto claro no disco esperando alguém lembrar de apagá-lo. Criptografa com a
-# mesma chave e remove o original, como o backup faz.
+# mesma chave e remove o original. Diferente dos backups normais, ele NÃO é
+# enviado ao remoto: o filtro do rclone só casa os arquivos com o carimbo do
+# backup, então o resguardo é sempre local e serve só a esta máquina.
 for arquivo in "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"; do
   gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
       --symmetric --cipher-algo AES256 "$arquivo"
   rm -f "$arquivo"
 done
+trap 'rm -rf "$TRABALHO"' EXIT
 echo "      Estado anterior guardado (criptografado) em $RESGUARDO"
 
 echo "[2/6] Descriptografando..."
@@ -7659,6 +7672,7 @@ docker run --rm -v lar_uploads:/dados -v "$TRABALHO":/entrada alpine:3.20 sh -c 
   find /dados -mindepth 1 -maxdepth 1 ! -name .novo -exec rm -rf {} +
   mv /dados/.novo/* /dados/ 2>/dev/null || true
   mv /dados/.novo/.[!.]* /dados/ 2>/dev/null || true
+  mv /dados/.novo/..?* /dados/ 2>/dev/null || true
   rmdir /dados/.novo
   chown -R 1001:1001 /dados
 '
@@ -7676,8 +7690,18 @@ echo "Estado anterior, se precisar voltar: $RESGUARDO"
 No `crontab -e` da VPS:
 
 ```
-0 3 * * * cd /opt/lar && SENHA_BACKUP=xxx RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+MAILTO=coordenacao@lar.exemplo.org.br
+0 3 * * * cd /opt/lar && RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+
+# Alerta diário se o último sucesso envelhecer OU nunca tiver existido.
+# A ordem importa: `[ -f marca ] && ...` ficaria mudo justamente no pior caso —
+# backup quebrado desde o primeiro dia, marca nunca criada, nenhum aviso jamais.
+0 8 * * * find /var/backups/lar/ultimo_sucesso -mtime -2 2>/dev/null | grep -q . || echo "$(date): ALERTA - backup do Lar sem sucesso ha mais de 2 dias" >> /var/log/lar-backup.log
 ```
+
+A senha **não** entra na linha do cron: ela vive em `/opt/lar/.senha-backup`, com modo 600, e o script a lê por `--passphrase-file`. Senha em linha de comando fica visível em `ps` para qualquer usuário da máquina e entra no histórico do shell de quem editar o crontab.
+
+O `MAILTO` faz o cron enviar a saída de erro por e-mail. Sem ele — e com o `2>&1` mandando tudo para o arquivo —, uma falha do backup fica indistinguível de um sucesso até alguém abrir o log por conta própria, o que numa instituição pequena pode levar meses.
 
 O `cron` roda com ambiente mínimo — daí os scripts carregarem o `.env.producao` explicitamente em vez de contarem com variáveis herdadas do shell. Um backup que falha silenciosamente às 3h da manhã só é descoberto no dia da restauração.
 
