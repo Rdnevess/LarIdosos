@@ -6981,7 +6981,7 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
-import { formatarDataHora } from '@/lib/ptbr'
+import { formatarData, formatarDataHora } from '@/lib/ptbr'
 
 const ENTIDADES = [
   'Residente',
@@ -6993,10 +6993,70 @@ const ENTIDADES = [
   'Usuario',
 ]
 
+/**
+ * Rótulos dos valores que aparecem dentro do diff. Sem isto, o desligamento de
+ * um residente — o registro mais consultado da trilha — mostraria
+ * "status: ATIVO → DESLIGADO", e uma desativação mostraria "ativo: true → false"
+ * em inglês. Os valores repetidos entre enums (OUTRO, por exemplo) têm o mesmo
+ * rótulo em todos, então a tabela única não gera ambiguidade.
+ */
+const ROTULO_VALOR: Record<string, string> = {
+  COORDENACAO: 'Coordenação',
+  SAUDE: 'Saúde',
+  ADMINISTRATIVO: 'Administrativo',
+  FEMININO: 'Feminino',
+  MASCULINO: 'Masculino',
+  ATIVO: 'Ativo',
+  DESLIGADO: 'Desligado',
+  FALECIDO: 'Falecido',
+  APOSENTADORIA: 'Aposentadoria',
+  BPC: 'BPC',
+  PENSAO: 'Pensão',
+  NENHUM: 'Nenhum',
+  CLT: 'CLT',
+  VOLUNTARIO: 'Voluntário',
+  PRESTADOR: 'Prestador de serviço',
+  ESTAGIO: 'Estágio',
+  COMPORTAMENTO: 'Comportamento',
+  VISITA_FAMILIA: 'Visita da família',
+  OCORRENCIA: 'Ocorrência',
+  SOCIAL: 'Social',
+  JURIDICO: 'Jurídico',
+  OUTRO: 'Outro',
+}
+
+const ISO_DATA = /^\d{4}-\d{2}-\d{2}T/
+
+function formatarValorDiff(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === '') return '—'
+  if (typeof valor === 'boolean') return valor ? 'sim' : 'não'
+  if (typeof valor === 'string') {
+    if (ROTULO_VALOR[valor]) return ROTULO_VALOR[valor]
+    // Datas viajam para o JSON como ISO; mostrar o carimbo cru na trilha é
+    // ilegível para quem consulta.
+    if (ISO_DATA.test(valor)) return formatarData(new Date(valor))
+    return valor
+  }
+  return String(valor)
+}
+
+// `nomeCompleto` vira "nome completo". Os campos são nomeados em português, só
+// em camelCase — separar já os torna legíveis, sem exigir um dicionário de
+// dezenas de entradas que envelheceria a cada campo novo.
+function rotularCampo(campo: string): string {
+  const separado = campo.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
+  return separado.charAt(0).toUpperCase() + separado.slice(1)
+}
+
 function formatarDiff(diff: unknown): string {
   if (!diff || typeof diff !== 'object') return '—'
-  return Object.entries(diff as Record<string, { de: unknown; para: unknown }>)
-    .map(([campo, { de, para }]) => `${campo}: ${String(de ?? '—')} → ${String(para ?? '—')}`)
+  const entradas = Object.entries(diff as Record<string, { de: unknown; para: unknown }>)
+  if (entradas.length === 0) return '—'
+  return entradas
+    .map(
+      ([campo, { de, para }]) =>
+        `${rotularCampo(campo)}: ${formatarValorDiff(de)} → ${formatarValorDiff(para)}`
+    )
     .join(' · ')
 }
 
