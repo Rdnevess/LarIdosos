@@ -157,10 +157,20 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
  * bytes é `obterDocumentoParaDownload`, logo abaixo, e essa leitura registra
  * `DOWNLOAD` a cada vez. O acesso à ficha que dispara esta listagem também já
  * deixa rastro, por `obterResidente`
- * (`src/modules/residents/residentes.service.ts`, que registra `VISUALIZAR`).
- * Auditar aqui somaria uma linha a cada abertura de ficha sem acrescentar
- * rastro nenhum que as duas outras não deem — o mesmo raciocínio de
- * `listarResponsaveis`.
+ * (`src/modules/residents/residentes.service.ts:55-60`, que registra
+ * `VISUALIZAR`). Auditar aqui somaria uma linha a cada abertura de ficha sem
+ * acrescentar rastro nenhum que as duas outras não deem — o mesmo raciocínio
+ * de `listarResponsaveis`.
+ *
+ * **Essa justificativa só vale hoje para `alvo.residenteId`.** A função
+ * também aceita `alvo.funcionarioId`, mas nenhuma tela chama esse caminho —
+ * só testes (grep em `src/app/**`). Se um dia existir uma ficha de
+ * funcionário que liste os documentos dele, o rastro compensatório não vem
+ * de graça: `obterFuncionario` (`funcionarios.service.ts:54`, que audita
+ * `VISUALIZAR` em `58-62`) só cobre o caso se essa tela realmente chamar
+ * `obterFuncionario` antes de listar. Confirme isso — ou audite
+ * `listarDocumentos` para esse alvo — antes de assumir que a omissão
+ * continua correta.
  */
 export async function listarDocumentos(
   ctx: Ctx,

@@ -67,11 +67,16 @@ test('a enfermeira anexa o laudo do grau de dependência e ele aparece na ficha'
   const secaoDocumentos = page.locator('details').filter({ hasText: 'Documentos (' })
   await expect(secaoDocumentos).toContainText(nomeArquivo)
 
-  // A seção se fecha sozinha quando a Server Action revalida a rota, se a
-  // ficha foi aberta por navegação de link (o caminho real: clicar na lista).
-  // É uma aspereza da ficha, anterior a esta tarefa e registrada no relatório
-  // da Tarefa 19 — não uma falha do anexo. Reabrir é o que a pessoa faz, e o
-  // que este teste faz antes de conferir o que ela veria.
+  // Neste caminho exato (lista → filtro → clique no link → anexo), a seção
+  // fecha sozinha quando a Server Action revalida a rota — reproduzido de
+  // forma determinística. A condição exata que dispara isso NÃO foi isolada:
+  // outras variações do mesmo passo (primeira visita por link, com e sem
+  // filtro, revalidação disparada por Server Action de outra seção) deixaram
+  // a seção aberta. É uma aspereza da ficha, anterior a esta tarefa e
+  // registrada no relatório da Tarefa 19 — não uma falha do anexo. Reabrir é
+  // o que a pessoa faria na tela, e o que este teste faz antes de conferir o
+  // que ela veria; o `if` abaixo é defensivo e não custa nada quando a seção
+  // já está aberta.
   const aberta = await secaoDocumentos.evaluate((e: HTMLDetailsElement) => e.open)
   if (!aberta) await secaoDocumentos.locator('summary').first().click()
 

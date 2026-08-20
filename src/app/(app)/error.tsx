@@ -4,9 +4,14 @@ import Link from 'next/link'
 
 /**
  * Fronteira de erro das telas autenticadas. Sem ela, qualquer exceção que
- * escapasse de um componente de servidor — um `ErroPermissao` de `obterCtx`
- * numa rota que o papel não alcança, uma falha de conexão com o banco —
- * entregava a tela genérica do Next, em inglês.
+ * escapasse de um componente de servidor — um `ErroPermissao` de
+ * `exigirPapel` (`src/lib/contexto.ts`) num serviço chamado por uma rota que
+ * o papel não alcança, uma falha de conexão com o banco — entregava a tela
+ * genérica do Next, em inglês.
+ *
+ * Não é `obterCtx` (`src/modules/auth/sessao.ts`): sessão revogada é tratada
+ * antes de chegar aqui, porque `(app)/layout.tsx` chama `obterCtxOuNulo` e
+ * redireciona para `/login` quando o retorno é nulo.
  *
  * **Não mostra `error.message`.** A mensagem pode carregar caminho de
  * arquivo, host e porta do banco ou trecho de SQL; é o mesmo motivo pelo qual

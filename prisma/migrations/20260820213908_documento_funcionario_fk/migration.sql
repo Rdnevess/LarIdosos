@@ -12,6 +12,12 @@
 -- O arquivo em disco correspondente não é removido por este DELETE. Se a
 -- contagem abaixo não for zero em produção, sobra lixo em `lar_uploads`
 -- — inofensivo, mas vale saber.
+--
+-- Este DELETE não grava nada em `LogAuditoria`. É o único DELETE físico do
+-- projeto (todo o resto do sistema só exclui logicamente, por `ativo`), e
+-- roda fora de qualquer serviço — não há `Ctx` aqui, só a migration. Se
+-- alguma linha for de fato apagada num ambiente em uso, isso acontece sem
+-- rastro na trilha de auditoria.
 DELETE FROM "documentos" d
 WHERE d."funcionarioId" IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM "funcionarios" f WHERE f.id = d."funcionarioId");

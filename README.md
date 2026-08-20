@@ -115,9 +115,15 @@ dentro delas rodam contra um Postgres real.
 
 Sobre `npm run test:e2e`: a suíte usa o **banco de desenvolvimento**, não
 o de teste, e não o limpa. Ela cria os próprios registros com nomes
-carimbados pelo relógio para não colidir entre execuções. Um
-`globalSetup` garante o usuário-semente e faz login uma vez, guardando a
-sessão em disco.
+carimbados pelo relógio para não colidir entre execuções. O `globalSetup`
+(`tests/e2e/global-setup.ts`) garante os dois usuários-semente (papéis
+COORDENACAO e SAUDE) e um residente fixo para o perfil SAUDE agir sobre
+ele, já que esse papel não pode cadastrar residente. O login em si é o
+projeto `setup` (`tests/e2e/auth.setup.ts`), que roda antes dos demais por
+`dependencies` no `playwright.config.ts`: autentica nos dois papéis e
+guarda cada sessão em disco (`.sessao.json`, `.sessao-saude.json`), para
+os projetos `autenticado` e `saude` reaproveitarem sem logar de novo a
+cada teste.
 
 `npm run typecheck` antes de cada commit.
 

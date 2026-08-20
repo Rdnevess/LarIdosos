@@ -120,11 +120,13 @@ export async function atualizarFuncionario(
     if (existente) throw new ErroValidacao('Já existe um funcionário com este CPF')
   }
 
-  // `criarFuncionario` grava `entrada.email || null`; sem o mesmo tratamento
-  // aqui, salvar a edição com o campo de e-mail apagado gravava string vazia
-  // — dois "sem e-mail" diferentes no banco, e `WHERE email IS NULL` deixando
-  // de encontrar metade deles. A normalização vem ANTES do diff, senão a
-  // trilha registraria "E-mail: — → —".
+  // Mantém a invariante de `criarFuncionario` (linha 34) para chamadores que
+  // passem `entrada.email === ''`. A tela hoje não passa: `dadosDoFuncionario`
+  // usa `texto()`, que devolve `undefined` para campo em branco, e
+  // `semIndefinidos` omite a chave — por isso limpar o e-mail pela tela
+  // também não é possível hoje (ver `src/lib/formulario.ts`). Se algum dia um
+  // chamador passar `''` diretamente, a normalização precisa vir ANTES do
+  // diff, senão a trilha registraria "E-mail: — → —".
   const gravavel = entrada.email === '' ? { ...entrada, email: null } : entrada
 
   const diff = calcularDiff(atual as unknown as Record<string, unknown>, gravavel)
