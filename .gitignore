@@ -33,6 +33,7 @@ coverage/
 test-results/
 playwright-report/
 tests/e2e/.sessao.json
+tests/e2e/.sessao-saude.json
 
 # Workspace do subagent-driven-development
 .superpowers/

@@ -28,8 +28,12 @@ export function FormularioDocumento({
 }) {
   const [estado, enviar, enviando] = useActionState(acaoAnexarDocumento, null)
 
+  // Sem `encType` no `<form>`: quando a `action` é uma função (Server Action),
+  // o React já define `multipart/form-data` sozinho, e declará-lo à mão só
+  // produz o aviso "Cannot specify a encType or method for a form that
+  // specifies a function as the action" no log do servidor a cada render.
   return (
-    <form action={enviar} encType="multipart/form-data" className="space-y-4">
+    <form action={enviar} className="space-y-4">
       <input type="hidden" name="residenteId" value={residenteId} />
 
       <div className="space-y-1">

@@ -276,3 +276,41 @@ test('id inexistente na URL entrega a tela de nao encontrado em pt-BR', async ({
   // Nada de mensagem de exceção interna vazando para a tela.
   await expect(page.getByText(/Residente não encontrado|Error|at async/)).toHaveCount(0)
 })
+
+test('corrige uma anotacao na janela e retifica depois, pela ficha', async ({ page }) => {
+  const nome = `Idoso Anotacao ${Date.now()}`
+  await cadastrarResidente(page, nome)
+
+  await page.getByLabel('Categoria').selectOption('OCORRENCIA')
+  await page.getByLabel('Anotação').fill('Recusou o almoco.')
+  await page.getByRole('button', { name: 'Registrar anotação' }).click()
+
+  const secaoAnotacoes = page.getByRole('group').filter({ hasText: 'Anotações (' })
+  await expect(secaoAnotacoes).toContainText('Recusou o almoco.')
+
+  // Editar: dentro da janela de 15 minutos e de autoria de quem está logado,
+  // o texto é substituído no mesmo registro.
+  await page.locator('summary').filter({ hasText: 'Editar' }).click()
+  await page.getByLabel('Texto corrigido').fill('Recusou o almoço, aceitou o lanche.')
+  await page.getByRole('button', { name: 'Salvar correção' }).click()
+
+  await expect(secaoAnotacoes).toContainText('Recusou o almoço, aceitou o lanche.')
+  await expect(secaoAnotacoes).not.toContainText('Recusou o almoco.')
+  // Continua sendo UMA anotação: a edição não cria registro novo.
+  await expect(secaoAnotacoes).toContainText('Anotações (1)')
+
+  // Retificar: o registro original fica, e nasce um segundo ligado a ele. É a
+  // regra R3 da spec, que não tinha caminho de tela nenhum antes desta tarefa.
+  await page.locator('summary').filter({ hasText: 'Retificar' }).click()
+  await page.getByLabel('Texto da retificação').fill('Na verdade recusou o jantar, nao o almoco.')
+  await page.getByRole('button', { name: 'Registrar retificação' }).click()
+
+  await expect(secaoAnotacoes).toContainText('Anotações (2)')
+  await expect(secaoAnotacoes).toContainText('Na verdade recusou o jantar')
+  // O original continua exibido, sem alteração — e agora marcado.
+  await expect(secaoAnotacoes).toContainText('Recusou o almoço, aceitou o lanche.')
+  // O rótulo "· retificação", que a ficha exibia para algo que ninguém
+  // conseguia criar, finalmente tem quem o dispare.
+  await expect(secaoAnotacoes).toContainText('retificação')
+  await expect(secaoAnotacoes).toContainText('retificada depois')
+})
