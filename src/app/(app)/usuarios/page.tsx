@@ -64,38 +64,62 @@ export default async function PaginaUsuarios() {
             </div>
 
             {/*
-              A própria conta não exibe os botões de desativar e trocar senha.
-              As duas omissões têm força diferente: `desativarUsuario` recusa
-              o auto-alvo no serviço (Tarefa 6, `ErroValidacao`), então
-              esconder o botão só evita um erro previsível. `definirSenha`
-              não tem essa guarda — ela é omitida da tela por decisão de
-              interface, não por barreira do serviço.
+              As duas omissões desta linha têm força diferente, e por isso
+              deixaram de ser uma condição só.
 
-              Isso é deliberado: com uma única coordenação, uma guarda de
-              auto-alvo deixaria a pessoa sem como trocar a própria senha. O
-              caminho correto — uma tela "alterar minha senha" que exija a
-              senha atual — fica registrado para uma fase futura. Até lá,
-              quem controla a sessão da coordenação consegue trocar a senha
-              dela sem conhecer a anterior.
+              **Desativar** continua escondido para a própria conta porque o
+              serviço recusa o auto-alvo: `desativarUsuario` lança
+              `ErroValidacao` quando `id === ctx.usuarioId`
+              (`src/modules/auth/usuarios.service.ts`, linha 138). Esconder o
+              botão só poupa um erro previsível — quem barra é o serviço.
+
+              **Definir senha** passa a aparecer também para a própria conta.
+              Escondê-la era o que travava o Passo 10 da implantação
+              (`docs/operacao/implantacao.md`): com uma única coordenação — a
+              situação garantida logo depois do deploy — não havia ninguém
+              para trocar a senha dela, e o sistema seguia com a senha que
+              veio em texto plano do `.env.producao`.
+
+              O que continua faltando, e fica registrado para uma fase futura:
+              este formulário não pede a senha atual. Quem estiver com a
+              sessão da coordenação aberta troca a senha dela sem conhecer a
+              anterior.
             */}
-            {usuario.ativo && usuario.id !== ctx.usuarioId && (
+            {usuario.ativo && (
               <div className="flex flex-wrap gap-2">
                 <FormularioSimples
                   acao={acaoDefinirSenha}
                   ocultos={{ id: usuario.id }}
                   colunas={1}
+                  // Sem prefixo, os campos `senha` de todas as linhas (e o do
+                  // formulário de criação, acima) dividiriam o mesmo `id`.
+                  prefixoId={`usuario-${usuario.id}`}
                   rotuloBotao="Definir nova senha"
+                  // O aviso é a única pista que o usuário tem: `obterCtx`
+                  // recusa qualquer token emitido antes de `senhaAlteradaEm`
+                  // (`src/modules/auth/sessao.ts`, linhas 25-27), então a
+                  // sessão em curso morre no instante da troca. Correto — e
+                  // desconcertante sem aviso. `acaoDefinirSenha` encerra a
+                  // sessão explicitamente e leva ao login (ver `acoes.ts`).
+                  aviso={
+                    usuario.id === ctx.usuarioId
+                      ? 'Trocar a própria senha encerra esta sessão: você será levado à tela de login para entrar de novo com a senha nova.'
+                      : undefined
+                  }
                   campos={[
                     { nome: 'senha', rotulo: 'Nova senha', tipo: 'password', obrigatorio: true },
                   ]}
                 />
-                <FormularioSimples
-                  acao={acaoDesativarUsuario}
-                  ocultos={{ id: usuario.id }}
-                  colunas={1}
-                  rotuloBotao="Desativar acesso"
-                  campos={[]}
-                />
+                {usuario.id !== ctx.usuarioId && (
+                  <FormularioSimples
+                    acao={acaoDesativarUsuario}
+                    ocultos={{ id: usuario.id }}
+                    colunas={1}
+                    prefixoId={`usuario-${usuario.id}`}
+                    rotuloBotao="Desativar acesso"
+                    campos={[]}
+                  />
+                )}
               </div>
             )}
           </li>

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { executarAcao, type EstadoAcao } from '@/lib/acoes'
 import { obterCtx } from '@/modules/auth/sessao'
+import { signOut } from '@/modules/auth/config'
 import {
   criarUsuario,
   definirSenha,
@@ -36,12 +37,29 @@ export async function acaoDefinirSenha(
   _anterior: EstadoAcao | null,
   dados: FormData
 ): Promise<EstadoAcao> {
+  const id = texto(dados, 'id')
+  let ehPropriaConta = false
+
   const resultado = await executarAcao(async () => {
     const ctx = await obterCtx()
-    await definirSenha(ctx, texto(dados, 'id'), texto(dados, 'senha'))
+    ehPropriaConta = ctx.usuarioId === id
+    await definirSenha(ctx, id, texto(dados, 'senha'))
   })
 
+  if (resultado.erro) return resultado
+
   revalidatePath('/usuarios')
+
+  // Trocar a própria senha mata a sessão em curso: `definirSenha` grava
+  // `senhaAlteradaEm = agora` e `obterCtx` recusa token emitido antes disso
+  // (`src/modules/auth/sessao.ts`, linhas 25-27). Sem este encerramento
+  // explícito, a re-renderização da própria página de usuários já cairia no
+  // `ErroPermissao` — tela de erro, no lugar de um caminho previsível.
+  // Fora do `executarAcao`: `signOut` sinaliza lançando, como o `redirect`.
+  if (ehPropriaConta) {
+    await signOut({ redirectTo: '/login' })
+  }
+
   return resultado
 }
 
