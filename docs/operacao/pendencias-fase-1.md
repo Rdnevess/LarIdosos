@@ -96,7 +96,38 @@ planilha que a instituição usa hoje tem a busca de CPF/CNPJ apontando para
 resolver o dado nativamente. Está aqui para que ninguém tente "consertar a
 planilha" achando que o sistema depende dela.
 
-## 6. Apagar um campo opcional devolve "Registro salvo." e não apaga nada
+## 6. Seções da ficha se fecham sozinhas depois de gravar
+
+**Situação:** as seções recolhíveis da ficha do residente (Anotações, Documentos,
+Grau de dependência) fecham sozinhas quando uma Server Action revalida a rota —
+mas **só quando a ficha foi aberta por clique de link**, que é o caminho normal
+de uso. Chegando por redirect ou após recarregar a página, permanecem abertas.
+
+**Cenário concreto:** a cuidadora abre a lista, clica no nome do residente,
+expande "Anotações", registra a anotação do plantão — e a seção se fecha. Para
+conferir se gravou, precisa expandir de novo. Em cada anotação do dia.
+
+**Causa, verificada:** não é o atributo `open` sendo reescrito. O nó do DOM é
+**remontado** pelo React na revalidação — uma marca posta em JavaScript no
+elemento antes da ação desaparece depois dela. Isso descarta os consertos
+baratos: `defaultOpen` ou qualquer atributo vindo do servidor não resolveriam.
+
+**Conserto certo:** passar as seções a componentes de cliente com estado próprio
+de abertura. É refactor de tamanho médio, e por isso não entrou na tarefa de
+fechamento.
+
+**O que ainda não se sabe:** a condição exata. Em três variações testadas
+(primeira visita por link, com e sem filtro, ação disparada de outra seção) a
+seção **continuou aberta**. A regra é mais estreita do que "chegou por link", e
+não foi isolada. Quem for consertar deve determinar isso primeiro — o conserto
+por componente de cliente funciona de qualquer forma, mas sem a condição exata
+não há como escrever teste que morda no caso certo.
+
+**Nota:** o defeito é anterior à tarefa de fechamento; existe desde que as seções
+recolhíveis foram criadas. Só apareceu agora porque nenhum teste até então
+chegava à ficha por clique de link.
+
+## 7. Apagar um campo opcional devolve "Registro salvo." e não apaga nada
 
 **Situação:** a Fase 1 fechou os conversores omitindo a chave quando o campo vem
 vazio, para que a trilha de auditoria parasse de registrar alterações que não
@@ -114,7 +145,7 @@ O problema não é a limitação — é a tela **afirmar o contrário do que aco
 mensagem de confirmação. Enquanto não houver sentinela, a confirmação não deveria
 prometer gravação que não houve.
 
-## 7. "Registro em conselho" aparece ao anexar documento de residente
+## 8. "Registro em conselho" aparece ao anexar documento de residente
 
 `papeisQuePodemVer` classifica `CONSELHO_PROFISSIONAL` como visível a todos os
 papéis quando não há `funcionarioId` — então o seletor da ficha do residente
@@ -125,7 +156,7 @@ política, exatamente o que a Fase 1 eliminou ao fazer a tela consultar
 `papeisQuePodemVer` em vez de repetir a regra. O lugar de resolver é a política —
 dar ao tipo um alvo obrigatório, ou uma classificação própria.
 
-## 8. A suíte E2E roda contra o banco de desenvolvimento e acumula registros
+## 9. A suíte E2E roda contra o banco de desenvolvimento e acumula registros
 
 Está declarado no README e é aceitável em desenvolvimento, mas tem uma
 consequência que precisa estar escrita: **o banco de desenvolvimento nunca pode
