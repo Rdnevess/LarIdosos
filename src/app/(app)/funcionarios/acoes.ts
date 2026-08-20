@@ -3,44 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { executarAcao, type EstadoAcao } from '@/lib/acoes'
+import { texto, data } from '@/lib/formulario'
 import { obterCtx } from '@/modules/auth/sessao'
 import {
   criarFuncionario,
   atualizarFuncionario,
   desligarFuncionario,
 } from '@/modules/staff/funcionarios.service'
-
-function texto(dados: FormData, campo: string): string | undefined {
-  const valor = dados.get(campo)
-  const s = typeof valor === 'string' ? valor.trim() : ''
-  return s === '' ? undefined : s
-}
-
-/**
- * O `T12:00:00` evita o clássico deslocamento de um dia: `new Date('2026-03-12')`
- * é interpretado como meia-noite UTC, o que em fuso brasileiro vira 11 de março.
- */
-function data(dados: FormData, campo: string): Date | undefined {
-  const valor = texto(dados, campo)
-  return valor ? new Date(`${valor}T12:00:00`) : undefined
-}
-
-function dadosDoFuncionario(dados: FormData) {
-  return {
-    nomeCompleto: texto(dados, 'nomeCompleto')!,
-    cpf: texto(dados, 'cpf')!,
-    rg: texto(dados, 'rg'),
-    cargo: texto(dados, 'cargo')!,
-    vinculo: texto(dados, 'vinculo') as 'CLT' | 'VOLUNTARIO' | 'PRESTADOR' | 'ESTAGIO',
-    dataAdmissao: data(dados, 'dataAdmissao')!,
-    telefone: texto(dados, 'telefone'),
-    email: texto(dados, 'email'),
-    conselhoSigla: texto(dados, 'conselhoSigla'),
-    conselhoNumero: texto(dados, 'conselhoNumero'),
-    conselhoUf: texto(dados, 'conselhoUf'),
-    conselhoValidade: data(dados, 'conselhoValidade'),
-  }
-}
+import { dadosDoFuncionario } from './conversores'
 
 export async function acaoCriarFuncionario(
   _anterior: EstadoAcao | null,

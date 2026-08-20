@@ -1,4 +1,5 @@
-import type { AcaoAuditoria, Prisma, PrismaClient } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { AcaoAuditoria, PrismaClient } from '@prisma/client'
 
 export type ClientePrisma = PrismaClient | Prisma.TransactionClient
 
@@ -25,8 +26,28 @@ export type DadosAuditoria = {
   diff?: Diff | null
 }
 
+/**
+ * Põe os dois lados da comparação na mesma forma antes do `JSON.stringify`.
+ * Sem isto, valores iguais divergem por causa de como cada lado chegou aqui:
+ * o "antes" vem do Prisma, o "depois" vem do formulário.
+ *
+ * - **`Date` pelo dia civil em UTC.** O Postgres devolve um campo `@db.Date`
+ *   como meia-noite UTC; a tela monta `new Date('aaaa-mm-ddT12:00:00')`, que
+ *   é meio-dia no fuso do processo. Mesmo dia, carimbos diferentes — e o
+ *   `toISOString()` completo os fazia divergir sempre. Todo campo de data que
+ *   entra num diff hoje é `@db.Date` no `prisma/schema.prisma`
+ *   (`dataNascimento`, `dataAdmissao`, `dataSaida`, `conselhoValidade`), e a
+ *   tela já os exibe em UTC (`formatarData`, em `src/lib/ptbr.ts`, fixa
+ *   `timeZone: 'UTC'`). Se um dia um campo `DateTime` com hora significativa
+ *   entrar num diff, esta comparação passará a ignorar mudança de hora — é a
+ *   contrapartida assumida.
+ * - **`Decimal` para número.** `JSON.stringify` de um `Prisma.Decimal` devolve
+ *   `"1200"` (string, via `toJSON`) e de um número devolve `1200`. Sem a
+ *   conversão, `beneficioValor` aparecia como alterado a cada gravação.
+ */
 function normalizar(valor: unknown): unknown {
-  if (valor instanceof Date) return valor.toISOString()
+  if (valor instanceof Date) return valor.toISOString().slice(0, 10)
+  if (valor instanceof Prisma.Decimal) return valor.toNumber()
   if (valor === undefined) return null
   return valor
 }
@@ -38,6 +59,14 @@ export function calcularDiff(
   const diff: Diff = {}
 
   for (const chave of Object.keys(depois)) {
+    // Chave presente com `undefined` é tratada como chave ausente, porque é
+    // isso que a gravação faz: o Prisma ignora `undefined` em `data` e não
+    // toca no campo. Registrar "de: X → para: —" descreveria uma alteração
+    // que não aconteceu. Os conversores de `FormData` já omitem essas chaves
+    // (ver `semIndefinidos`, em `src/lib/formulario.ts`); esta guarda cobre
+    // qualquer outro chamador.
+    if (depois[chave] === undefined) continue
+
     const de = normalizar(antes[chave])
     const para = normalizar(depois[chave])
     if (JSON.stringify(de) !== JSON.stringify(para)) {
