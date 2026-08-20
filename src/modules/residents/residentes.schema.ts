@@ -42,7 +42,13 @@ export const novoResidenteSchema = z.object({
 export const atualizacaoResidenteSchema = novoResidenteSchema.partial()
 
 export const desligamentoSchema = z.object({
-  status: z.enum(['DESLIGADO', 'FALECIDO']),
+  // `errorMap` porque a mensagem padrão do Zod para enum sai em inglês
+  // ("Invalid enum value. Expected 'DESLIGADO' | 'FALECIDO'…") e chegaria à
+  // tela pelo `executarAcao`. Valor fora dos dois é recusado — não é aceito
+  // em silêncio nem convertido para um padrão.
+  status: z.enum(['DESLIGADO', 'FALECIDO'], {
+    errorMap: () => ({ message: 'Informe se o residente foi desligado ou faleceu' }),
+  }),
   dataSaida: z.date(),
   motivoSaida: z.string().trim().min(3, 'Informe o motivo da saída'),
   observacaoSaida: z.string().trim().optional(),

@@ -146,6 +146,12 @@ export async function desligarResidente(
   const entrada = validar(desligamentoSchema, dados)
   const atual = await exigirResidente(id)
 
+  // "Já está desligado" para quem consta como falecido é uma frase que a
+  // equipe teria de traduzir sozinha — e que soa como erro do sistema para
+  // quem está registrando o óbito de novo por engano.
+  if (atual.status === 'FALECIDO') {
+    throw new ErroValidacao('Este residente já consta como falecido')
+  }
   if (atual.status !== 'ATIVO') {
     throw new ErroValidacao('Este residente já está desligado')
   }

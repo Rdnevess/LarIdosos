@@ -1,3 +1,5 @@
+import type { StatusResidente } from '@prisma/client'
+
 export function somenteDigitos(valor: string): string {
   return (valor ?? '').replace(/\D/g, '')
 }
@@ -73,4 +75,18 @@ export function formatarMoeda(valor: number): string {
   })
     .format(valor)
     .replace(/ /g, ' ')
+}
+
+/**
+ * Rótulo em português da situação do residente. A tela nunca mostra o valor
+ * cru do enum — "FALECIDO" é identificador de código, e quem lê a ficha é a
+ * equipe do Lar. Tipado com o enum do Prisma (e não `Record<string, string>`)
+ * para que um status novo no schema quebre o `typecheck` aqui, em vez de
+ * vazar cru para a tela; mesmo padrão de `ROTULO_VINCULO`, em
+ * `src/components/formulario-funcionario.tsx`.
+ */
+export const ROTULO_STATUS_RESIDENTE: Record<StatusResidente, string> = {
+  ATIVO: 'Ativo',
+  DESLIGADO: 'Desligado',
+  FALECIDO: 'Falecido',
 }

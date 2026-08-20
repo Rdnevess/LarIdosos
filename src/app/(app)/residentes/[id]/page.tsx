@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { ErroNaoEncontrado } from '@/lib/erros'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterResidente } from '@/modules/residents/residentes.service'
 import { listarResponsaveis } from '@/modules/residents/responsaveis.service'
@@ -8,7 +10,12 @@ import {
   obterGrauVigente,
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
-import { formatarData, formatarDataHora, formatarCpf } from '@/lib/ptbr'
+import {
+  formatarData,
+  formatarDataHora,
+  formatarCpf,
+  ROTULO_STATUS_RESIDENTE,
+} from '@/lib/ptbr'
 import {
   FormularioAnotacao,
   FormularioResponsavel,
@@ -56,7 +63,15 @@ export default async function FichaResidente({
   // `obterResidente` primeiro, e sozinho: é ele quem audita a abertura da
   // ficha, e é sob esse rastro que o grau de dependência aparece — o próprio
   // `obterGrauVigente` não audita.
-  const residente = await obterResidente(ctx, id)
+  let residente
+  try {
+    residente = await obterResidente(ctx, id)
+  } catch (erro) {
+    // Id inexistente na URL vira 404 em português, e não a tela de exceção.
+    if (erro instanceof ErroNaoEncontrado) notFound()
+    throw erro
+  }
+
   const [grau, responsaveis, documentos, anotacoes, avaliacoes] = await Promise.all([
     obterGrauVigente(ctx, id),
     listarResponsaveis(ctx, id),
@@ -79,16 +94,42 @@ export default async function FichaResidente({
           <h1 className="text-lg font-semibold text-slate-800">
             {residente.nomeSocial || residente.nomeCompleto}
           </h1>
+          {/* Sem este link não havia tela nenhuma que atribuísse DESLIGADO ou
+              FALECIDO — a lista oferecia filtrar por "Falecidos" e nada
+              chegava lá. Escondido do papel SAUDE porque `desligarResidente`
+              exige COORDENACAO ou ADMINISTRATIVO
+              (`src/modules/residents/residentes.service.ts`, linha 145). */}
           {podeCadastrar && (
-            <Link
-              href={`/residentes/${residente.id}/editar`}
-              className="whitespace-nowrap text-sm text-slate-600 underline"
-            >
-              Editar cadastro
-            </Link>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Link
+                href={`/residentes/${residente.id}/editar`}
+                className="whitespace-nowrap text-sm text-slate-600 underline"
+              >
+                Editar cadastro
+              </Link>
+              <Link
+                href={`/residentes/${residente.id}/desligar`}
+                className="whitespace-nowrap text-sm text-slate-600 underline"
+              >
+                {residente.status === 'ATIVO'
+                  ? 'Registrar saída ou óbito'
+                  : 'Ver registro de saída'}
+              </Link>
+            </div>
           )}
         </div>
         <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+          {/* Só aparece quando não é "Ativo": sem isto, a ficha de quem
+              faleceu é visualmente idêntica à de quem está no Lar. */}
+          {residente.status !== 'ATIVO' && (
+            <div className="flex gap-2 font-medium sm:col-span-2">
+              <dt className="text-slate-500">Situação:</dt>
+              <dd>
+                {ROTULO_STATUS_RESIDENTE[residente.status]}
+                {residente.dataSaida && ` em ${formatarData(residente.dataSaida)}`}
+              </dd>
+            </div>
+          )}
           <div className="flex gap-2">
             <dt className="text-slate-500">Nascimento:</dt>
             <dd>{formatarData(residente.dataNascimento)}</dd>

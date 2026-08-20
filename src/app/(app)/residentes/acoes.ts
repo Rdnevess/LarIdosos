@@ -6,7 +6,11 @@ import { executarAcao, type EstadoAcao } from '@/lib/acoes'
 import { ErroValidacao } from '@/lib/erros'
 import { texto, data, booleano } from '@/lib/formulario'
 import { obterCtx } from '@/modules/auth/sessao'
-import { criarResidente, atualizarResidente } from '@/modules/residents/residentes.service'
+import {
+  criarResidente,
+  atualizarResidente,
+  desligarResidente,
+} from '@/modules/residents/residentes.service'
 import { dadosDoResidente } from './conversores'
 import { adicionarResponsavel } from '@/modules/residents/responsaveis.service'
 import { criarAnotacao } from '@/modules/residents/anotacoes.service'
@@ -44,6 +48,32 @@ export async function acaoAtualizarResidente(
     await atualizarResidente(ctx, id, dadosDoResidente(dados))
   })
 
+  revalidatePath(`/residentes/${id}`)
+  return resultado
+}
+
+export async function acaoDesligarResidente(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const id = String(dados.get('id'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await desligarResidente(ctx, id, {
+      // O `as` não afrouxa a validação: `desligamentoSchema` aceita só
+      // DESLIGADO e FALECIDO, e qualquer outro valor — inclusive campo vazio
+      // — vira `ErroValidacao` com mensagem em português
+      // (`src/modules/residents/residentes.schema.ts`).
+      status: texto(dados, 'status') as 'DESLIGADO' | 'FALECIDO',
+      dataSaida: data(dados, 'dataSaida')!,
+      motivoSaida: texto(dados, 'motivoSaida')!,
+      observacaoSaida: texto(dados, 'observacaoSaida'),
+    })
+  })
+
+  // A lista também muda: o residente sai do filtro "Ativos".
+  revalidatePath('/residentes')
   revalidatePath(`/residentes/${id}`)
   return resultado
 }

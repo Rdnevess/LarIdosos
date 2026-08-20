@@ -232,3 +232,37 @@ test('corrige um cadastro pela tela de edição', async ({ page }) => {
     '9 / —'
   )
 })
+
+test('registra o óbito de um residente e o encontra pelo filtro de situação', async ({ page }) => {
+  const nome = `Idosa Obito ${Date.now()}`
+  await cadastrarResidente(page, nome)
+
+  await page.getByRole('link', { name: 'Registrar saída ou óbito' }).click()
+  await page.getByLabel('Situação').selectOption('FALECIDO')
+  await page.getByLabel('Data da saída').fill('2026-08-05')
+  await page.getByLabel('Motivo da saída').fill('Falecimento por causas naturais')
+  await page.getByRole('button', { name: 'Registrar saída' }).click()
+
+  // Gravado: a tela troca o formulário pelo registro somente-leitura. Este é
+  // o sinal observável, e não o "Registro salvo" — a revalidação da rota
+  // substitui a seção inteira antes de o texto chegar a aparecer, o mesmo que
+  // `funcionarios.spec.ts` já precisou levar em conta.
+  const registro = page.locator('dl > div').filter({ hasText: 'Situação:' })
+  await expect(registro).toContainText('Falecido')
+
+  await page.getByRole('link', { name: 'Voltar à ficha' }).click()
+  await expect(page.locator('dl > div').filter({ hasText: 'Situação:' })).toContainText(
+    'Falecido em 05/08/2026'
+  )
+
+  // Some da lista de ativos e passa a ser encontrado pelo filtro "Falecidos" —
+  // o filtro que antes existia sem nenhuma tela capaz de atribuir o status.
+  await page.goto('/residentes')
+  await page.getByLabel('Buscar por nome').fill(nome)
+  await page.getByRole('button', { name: 'Filtrar' }).click()
+  await expect(page.getByRole('link', { name: new RegExp(nome) })).toHaveCount(0)
+
+  await page.getByLabel('Situação').selectOption('FALECIDO')
+  await page.getByRole('button', { name: 'Filtrar' }).click()
+  await expect(page.getByRole('link', { name: new RegExp(nome) })).toBeVisible()
+})
