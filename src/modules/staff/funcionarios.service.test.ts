@@ -49,6 +49,15 @@ describe('criarFuncionario', () => {
     const ctx = await ctxComPapel('SAUDE')
     await expect(criarFuncionario(ctx, dadosValidos)).rejects.toThrow(ErroPermissao)
   })
+
+  it('recusa UF do conselho com 3 letras, com mensagem em português', async () => {
+    // Reproduz o achado I1 da re-revisão: sem o errorMap global (@/lib/zodErros),
+    // esta mensagem saía em inglês ("String must contain exactly 2 character(s)").
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await expect(
+      criarFuncionario(ctx, { ...dadosValidos, conselhoUf: 'SPO' })
+    ).rejects.toThrow('Deve ter exatamente 2 caractere(s)')
+  })
 })
 
 describe('obterFuncionario', () => {

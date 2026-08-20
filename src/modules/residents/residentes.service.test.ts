@@ -67,6 +67,15 @@ describe('criarResidente', () => {
     const ctx = await ctxComPapel('SAUDE')
     await expect(criarResidente(ctx, dadosValidos)).rejects.toThrow(ErroPermissao)
   })
+
+  it('recusa valor de benefício negativo, com mensagem em português', async () => {
+    // Reproduz o achado I1 da re-revisão: sem o errorMap global (@/lib/zodErros),
+    // esta mensagem saía em inglês ("Number must be greater than or equal to 0").
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await expect(
+      criarResidente(ctx, { ...dadosValidos, beneficioValor: -5 })
+    ).rejects.toThrow('Deve ser maior ou igual a 0')
+  })
 })
 
 describe('obterResidente', () => {
