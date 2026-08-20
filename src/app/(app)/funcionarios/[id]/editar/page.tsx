@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation'
+import { ErroNaoEncontrado } from '@/lib/erros'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterFuncionario } from '@/modules/staff/funcionarios.service'
 import { FormularioSimples } from '@/components/formulario-simples'
@@ -12,7 +14,14 @@ export default async function PaginaEditarFuncionario({
 }) {
   const { id } = await params
   const ctx = await obterCtx()
-  const funcionario = await obterFuncionario(ctx, id)
+  let funcionario
+  try {
+    funcionario = await obterFuncionario(ctx, id)
+  } catch (erro) {
+    // Id inexistente na URL vira 404 em português, e não a tela de exceção.
+    if (erro instanceof ErroNaoEncontrado) notFound()
+    throw erro
+  }
 
   const valorInicial = (nome: string): string | undefined => {
     const valor = funcionario[nome as keyof typeof funcionario]

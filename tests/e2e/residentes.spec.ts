@@ -266,3 +266,13 @@ test('registra o óbito de um residente e o encontra pelo filtro de situação',
   await page.getByRole('button', { name: 'Filtrar' }).click()
   await expect(page.getByRole('link', { name: new RegExp(nome) })).toBeVisible()
 })
+
+test('id inexistente na URL entrega a tela de nao encontrado em pt-BR', async ({ page }) => {
+  const resposta = await page.goto('/residentes/nao-existe-este-id')
+
+  // 404 de verdade, não uma página 200 com texto de erro.
+  expect(resposta?.status()).toBe(404)
+  await expect(page.getByRole('heading', { name: 'Registro não encontrado' })).toBeVisible()
+  // Nada de mensagem de exceção interna vazando para a tela.
+  await expect(page.getByText(/Residente não encontrado|Error|at async/)).toHaveCount(0)
+})
