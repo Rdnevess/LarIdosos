@@ -204,6 +204,12 @@ Continue conferindo `tail -50 /var/log/lar-backup.log` de vez em quando,
 mesmo com o alerta — ele cobre "o backup parou de funcionar", não
 "o backup está funcionando mas produzindo algo errado".
 
+Esse arquivo de log fica **fora** do Docker, então o limite de tamanho do
+`docker-compose.yml` não o alcança: sem rotação ele cresce todo dia, para
+sempre, no mesmo disco que guarda o banco. A entrada de logrotate está em
+`docs/operacao/implantacao.md`, seção "Rotação dos logs" — configure-a
+junto com o cron acima.
+
 ## Como restaurar
 
 `scripts/restaurar.sh` é **destrutivo**: substitui o banco de dados e

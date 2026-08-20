@@ -12,6 +12,17 @@ services:
   db:
     image: postgres:18-alpine
     restart: unless-stopped
+    # O disco que enche é o mesmo que guarda o banco (volume `pgdata`) e os
+    # documentos anexados (`uploads`). Sem limite, o log do Docker cresce sem
+    # teto até o disco acabar — e o sintoma não é "o log encheu": é o Postgres
+    # parando de aceitar escrita e o anexo de documento falhando, numa VPS
+    # pequena onde tudo divide o mesmo disco. 10 MB x 3 arquivos = 30 MB por
+    # serviço, teto de 90 MB somando os três.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -27,6 +38,12 @@ services:
   app:
     build: .
     restart: unless-stopped
+    # Mesmo teto dos demais serviços; ver o comentário em `db`.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +68,12 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # Mesmo teto dos demais serviços; ver o comentário em `db`.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       - app
     ports:

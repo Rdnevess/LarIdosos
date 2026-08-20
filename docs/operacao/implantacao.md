@@ -271,6 +271,85 @@ real (ver seção "O que não foi verificado" no relatório da Tarefa 17),
 mas o mecanismo é o mesmo em qualquer Node 24, independente do sistema
 operacional por baixo.
 
+## Rotação dos logs
+
+O disco da VPS é o mesmo que guarda o banco de dados e os documentos
+anexados. Um log sem limite enche esse disco, e o sintoma não é "o log
+encheu": é o Postgres parando de aceitar escrita e o anexo de documento
+falhando, sem que nada aponte para a causa. Há duas fontes de log, e cada
+uma se limita de um jeito.
+
+**1. Os logs dos containers — já configurados, nada a fazer.**
+
+O `docker-compose.yml` fixa, nos três serviços (`db`, `app`, `caddy`):
+
+```yaml
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+São 30 MB por serviço (3 arquivos de 10 MB, rotacionados pelo próprio
+Docker), 90 MB somando os três. Não remova esse bloco. Conferir o que
+está valendo num container:
+
+```bash
+docker inspect --format '{{json .HostConfig.LogConfig}}' lar-app-1
+```
+
+**2. O log do backup — precisa de uma entrada de logrotate.**
+
+O cron do backup (`docs/operacao/backup.md`) grava em
+`/var/log/lar-backup.log`, que fica **fora** do Docker e por isso não é
+coberto pelo item 1: cresce todo dia, para sempre. Crie a entrada:
+
+```bash
+sudo nano /etc/logrotate.d/lar-backup
+```
+
+Com este conteúdo:
+
+```
+/var/log/lar-backup.log {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+}
+```
+
+O que cada linha faz, e por que está aí:
+
+- `weekly` + `rotate 12` — guarda cerca de três meses de histórico. É o
+  bastante para investigar "desde quando o backup está falhando" sem
+  guardar log de anos.
+- `compress` e `delaycompress` — comprime as versões antigas; a mais
+  recente fica sem comprimir por um ciclo, para `tail -50
+  /var/log/lar-backup.log.1` continuar funcionando logo depois da
+  rotação.
+- `missingok` — não reclama se o arquivo ainda não existe (a primeira
+  execução do backup é que o cria).
+- `notifempty` — não rotaciona arquivo vazio.
+- `create 0640 root adm` — recria o arquivo com as mesmas permissões
+  depois de rotacionar. Sem isto, o cron do backup (que roda como root)
+  perderia o arquivo para onde escreve.
+
+Confira a sintaxe sem rotacionar nada:
+
+```bash
+sudo logrotate --debug /etc/logrotate.d/lar-backup
+```
+
+O `--debug` só simula e imprime o que faria. Se quiser forçar uma
+rotação de verdade para testar, use `sudo logrotate --force
+/etc/logrotate.d/lar-backup` e confira que `/var/log/lar-backup.log.1`
+apareceu.
+
 ## Comandos úteis
 
 ```bash
