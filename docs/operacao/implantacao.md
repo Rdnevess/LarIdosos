@@ -203,6 +203,22 @@ troca, o valor de `SEED_ADMIN_SENHA` no `.env.producao` fica obsoleto: o
 seed é idempotente e nunca mais sobrescreve a senha de um usuário que já
 existe, mesmo que o container reinicie ou seja reconstruído.
 
+## Passo 11 — Combinar o bloqueio de tela com a equipe
+
+Uma sessão dura 12 horas e não expira por inatividade. Quem tem o papel
+COORDENACAO pode definir a senha de qualquer conta pela tela de usuários,
+sem digitar a própria senha.
+
+Somadas, as duas coisas significam que um computador destravado na sala
+administrativa é acesso de coordenação até o fim do expediente. Combine
+com a equipe: **bloquear a tela ao sair da mesa** (tecla Windows + L).
+
+A troca de senha é auditada com o nome de quem trocou, então o abuso
+deixa rastro e derruba a sessão da conta afetada — quem sofrer percebe.
+É detecção, não prevenção; a prevenção é a tela bloqueada. Exigir a
+senha atual de quem troca está registrado como o item de segurança de
+maior prioridade da próxima fase, em `docs/operacao/pendencias-fase-1.md`.
+
 ## Atualizando o sistema
 
 Sempre que houver uma nova versão do código:
@@ -415,7 +431,12 @@ imagem antiga.
 ## Backup
 
 Este documento cobre só a implantação. A rotina de backup criptografado
-e o procedimento de restauração ficam em `docs/operacao/backup.md`
-(entregue numa etapa seguinte deste projeto) — **não considere o
-sistema pronto para uso real (cadastro dos ~30 residentes) antes de
-configurar e testar o backup.**
+e o procedimento de restauração ficam em `docs/operacao/backup.md`.
+
+**Não considere o sistema pronto para uso real (cadastro dos ~30
+residentes) antes de executar o teste de restauração.** Os scripts foram
+escritos e revisados, e **nunca foram executados** — a máquina de
+desenvolvimento não tem Docker. O momento mais barato para o primeiro
+teste é agora, contra o banco vazio recém-criado: não há dado a perder.
+A tabela de execução em `backup.md` tem a linha marcada `_PENDENTE_`
+esperando a data, quem executou e quanto levou.
