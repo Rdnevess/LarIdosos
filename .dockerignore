@@ -1,0 +1,33 @@
+# O contexto de build vai só o necessário para instalar dependências e
+# rodar `next build`. Em especial, `.env*` nunca deve entrar na imagem: as
+# variáveis de produção chegam via `environment:` do docker-compose.yml, não
+# de um arquivo copiado para dentro do container.
+
+node_modules
+.next
+out
+dist
+
+.git
+.gitignore
+
+.env
+.env.*
+!.env.producao.example
+
+data
+test-results
+playwright-report
+coverage
+tests
+
+.superpowers
+docs/convenio
+
+*.tsbuildinfo
+npm-debug.log*
+
+.vscode
+.idea
+.DS_Store
+Thumbs.db

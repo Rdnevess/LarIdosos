@@ -8,8 +8,11 @@ dist/
 
 # Ambiente — nunca versionar credenciais
 .env
+.env.test
 .env.local
 .env.*.local
+.env.producao
+!.env.producao.example
 
 # Uploads (documentos, exames, comprovantes) — dados sensíveis, ficam em volume
 /data/
@@ -29,3 +32,17 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+tests/e2e/.sessao.json
+tests/e2e/.sessao-saude.json
+
+# Workspace do subagent-driven-development
+.superpowers/
+
+# Next.js
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
+
+# Modelos e documentos do convenio (podem conter dados sensiveis)
+docs/convenio/

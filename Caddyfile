@@ -1,0 +1,25 @@
+# Proxy reverso com HTTPS automático (Let's Encrypt) para o domínio em
+# ${DOMINIO}. Sem DNS público apontando para a VPS, a emissão do
+# certificado falha — isso é esperado num teste local (ver
+# docs/operacao/implantacao.md).
+{$DOMINIO} {
+	encode gzip
+
+	# 25 MB: o mesmo teto de 20 MB por arquivo que `salvarArquivo` aplica
+	# (ver next.config.ts e src/lib/arquivos.ts), com folga para o
+	# envelope do multipart/form-data. Sem isto, o Caddy corta a
+	# requisição antes dela chegar ao Next, e o limite configurado em
+	# `serverActions.bodySizeLimit` nunca chega a ser testado.
+	request_body {
+		max_size 25MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+	}
+
+	reverse_proxy app:3000
+}

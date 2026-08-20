@@ -1,0 +1,93 @@
+# Compose de produção. Roda inteiro numa única VPS, sem Kubernetes, sem CI:
+# `docker compose up -d --build` é o único comando de implantação.
+#
+# `name: lar` fixa o prefixo dos volumes como `lar_` (`lar_uploads`,
+# `lar_pgdata`). Sem isto, o Compose usaria o nome do diretório onde o
+# repositório foi clonado como prefixo — e os scripts de backup (Tarefa 18),
+# que referenciam `lar_uploads` pelo nome fixo, copiariam um volume vazio
+# sem erro nenhum na primeira execução.
+name: lar
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    # O disco que enche é o mesmo que guarda o banco (volume `pgdata`) e os
+    # documentos anexados (`uploads`). Sem limite, o log do Docker cresce sem
+    # teto até o disco acabar — e o sintoma não é "o log encheu": é o Postgres
+    # parando de aceitar escrita e o anexo de documento falhando, numa VPS
+    # pequena onde tudo divide o mesmo disco. 10 MB x 3 arquivos = 30 MB por
+    # serviço, teto de 90 MB somando os três.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    # Mesmo teto dos demais serviços; ver o comentário em `db`.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: https://${DOMINIO}
+      UPLOADS_DIR: /data/uploads
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_SENHA: ${SEED_ADMIN_SENHA}
+      # Obrigatório: várias datas no código (`new Date('...T12:00:00')`, sem
+      # sufixo de fuso) são interpretadas no fuso do processo Node. Imagens
+      # de container rodam em UTC por padrão — sem isto, o filtro de período
+      # da trilha de auditoria desloca até 3 horas, sem erro visível: um
+      # evento das 21h entra ou sai da janela errada. Ver
+      # docs/operacao/implantacao.md.
+      TZ: America/Sao_Paulo
+    volumes:
+      - uploads:/data/uploads
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # Mesmo teto dos demais serviços; ver o comentário em `db`.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

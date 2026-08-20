@@ -1,0 +1,11 @@
+# Scripts que rodam dentro de containers Linux precisam de quebra de linha
+# LF. Numa máquina Windows com `core.autocrlf=true`, sem isto o Git
+# converteria para CRLF no checkout — e um `\r` sobrando na linha do
+# shebang (`#!/bin/sh\r`) faz o container falhar ao iniciar com um erro
+# que não aponta para a causa ("no such file or directory", mesmo o
+# arquivo existindo).
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+docker-compose*.yml text eol=lf

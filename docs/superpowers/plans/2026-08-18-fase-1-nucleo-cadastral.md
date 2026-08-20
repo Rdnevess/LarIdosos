@@ -6,21 +6,23 @@
 
 **Architecture:** Monolito Next.js 15 (App Router) com camada de serviço separada das Server Actions. Toda regra de negócio e toda verificação de permissão vivem em funções `(ctx, dados)` testáveis sem HTTP; as Server Actions apenas autenticam, validam com Zod e delegam. Persistência em PostgreSQL via Prisma. Arquivos em volume local, servidos só por rota autenticada.
 
-**Tech Stack:** Next.js 15, TypeScript, React Server Components, Prisma 6, PostgreSQL 16, Auth.js v5 (NextAuth), Zod 3, Tailwind CSS + shadcn/ui, Vitest 2 (contra Postgres real), Playwright, Docker Compose + Caddy.
+**Tech Stack:** Next.js 15, TypeScript, React Server Components, Prisma 6, PostgreSQL 18, Auth.js v5 (NextAuth), Zod 3, Tailwind CSS + shadcn/ui, Vitest 2 (contra Postgres real), Playwright, Docker Compose + Caddy.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-lar-idosos-design.md`
 
 ## Global Constraints
 
-- **Node.js 22 LTS**; PostgreSQL **16**.
+- **Node.js 24 LTS**; PostgreSQL **18**.
 - **Interface inteira em pt-BR.** Nenhum texto de interface em inglês. Datas em `dd/mm/aaaa`, moeda em `R$ 0.000,00`.
 - **Nomes de domínio em português** (`Residente`, `Funcionario`, `criarResidente`). Nomes de framework permanecem como o framework exige.
 - **Exclusão é sempre lógica** (spec R1). Nenhum serviço executa `delete` em entidade de domínio.
-- **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. Cada recusa tem teste.
+- **Permissão verificada na camada de serviço** (spec R11), nunca apenas na interface. **Cada função exportada de um serviço tem um teste que a chama com um papel não autorizado e espera `ErroPermissao`** — inclusive as funções cujo bloco de testes o plano não detalha. Sem isso, uma chamada a `exigirPapel` que alguém remova numa refatoração futura não quebra teste nenhum.
+- **O diff de auditoria registra o estado real anterior, nunca um valor presumido.** Use o campo lido do banco (`atual.campo`) como `de`, não uma constante. Um log que afirma "estava ativo" sobre um registro que já estava inativo é um registro falso — e este sistema responde a fiscalização sanitária e a prestação de contas de convênio.
 - **Chaves primárias em CUID** (`@default(cuid())`), expostas nas URLs. Nenhum inteiro sequencial em rota.
-- **Toda escrita gera registro em `LogAuditoria`**; leitura de dado sensível também (spec R12).
+- **Toda escrita gera registro em `LogAuditoria`.** Leitura audita quando abre o dado sensível de uma pessoa específica: ficha do residente, exame, documento, comprovante financeiro. **Listagem, em regra, não audita** — devolve só os campos que a tela de lista usa (spec §8: auditar toda leitura de toda tela gera volume que ninguém consegue consultar, e a minimização protege mais que o registro do acesso). **Exceção:** quando o dado sensível *é* o conteúdo listado e minimizar tornaria a lista inútil — histórico de anotações, histórico de avaliações —, a listagem audita, porque nesse caso ela abre o dado da pessoa em vez de apenas apontá-lo.
 - **Testes rodam contra PostgreSQL real**, nunca SQLite.
 - TDD obrigatório: o teste é escrito e falha antes da implementação.
+- **Antes de cada commit, rode `npm run typecheck` além dos testes.** O Vitest transpila com esbuild, que remove as anotações de tipo sem verificá-las: uma suíte inteiramente verde convive com código que não compila, e o `next build` só descobre isso muito depois, quando achar a origem já custa caro.
 - Commits em português, no imperativo ("Adiciona serviço de residentes").
 
 ---
@@ -109,26 +111,43 @@ Entrega o esqueleto executável: projeto Next.js, banco em container, Prisma mig
 
 ```bash
 cd D:/Dev/LarIdosos
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --no-turbopack
+npx create-next-app@15 . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes
 ```
 
-Responda **No** se perguntar sobre sobrescrever arquivos existentes que não sejam de código (`.gitignore`, `docs/`). O `docs/` e o `.gitignore` já versionados devem permanecer.
+**Use `@15`, não `@latest`.** Todo o código deste plano é escrito para as APIs do Next 15, Prisma 6, Zod 3 e Vitest 2. Uma tentativa anterior com `@latest` trouxe Next 16 / Prisma 7 / Zod 4 / Vitest 4, e o Prisma 7 rejeitou o `schema.prisma` deste plano de saída (`P1012`: `datasource url` deixou de ser suportado).
+
+O diretório **não está vazio** — já contém `.git/`, `.gitignore` e `docs/`. O `--yes` evita que o comando fique preso em prompt interativo. Depois de rodar, confirme com `git status` que `docs/` continua intacto e que o `.gitignore` versionado não foi substituído pelo padrão do Next; se foi, restaure-o com `git checkout .gitignore` e acrescente ao final as linhas que o Next precisa (`.next/`, `next-env.d.ts`).
 
 - [ ] **Step 2: Instalar dependências**
 
 ```bash
-npm install @prisma/client zod @node-rs/argon2 next-auth@beta
-npm install -D prisma vitest dotenv-cli @playwright/test tsx
+npm install @prisma/client@^6 zod@^3 @node-rs/argon2@^2 next-auth@beta
+npm install -D prisma@^6 vitest@^2 vite-tsconfig-paths@^5 dotenv-cli @playwright/test tsx
 ```
 
-- [ ] **Step 3: Subir os bancos de desenvolvimento e de teste**
+Depois de instalar, **fixe a versão exata do `next-auth`** no `package.json` (troque `^5.0.0-beta.NN` por `5.0.0-beta.NN`, sem o acento circunflexo) e rode `npm install` de novo. É a única dependência ainda em beta do projeto: deixá-la com faixa aberta significa que um `npm install` daqui a três meses pode trazer uma API diferente para o módulo de autenticação, sem ninguém pedir.
 
-Criar `docker-compose.dev.yml`:
+Confira com `npm ls next prisma zod vitest` que as versões maiores são 15, 6, 3 e 2 antes de seguir. O `vite-tsconfig-paths` fica em `^5` por compatibilidade com o Vitest 2 — o Step 10 não precisa instalá-lo de novo.
+
+- [ ] **Step 3: Preparar os bancos de desenvolvimento e de teste**
+
+Dois caminhos, conforme a máquina. **Nesta máquina o caminho é o A** — não há Docker instalado, e há um PostgreSQL 18 nativo rodando como serviço (`postgresql-x64-18`).
+
+**Caminho A — PostgreSQL nativo (esta máquina).** Os bancos `lar_dev` e `lar_test`, e o usuário `lar` dono de ambos, já foram criados pelo controlador antes desta tarefa. Confirme que existem e que você consegue conectar:
+
+```bash
+PGPASSWORD=<senha do usuário lar> "/c/Program Files/PostgreSQL/18/bin/psql.exe" \
+  -U lar -h localhost -p 5432 -d lar_dev -c "select current_database(), current_user;"
+```
+
+Esperado: uma linha com `lar_dev | lar`. Repita com `-d lar_test`. Se algum banco faltar, **pare e reporte NEEDS_CONTEXT** — criar banco exige credencial de superusuário, que você não tem.
+
+**Caminho B — Docker (outras máquinas).** Crie `docker-compose.dev.yml` e suba os dois containers. O arquivo fica versionado de qualquer forma, para quem clonar o projeto em uma máquina com Docker:
 
 ```yaml
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: lar
       POSTGRES_PASSWORD: lar
@@ -138,7 +157,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   db_test:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: lar
       POSTGRES_PASSWORD: lar
@@ -157,23 +176,29 @@ O banco de teste usa `tmpfs`: fica em memória, some ao parar o container e roda
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+No caminho B as portas são 5432 (dev) e 5433 (teste); no caminho A ambos os bancos vivem no mesmo servidor na porta 5432, separados por nome. É por isso que o `.env` e o `.env.test` do próximo passo diferem no **nome do banco**, e não apenas na porta.
+
 - [ ] **Step 4: Configurar variáveis de ambiente**
 
-`.env`:
+**Caminho A (esta máquina)** — o controlador já escreveu `.env` e `.env.test` com a senha real do usuário `lar`. Confira que existem e que apontam para `lar_dev` e `lar_test` respectivamente, ambos na porta 5432. Não sobrescreva esses arquivos.
+
+Formato do `.env`:
 
 ```
-DATABASE_URL="postgresql://lar:lar@localhost:5432/lar_dev?schema=public"
+DATABASE_URL="postgresql://lar:<senha>@localhost:5432/lar_dev?schema=public"
 AUTH_SECRET="troque-por-um-valor-aleatorio-em-producao"
 UPLOADS_DIR="./data/uploads"
 ```
 
-`.env.test`:
+Formato do `.env.test`:
 
 ```
-DATABASE_URL="postgresql://lar:lar@localhost:5433/lar_test?schema=public"
+DATABASE_URL="postgresql://lar:<senha>@localhost:5432/lar_test?schema=public"
 AUTH_SECRET="segredo-de-teste"
 UPLOADS_DIR="./data/uploads-test"
 ```
+
+**Caminho B (Docker)** — mesmos arquivos, com `lar:lar` como credencial e o banco de teste na porta 5433.
 
 `.env.example` recebe as mesmas chaves com valores vazios — é o que vai para o git. `.env` e `.env.test` já estão cobertos pelo `.gitignore`.
 
@@ -245,6 +270,7 @@ O singleton existe porque o hot reload do Next.js recria módulos a cada altera�
     "start": "next start",
     "db:migrate": "prisma migrate dev",
     "db:migrate:test": "dotenv -e .env.test -- prisma migrate deploy",
+    "typecheck": "tsc --noEmit",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test": "npm run db:migrate:test && dotenv -e .env.test -- vitest run",
@@ -291,10 +317,17 @@ export async function limparBanco(): Promise<void> {
 
 ```typescript
 import { beforeEach, afterAll } from 'vitest'
+import { rm } from 'node:fs/promises'
 import { limparBanco, prisma } from './banco'
 
 beforeEach(async () => {
   await limparBanco()
+  // Os testes de documento gravam arquivos de verdade. Sem esta limpeza o
+  // diretório cresce a cada execução, guardando anexos de testes já esquecidos.
+  await rm(process.env.UPLOADS_DIR ?? './data/uploads-test', {
+    recursive: true,
+    force: true,
+  })
 })
 
 afterAll(async () => {
@@ -386,7 +419,7 @@ Validação de CPF e CNPJ com dígito verificador e formatação brasileira. Usa
 
 **Interfaces:**
 - Consumes: nada
-- Produces: `validarCpf(valor: string): boolean`, `validarCnpj(valor: string): boolean`, `somenteDigitos(valor: string): string`, `formatarCpf(valor: string): string`, `formatarData(data: Date): string`, `formatarMoeda(valor: number): string`
+- Produces: `validarCpf(valor: string): boolean`, `validarCnpj(valor: string): boolean`, `somenteDigitos(valor: string): string`, `formatarCpf(valor: string): string`, `formatarData(data: Date): string` (campos `@db.Date`, formata em UTC), `formatarDataHora(data: Date): string` (instantes, formata em America/Sao_Paulo), `formatarMoeda(valor: number): string`
 
 - [ ] **Step 1: Escrever os testes (devem falhar)**
 
@@ -400,6 +433,7 @@ import {
   somenteDigitos,
   formatarCpf,
   formatarData,
+  formatarDataHora,
   formatarMoeda,
 } from './ptbr'
 
@@ -444,8 +478,25 @@ describe('formatação', () => {
     expect(somenteDigitos('529.982.247-25')).toBe('52998224725')
   })
 
-  it('formata data no padrão brasileiro', () => {
-    expect(formatarData(new Date(2026, 7, 18))).toBe('18/08/2026')
+  it('formata data pura no padrão brasileiro', () => {
+    expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    expect(formatarData(new Date('2026-01-01T00:00:00Z'))).toBe('01/01/2026')
+  })
+
+  it('formata data pura sem depender do fuso do processo', () => {
+    const tzOriginal = process.env.TZ
+    try {
+      process.env.TZ = 'UTC'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+      process.env.TZ = 'Pacific/Kiritimati'
+      expect(formatarData(new Date('2026-08-18T00:00:00Z'))).toBe('18/08/2026')
+    } finally {
+      process.env.TZ = tzOriginal
+    }
+  })
+
+  it('formata data e hora no fuso de São Paulo', () => {
+    expect(formatarDataHora(new Date('2026-08-18T14:30:00Z'))).toBe('18/08/2026 11:30')
   })
 
   it('formata moeda em real', () => {
@@ -516,8 +567,21 @@ export function formatarData(data: Date): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: 'America/Sao_Paulo',
+    timeZone: 'UTC',
   }).format(data)
+}
+
+export function formatarDataHora(data: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })
+    .format(data)
+    .replace(',', '')
 }
 
 export function formatarMoeda(valor: number): string {
@@ -531,6 +595,13 @@ export function formatarMoeda(valor: number): string {
 ```
 
 O `replace` no fim de `formatarMoeda` troca o espaço não-quebrável que o `Intl` insere por um espaço comum — sem isso a comparação no teste falha por um caractere invisível, que é das coisas mais frustrantes de depurar.
+
+**As duas funções de data são distintas de propósito, e usar a errada corrompe o dado exibido:**
+
+- `formatarData` serve aos campos `@db.Date` (`dataNascimento`, `dataAdmissao`, `dataAvaliacao`, `dataCompetencia`…). O Prisma devolve esses campos como **meia-noite UTC**. Formatá-los em `America/Sao_Paulo` mostraria 21h do dia anterior — ou seja, **toda data de nascimento e admissão apareceria um dia antes**. Por isso ela formata em `UTC`.
+- `formatarDataHora` serve aos campos de instante real (`criadoEm`, `aferidoEm`, `registradoEm`, `ocorridoEm`). Esses são momentos no tempo e devem ser exibidos no fuso de quem lê — `America/Sao_Paulo`.
+
+Regra prática para as tarefas seguintes: **se o campo é `@db.Date`, use `formatarData`; se é `DateTime` de acontecimento, use `formatarDataHora`.**
 
 - [ ] **Step 4: Rodar os testes**
 
@@ -571,6 +642,11 @@ describe('senha', () => {
     expect(hash.startsWith('$argon2id$')).toBe(true)
   })
 
+  it('usa os parâmetros recomendados pela OWASP', async () => {
+    const hash = await hashSenha('senha-forte-123')
+    expect(hash).toContain('m=19456,t=2,p=1')
+  })
+
   it('gera hashes diferentes para a mesma senha', async () => {
     const a = await hashSenha('senha-forte-123')
     const b = await hashSenha('senha-forte-123')
@@ -605,10 +681,14 @@ Expected: FAIL — módulo não encontrado.
 `src/lib/senha.ts`:
 
 ```typescript
-import { hash, verify, Algorithm } from '@node-rs/argon2'
+import { hash, verify } from '@node-rs/argon2'
 
+// Parâmetros recomendados pela OWASP para Argon2id: 19 MiB, 2 iterações,
+// paralelismo 1. O algoritmo não é passado explicitamente porque
+// `Algorithm.Argon2id` é um const enum de ambiente, inacessível como valor
+// sob `isolatedModules` (exigido pelo Next). O padrão da biblioteca já é
+// Argon2id, e o teste do prefixo `$argon2id$` trava isso contra regressão.
 const OPCOES = {
-  algorithm: Algorithm.Argon2id,
   memoryCost: 19456,
   timeCost: 2,
   parallelism: 1,
@@ -623,14 +703,15 @@ export async function verificarSenha(
   senha: string
 ): Promise<boolean> {
   try {
-    return await verify(hashArmazenado, senha, OPCOES)
+    // Sem OPCOES: a string PHC do hash carrega os próprios parâmetros, e a
+    // verificação usa os dela. Passá-los aqui sugeriria, falsamente, que
+    // alterar OPCOES invalidaria hashes já gravados.
+    return await verify(hashArmazenado, senha)
   } catch {
     return false
   }
 }
 ```
-
-Os parâmetros seguem a recomendação da OWASP para Argon2id (19 MiB de memória, 2 iterações).
 
 - [ ] **Step 4: Rodar os testes**
 
@@ -945,6 +1026,19 @@ import type { Ctx } from '@/lib/contexto'
 
 export type ClientePrisma = PrismaClient | Prisma.TransactionClient
 
+/**
+ * Quem praticou o ato. `Ctx` satisfaz este tipo, então todo serviço continua
+ * passando o seu `ctx` diretamente. O `usuarioId` aceita `null` porque o
+ * registro de LOGIN_FALHA de um e-mail inexistente não tem usuário a apontar —
+ * e inventar um identificador ali sujaria o índice com uma ficção.
+ */
+export type AtorAuditoria = {
+  usuarioId: string | null
+  email: string
+  ip?: string
+  userAgent?: string
+}
+
 export type Diff = Record<string, { de: unknown; para: unknown }>
 
 export type DadosAuditoria = {
@@ -980,7 +1074,7 @@ export function calcularDiff(
 
 export async function registrarAuditoria(
   cliente: ClientePrisma,
-  ctx: Ctx,
+  ctx: AtorAuditoria,
   dados: DadosAuditoria
 ): Promise<void> {
   await cliente.logAuditoria.create({
@@ -1018,6 +1112,7 @@ git commit -m "Adiciona trilha de auditoria append-only"
 ### Task 6: Serviço de usuários
 
 **Files:**
+- Create: `src/lib/validacao.ts`
 - Create: `src/modules/auth/usuarios.schema.ts`
 - Create: `src/modules/auth/usuarios.service.ts`
 - Create: `tests/helpers/fabricas.ts`
@@ -1026,6 +1121,7 @@ git commit -m "Adiciona trilha de auditoria append-only"
 **Interfaces:**
 - Consumes: `prisma`, `Ctx`, `exigirPapel`, `hashSenha`, `registrarAuditoria`, `calcularDiff`
 - Produces:
+  - `validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S>` em `src/lib/validacao.ts` — **usado por todos os serviços seguintes**
   - `criarUsuario(ctx: Ctx, dados: DadosNovoUsuario): Promise<UsuarioPublico>`
   - `listarUsuarios(ctx: Ctx): Promise<UsuarioPublico[]>`
   - `atualizarUsuario(ctx: Ctx, id: string, dados: DadosAtualizacaoUsuario): Promise<UsuarioPublico>`
@@ -1186,6 +1282,16 @@ describe('atualizarUsuario', () => {
     expect(log.diff).toEqual({ nome: { de: 'Nova Pessoa', para: 'Nome Corrigido' } })
   })
 
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(
+      atualizarUsuario(ctx, alvo.id, { nome: 'Tentativa' })
+    ).rejects.toThrow(ErroPermissao)
+  })
+
   it('nunca inclui senhaHash no diff da auditoria', async () => {
     const ctx = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(ctx, dadosValidos)
@@ -1213,6 +1319,16 @@ describe('definirSenha', () => {
     expect(await verificarSenha(depois.senhaHash, 'outra-senha-forte-456')).toBe(true)
     expect(depois.senhaAlteradaEm.getTime()).toBeGreaterThan(antes.senhaAlteradaEm.getTime())
   })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await expect(
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+    ).rejects.toThrow(ErroPermissao)
+  })
 })
 
 describe('desativarUsuario', () => {
@@ -1232,6 +1348,30 @@ describe('desativarUsuario', () => {
 
     await expect(desativarUsuario(ctx, usuario.id)).rejects.toThrow(ErroValidacao)
   })
+
+  it('registra na auditoria o estado anterior real, não um valor presumido', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(ctx, dadosValidos)
+
+    await desativarUsuario(ctx, alvo.id)
+    await desativarUsuario(ctx, alvo.id)
+
+    const logs = await prisma.logAuditoria.findMany({
+      where: { entidade: 'Usuario', entidadeId: alvo.id, acao: 'ATUALIZAR' },
+      orderBy: { criadoEm: 'asc' },
+    })
+
+    expect(logs[0].diff).toEqual({ ativo: { de: true, para: false } })
+    expect(logs[1].diff).toEqual({ ativo: { de: false, para: false } })
+  })
+
+  it('nega para papel não autorizado', async () => {
+    const admin = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(admin, dadosValidos)
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(desativarUsuario(ctx, alvo.id)).rejects.toThrow(ErroPermissao)
+  })
 })
 ```
 
@@ -1242,7 +1382,26 @@ O teste de auto-desativação cobre um cenário real: a coordenação se desativ
 Run: `npm test -- src/modules/auth`
 Expected: FAIL — módulo não encontrado.
 
-- [ ] **Step 4: Escrever os schemas Zod**
+- [ ] **Step 4: Criar o helper de validação compartilhado**
+
+`src/lib/validacao.ts` — usado por este serviço e por todos os seguintes:
+
+```typescript
+import type { ZodTypeAny, z } from 'zod'
+import { ErroValidacao } from './erros'
+
+export function validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S> {
+  const resultado = schema.safeParse(valor)
+  if (!resultado.success) {
+    throw new ErroValidacao(resultado.error.issues.map((i) => i.message).join('; '))
+  }
+  return resultado.data
+}
+```
+
+Falha de validação vira `ErroValidacao` com todas as mensagens concatenadas, e não uma exceção do Zod vazando para a camada de cima.
+
+- [ ] **Step 5: Escrever os schemas Zod**
 
 `src/modules/auth/usuarios.schema.ts`:
 
@@ -1269,7 +1428,7 @@ export type DadosNovoUsuario = z.infer<typeof novoUsuarioSchema>
 export type DadosAtualizacaoUsuario = z.infer<typeof atualizacaoUsuarioSchema>
 ```
 
-- [ ] **Step 5: Implementar o serviço**
+- [ ] **Step 6: Implementar o serviço**
 
 `src/modules/auth/usuarios.service.ts`:
 
@@ -1278,6 +1437,7 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { hashSenha } from '@/lib/senha'
+import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
 import {
   novoUsuarioSchema,
@@ -1302,14 +1462,6 @@ export type UsuarioPublico = {
   papel: 'COORDENACAO' | 'SAUDE' | 'ADMINISTRATIVO'
   ativo: boolean
   ultimoAcessoEm: Date | null
-}
-
-function validar<T>(schema: { safeParse: (v: unknown) => { success: boolean; data?: T; error?: { issues: { message: string }[] } } }, valor: unknown): T {
-  const resultado = schema.safeParse(valor)
-  if (!resultado.success) {
-    throw new ErroValidacao(resultado.error!.issues.map((i) => i.message).join('; '))
-  }
-  return resultado.data as T
 }
 
 export async function criarUsuario(
@@ -1431,7 +1583,7 @@ export async function desativarUsuario(ctx: Ctx, id: string): Promise<void> {
       acao: 'ATUALIZAR',
       entidade: 'Usuario',
       entidadeId: id,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
   })
 }
@@ -1441,15 +1593,15 @@ Duas decisões que se repetem em todos os serviços seguintes: `select` explíci
 
 Na auditoria de senha, o diff é textual e não contém nem o hash nem a senha — registra-se que houve troca, não o quê.
 
-- [ ] **Step 6: Rodar os testes**
+- [ ] **Step 7: Rodar os testes**
 
 Run: `npm test -- src/modules/auth`
 Expected: PASS em todos.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/modules/auth/ tests/helpers/fabricas.ts
+git add src/modules/auth/ src/lib/validacao.ts tests/helpers/fabricas.ts
 git commit -m "Adiciona serviço de usuários com auditoria e verificação de papel"
 ```
 
@@ -1539,6 +1691,13 @@ describe('obterCtx', () => {
     await expect(obterCtx()).rejects.toThrow(ErroPermissao)
   })
 
+  it('recusa sessão sem carimbo de emissão', async () => {
+    const usuario = await criarUsuarioDeTeste()
+    mockAuth.mockResolvedValue({ user: { id: usuario.id } })
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+  })
+
   it('reflete imediatamente a mudança de papel no banco', async () => {
     const usuario = await criarUsuarioDeTeste({ papel: 'SAUDE' })
     mockAuth.mockResolvedValue({
@@ -1615,24 +1774,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
       credentials: { email: {}, senha: {} },
-      async authorize(credenciais) {
+      async authorize(credenciais, requisicao) {
         const email = String(credenciais?.email ?? '').trim().toLowerCase()
         const senha = String(credenciais?.senha ?? '')
         if (!email || !senha) return null
 
+        const cabecalhos = requisicao?.headers
+        const ip = cabecalhos?.get('x-forwarded-for')?.split(',')[0]?.trim()
+        const userAgent = cabecalhos?.get('user-agent') ?? undefined
+
         const usuario = await prisma.usuario.findUnique({ where: { email } })
-        const ctxFalha = { usuarioId: 'anonimo', email, papel: 'SAUDE' as const }
+
+        // O ator carrega o id real quando o usuário existe — inclusive quando a
+        // conta está desativada, que é o evento forense mais relevante aqui.
+        // Só um e-mail inexistente grava `null`.
+        const ator = { usuarioId: usuario?.id ?? null, email, ip, userAgent }
 
         if (!usuario || !usuario.ativo) {
-          await registrarAuditoria(prisma, ctxFalha, {
+          await registrarAuditoria(prisma, ator, {
             acao: 'LOGIN_FALHA',
             entidade: 'Usuario',
+            entidadeId: usuario?.id,
           })
           return null
         }
 
         if (!(await verificarSenha(usuario.senhaHash, senha))) {
-          await registrarAuditoria(prisma, { ...ctxFalha, usuarioId: usuario.id }, {
+          await registrarAuditoria(prisma, ator, {
             acao: 'LOGIN_FALHA',
             entidade: 'Usuario',
             entidadeId: usuario.id,
@@ -1645,11 +1813,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { ultimoAcessoEm: new Date() },
         })
 
-        await registrarAuditoria(
-          prisma,
-          { usuarioId: usuario.id, email: usuario.email, papel: usuario.papel },
-          { acao: 'LOGIN', entidade: 'Usuario', entidadeId: usuario.id }
-        )
+        await registrarAuditoria(prisma, ator, {
+          acao: 'LOGIN',
+          entidade: 'Usuario',
+          entidadeId: usuario.id,
+        })
 
         return { id: usuario.id, email: usuario.email, name: usuario.nome }
       },
@@ -1693,6 +1861,13 @@ export async function obterCtx(): Promise<Ctx> {
 
   const usuario = await prisma.usuario.findUnique({ where: { id: sessao.user.id } })
   if (!usuario || !usuario.ativo) {
+    throw new ErroPermissao('Sessão inválida')
+  }
+
+  // Falha fechada: sem carimbo de emissão não há como comparar com a troca de
+  // senha, e uma comparação contra `undefined` seria sempre falsa — aceitaria a
+  // sessão justamente no ponto que existe para recusá-la.
+  if (typeof sessao.emitidoEm !== 'number') {
     throw new ErroPermissao('Sessão inválida')
   }
 
@@ -1753,9 +1928,12 @@ export default auth((req) => {
     return Response.redirect(url)
   }
 
-  if (autenticado && ehLogin) {
-    return Response.redirect(new URL('/residentes', req.nextUrl))
-  }
+  // Deliberadamente NÃO redirecionamos quem tem cookie para fora de /login.
+  // O middleware só enxerga o JWT; ele não sabe se a conta foi desativada ou se
+  // a senha mudou — quem sabe é `obterCtx`, que consulta o banco. Redirecionar
+  // aqui prenderia o usuário de sessão revogada num ciclo: toda página real
+  // recusaria o acesso, e /login o mandaria de volta para elas. Quem decide se
+  // já está autenticado é a própria página de login, com `obterCtxOuNulo`.
 })
 
 export const config = {
@@ -1792,7 +1970,24 @@ export async function entrar(_estadoAnterior: string | null, formData: FormData)
 }
 ```
 
-`src/app/login/page.tsx`:
+`src/app/login/page.tsx` — a página é um Server Component que decide o redirecionamento com base no banco, e delega o formulário a um componente cliente:
+
+```tsx
+import { redirect } from 'next/navigation'
+import { obterCtxOuNulo } from '@/modules/auth/sessao'
+import { FormularioLogin } from './formulario'
+
+export default async function PaginaLogin() {
+  const ctx = await obterCtxOuNulo()
+  if (ctx) redirect('/residentes')
+
+  return <FormularioLogin />
+}
+```
+
+`obterCtxOuNulo` consulta o banco, então um usuário desativado ou com senha trocada vê o formulário em vez de ser devolvido a uma tela que vai recusá-lo.
+
+`src/app/login/formulario.tsx`:
 
 ```tsx
 'use client'
@@ -1800,7 +1995,7 @@ export async function entrar(_estadoAnterior: string | null, formData: FormData)
 import { useActionState } from 'react'
 import { entrar } from './acoes'
 
-export default function PaginaLogin() {
+export function FormularioLogin() {
   const [erro, acao, enviando] = useActionState(entrar, null)
 
   return (
@@ -1970,7 +2165,7 @@ git commit -m "Adiciona autenticação com Auth.js, revogação imediata de sess
 - Produces:
   - `criarResidente(ctx, dados: DadosNovoResidente): Promise<Residente>`
   - `obterResidente(ctx, id: string): Promise<Residente>` — audita `VISUALIZAR`
-  - `listarResidentes(ctx, filtro?: { busca?: string; status?: StatusResidente }): Promise<Residente[]>`
+  - `listarResidentes(ctx, filtro?: { busca?: string; status?: StatusResidente }): Promise<ResidenteResumo[]>` — campos reduzidos, sem dado sensível
   - `atualizarResidente(ctx, id, dados: DadosAtualizacaoResidente): Promise<Residente>`
   - `desligarResidente(ctx, id, dados: { status: 'DESLIGADO' | 'FALECIDO'; dataSaida: Date; motivoSaida: string; observacaoSaida?: string }): Promise<Residente>`
   - Fábrica `criarResidenteDeTeste(overrides?): Promise<Residente>`
@@ -2155,6 +2350,20 @@ describe('listarResidentes', () => {
     const busca = await listarResidentes(ctx, { busca: 'maria das' })
     expect(busca).toHaveLength(1)
   })
+
+  it('não devolve dado sensível na listagem', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, dadosValidos)
+
+    const [residente] = await listarResidentes(ctx, {})
+
+    expect(residente).not.toHaveProperty('cpf')
+    expect(residente).not.toHaveProperty('rg')
+    expect(residente).not.toHaveProperty('cns')
+    expect(residente).not.toHaveProperty('beneficioValor')
+    expect(residente).not.toHaveProperty('planoSaude')
+    expect(residente.nomeCompleto).toBe('Maria das Dores Silva')
+  })
 })
 
 describe('atualizarResidente', () => {
@@ -2289,28 +2498,7 @@ export type DadosAtualizacaoResidente = z.input<typeof atualizacaoResidenteSchem
 export type DadosDesligamento = z.infer<typeof desligamentoSchema>
 ```
 
-- [ ] **Step 5: Extrair o helper de validação compartilhado**
-
-Mover a função `validar` da Task 6 (`usuarios.service.ts`) para `src/lib/validacao.ts`, e importá-la nos dois serviços:
-
-`src/lib/validacao.ts`:
-
-```typescript
-import type { ZodTypeAny, z } from 'zod'
-import { ErroValidacao } from './erros'
-
-export function validar<S extends ZodTypeAny>(schema: S, valor: unknown): z.infer<S> {
-  const resultado = schema.safeParse(valor)
-  if (!resultado.success) {
-    throw new ErroValidacao(resultado.error.issues.map((i) => i.message).join('; '))
-  }
-  return resultado.data
-}
-```
-
-Em `src/modules/auth/usuarios.service.ts`, apague a função `validar` local e adicione `import { validar } from '@/lib/validacao'`. Rode `npm test -- src/modules/auth` para confirmar que nada quebrou.
-
-- [ ] **Step 6: Implementar o serviço**
+- [ ] **Step 5: Implementar o serviço**
 
 `src/modules/residents/residentes.service.ts`:
 
@@ -2379,10 +2567,32 @@ export async function obterResidente(ctx: Ctx, id: string): Promise<Residente> {
   return residente
 }
 
+/**
+ * Campos que a listagem devolve. Deliberadamente sem CPF, RG, CNS, benefício e
+ * plano de saúde: a tela de lista não precisa deles, e devolvê-los exporia dado
+ * sensível de trinta pessoas a cada busca. Quem precisa do cadastro completo
+ * abre a ficha, e `obterResidente` audita esse acesso.
+ */
+const CAMPOS_LISTA = {
+  id: true,
+  nomeCompleto: true,
+  nomeSocial: true,
+  dataNascimento: true,
+  dataAdmissao: true,
+  quarto: true,
+  leito: true,
+  status: true,
+} as const
+
+export type ResidenteResumo = Pick<
+  Residente,
+  'id' | 'nomeCompleto' | 'nomeSocial' | 'dataNascimento' | 'dataAdmissao' | 'quarto' | 'leito' | 'status'
+>
+
 export async function listarResidentes(
   ctx: Ctx,
   filtro: { busca?: string; status?: StatusResidente } = {}
-): Promise<Residente[]> {
+): Promise<ResidenteResumo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const where: Prisma.ResidenteWhereInput = {}
@@ -2394,7 +2604,11 @@ export async function listarResidentes(
     ]
   }
 
-  return prisma.residente.findMany({ where, orderBy: { nomeCompleto: 'asc' } })
+  return prisma.residente.findMany({
+    where,
+    select: CAMPOS_LISTA,
+    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+  })
 }
 
 export async function atualizarResidente(
@@ -2452,7 +2666,7 @@ export async function desligarResidente(
       entidade: 'Residente',
       entidadeId: id,
       residenteId: id,
-      diff: { status: { de: atual.status, para: entrada.status } },
+      diff: calcularDiff(atual as unknown as Record<string, unknown>, entrada),
     })
 
     return atualizado
@@ -2460,7 +2674,7 @@ export async function desligarResidente(
 }
 ```
 
-- [ ] **Step 7: Adicionar a fábrica de teste**
+- [ ] **Step 6: Adicionar a fábrica de teste**
 
 Em `tests/helpers/fabricas.ts`:
 
@@ -2484,12 +2698,12 @@ export async function criarResidenteDeTeste(
 }
 ```
 
-- [ ] **Step 8: Rodar os testes**
+- [ ] **Step 7: Rodar os testes**
 
 Run: `npm test -- src/modules/residents src/modules/auth`
 Expected: PASS em todos (inclusive os de usuários, após a extração do `validar`).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -2558,6 +2772,7 @@ npm run db:migrate:test
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
+import { prisma } from '@/lib/prisma'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import {
   registrarAvaliacao,
@@ -2662,7 +2877,74 @@ describe('obterGrauVigente', () => {
   })
 })
 
+describe('determinismo do grau vigente', () => {
+  it('devolve sempre o mesmo grau quando duas avaliações têm a mesma data', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('SAUDE')
+    const mesmaData = new Date('2026-04-10')
+
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'I',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+    await registrarAvaliacao(ctx, {
+      residenteId: residente.id,
+      grau: 'III',
+      dataAvaliacao: mesmaData,
+      avaliadorNome: 'Enf. Ana',
+    })
+
+    const leituras = await Promise.all([
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+    ])
+
+    expect(new Set(leituras).size).toBe(1)
+  })
+
+  it('mantém leitura estável com dataAvaliacao e criadoEm idênticos', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('SAUDE')
+    const mesmoInstante = new Date('2026-04-10T12:00:00.000Z')
+
+    for (const grau of ['I', 'III'] as const) {
+      await prisma.avaliacaoDependencia.create({
+        data: {
+          residenteId: residente.id,
+          grau,
+          dataAvaliacao: new Date('2026-04-10'),
+          avaliadorNome: 'Enf. Ana',
+          criadoEm: mesmoInstante,
+        },
+      })
+    }
+
+    const leituras = await Promise.all([
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+      obterGrauVigente(ctx, residente.id),
+    ])
+
+    expect(new Set(leituras).size).toBe(1)
+  })
+})
+
 describe('listarAvaliacoes', () => {
+  it('audita a leitura do histórico clínico', async () => {
+    const residente = await criarResidenteDeTeste()
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await listarAvaliacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'AvaliacaoDependencia', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve o histórico do mais recente para o mais antigo', async () => {
     const residente = await criarResidenteDeTeste()
     const ctx = await ctxComPapel('SAUDE')
@@ -2747,6 +3029,13 @@ export async function registrarAvaliacao(
   })
 }
 
+/**
+ * Não audita. Devolve apenas o enum do grau, e é chamada em lote — a ficha do
+ * residente e, na Fase 3, o relatório de residentes por grau. Auditar aqui
+ * geraria uma linha por residente a cada relatório emitido, afogando a trilha
+ * sem acrescentar rastro: o acesso à ficha já é auditado por `obterResidente`,
+ * e a emissão do relatório será auditada como `EXPORTAR`.
+ */
 export async function obterGrauVigente(
   ctx: Ctx,
   residenteId: string,
@@ -2756,26 +3045,39 @@ export async function obterGrauVigente(
 
   const avaliacao = await prisma.avaliacaoDependencia.findFirst({
     where: { residenteId, dataAvaliacao: { lte: emData } },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return avaliacao?.grau ?? null
 }
 
+/**
+ * Audita. Diferente de `obterGrauVigente`, devolve o histórico clínico completo
+ * de uma pessoa — grau, justificativa e quem avaliou. Isso é abrir dado sensível
+ * de um residente, não uma listagem minimizada.
+ */
 export async function listarAvaliacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<AvaliacaoDependencia[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
-  return prisma.avaliacaoDependencia.findMany({
+  const avaliacoes = await prisma.avaliacaoDependencia.findMany({
     where: { residenteId },
-    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }],
+    orderBy: [{ dataAvaliacao: 'desc' }, { criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'AvaliacaoDependencia',
+    residenteId,
+  })
+
+  return avaliacoes
 }
 ```
 
-O desempate por `criadoEm` cobre duas avaliações lançadas com a mesma data: vale a registrada por último.
+O desempate cobre duas avaliações lançadas com a mesma data: vale a registrada por último. O terceiro critério (`id`) não é redundante — `criadoEm` é `TIMESTAMP(3)`, e dois registros gravados no mesmo milissegundo empatariam nos dois primeiros critérios. Sem um critério único no fim, a mesma consulta poderia devolver graus diferentes em execuções diferentes, num dado que alimenta relatório ao órgão e dimensionamento de equipe.
 
 `obterGrauVigente` é a única porta pela qual o papel ADMINISTRATIVO alcança dado clínico, exatamente como a spec §7 determina. Nenhum outro serviço de saúde aceita esse papel.
 
@@ -3100,7 +3402,7 @@ export async function removerResponsavel(ctx: Ctx, id: string): Promise<void> {
       entidade: 'Responsavel',
       entidadeId: id,
       residenteId: atual.residenteId,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
   })
 }
@@ -3136,8 +3438,10 @@ Mecanismo único de anexo do sistema — a Fase 2 usa para exames, a Fase 3 para
   - `salvarArquivo(conteudo: Buffer, mimeType: string): Promise<ArquivoSalvo>` onde `ArquivoSalvo = { caminhoRelativo: string; hashSha256: string; tamanhoBytes: number }`
   - `lerArquivo(caminhoRelativo: string): Promise<Buffer>`
   - `anexarDocumento(ctx, dados): Promise<Documento>`
-  - `listarDocumentos(ctx, alvo: { residenteId?: string; funcionarioId?: string }): Promise<Documento[]>`
+  - `listarDocumentos(ctx, alvo: { residenteId?: string; funcionarioId?: string }): Promise<Documento[]>` — exige **exatamente um** vínculo
   - `obterDocumentoParaDownload(ctx, id): Promise<{ documento: Documento; conteudo: Buffer }>` — audita `DOWNLOAD`
+  - `excluirDocumento(ctx, id): Promise<void>` — exclusão lógica, audita `EXCLUIR`
+  - `papeisQuePodemVer(documento: { tipo: TipoDocumento; funcionarioId: string | null }): Papel[]` — oráculo de permissão, reusado pelas Fases 2 e 3
 
 - [ ] **Step 1: Escrever os testes de `arquivos.ts` (devem falhar)**
 
@@ -3200,9 +3504,9 @@ Expected: FAIL — módulo não encontrado.
 
 ```typescript
 import { randomUUID, createHash } from 'node:crypto'
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { ErroValidacao } from './erros'
+import { ErroNaoEncontrado, ErroValidacao } from './erros'
 
 const EXTENSAO_POR_MIME: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -3253,14 +3557,37 @@ export async function salvarArquivo(
 }
 
 export async function lerArquivo(caminhoRelativo: string): Promise<Buffer> {
-  const base = diretorioBase()
-  const alvo = path.resolve(base, caminhoRelativo)
-
-  if (alvo !== base && !alvo.startsWith(base + path.sep)) {
+  if (!caminhoRelativo?.trim()) {
     throw new ErroValidacao('Caminho de arquivo inválido')
   }
 
-  return readFile(alvo)
+  const base = diretorioBase()
+  const alvo = path.resolve(base, caminhoRelativo)
+
+  // Contenção lexical: o alvo tem de ser filho da base. O `path.sep` no fim é
+  // o que impede um irmão de nome parecido (`/data/uploads-outro`) passar por
+  // prefixo. Ler a própria base nunca é válido, daí não haver caso de igualdade.
+  if (!alvo.startsWith(base + path.sep)) {
+    throw new ErroValidacao('Caminho de arquivo inválido')
+  }
+
+  // Contenção física: `path.resolve` é puramente textual e segue link simbólico
+  // sem perceber. Um link plantado dentro do volume de uploads apontando para
+  // fora dele passaria na checagem acima. `realpath` resolve os links e a
+  // contenção é reavaliada sobre o caminho real.
+  let real: string
+  try {
+    real = await realpath(alvo)
+  } catch {
+    throw new ErroNaoEncontrado('Arquivo não encontrado')
+  }
+
+  const baseReal = await realpath(base)
+  if (!real.startsWith(baseReal + path.sep)) {
+    throw new ErroValidacao('Caminho de arquivo inválido')
+  }
+
+  return readFile(real)
 }
 ```
 
@@ -3321,12 +3648,14 @@ npm run db:migrate:test
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { ErroPermissao } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import {
   anexarDocumento,
   listarDocumentos,
   obterDocumentoParaDownload,
+  excluirDocumento,
+  papeisQuePodemVer,
 } from './documentos.service'
 
 const conteudo = Buffer.from('%PDF-1.4 laudo')
@@ -3430,7 +3759,99 @@ describe('obterDocumentoParaDownload', () => {
   })
 })
 
+describe('papeisQuePodemVer', () => {
+  it('classifica cada tipo de documento', () => {
+    const casos = [
+      { tipo: 'EXAME' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE'] },
+      { tipo: 'LAUDO' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE'] },
+      { tipo: 'COMPROVANTE_FISCAL' as const, funcionarioId: null, esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+      { tipo: 'RG' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+      { tipo: 'TERMO_LGPD' as const, funcionarioId: null, esperado: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+      // Documento de funcionário é assunto de pessoal, não da equipe clínica:
+      // mesmo sendo LAUDO, fica com o administrativo e fora do alcance de SAUDE.
+      { tipo: 'LAUDO' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+      { tipo: 'CONSELHO_PROFISSIONAL' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+    ]
+
+    for (const caso of casos) {
+      expect(papeisQuePodemVer({ tipo: caso.tipo, funcionarioId: caso.funcionarioId })).toEqual(
+        caso.esperado
+      )
+    }
+  })
+})
+
+describe('excluirDocumento', () => {
+  it('desativa sem apagar e audita com o estado anterior real', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidenteDeTeste()
+    const documento = await anexarDocumento(ctx, {
+      tipo: 'RG',
+      nomeArquivoOriginal: 'rg.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    await excluirDocumento(ctx, documento.id)
+
+    const registro = await prisma.documento.findUniqueOrThrow({ where: { id: documento.id } })
+    expect(registro.ativo).toBe(false)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Documento', acao: 'EXCLUIR' },
+    })
+    expect(log.diff).toEqual({ ativo: { de: true, para: false } })
+  })
+
+  it('some da listagem depois de excluído', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidenteDeTeste()
+    const documento = await anexarDocumento(ctx, {
+      tipo: 'RG',
+      nomeArquivoOriginal: 'rg.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    await excluirDocumento(ctx, documento.id)
+
+    expect(await listarDocumentos(ctx, { residenteId: residente.id })).toHaveLength(0)
+    await expect(obterDocumentoParaDownload(ctx, documento.id)).rejects.toThrow(ErroNaoEncontrado)
+  })
+
+  it('nega exclusão de documento clínico ao papel ADMINISTRATIVO', async () => {
+    const saude = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const exame = await anexarDocumento(saude, {
+      tipo: 'EXAME',
+      nomeArquivoOriginal: 'hemograma.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      residenteId: residente.id,
+    })
+
+    const administrativo = await ctxComPapel('ADMINISTRATIVO')
+    await expect(excluirDocumento(administrativo, exame.id)).rejects.toThrow(ErroPermissao)
+  })
+})
+
 describe('listarDocumentos', () => {
+  it('recusa chamada sem alvo, em vez de varrer a tabela', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    await expect(listarDocumentos(ctx, {})).rejects.toThrow(ErroValidacao)
+  })
+
+  it('recusa chamada com os dois vínculos ao mesmo tempo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      listarDocumentos(ctx, { residenteId: residente.id, funcionarioId: 'fun_1' })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
   it('omite da lista os documentos que o papel não pode ver', async () => {
     const saude = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()
@@ -3475,6 +3896,13 @@ const TODOS: Papel[] = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO']
 const CLINICO: Papel[] = ['COORDENACAO', 'SAUDE']
 const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
 
+/**
+ * A ordem das checagens importa e é deliberada: o vínculo com funcionário vem
+ * ANTES do tipo. Um laudo de funcionário — atestado, perícia — é assunto de
+ * pessoal, não da equipe que cuida dos idosos; por isso fica visível ao
+ * ADMINISTRATIVO e oculto ao SAUDE, ao contrário do laudo de um residente.
+ * Inverter esses dois ifs abriria prontuário de funcionário à equipe clínica.
+ */
 export function papeisQuePodemVer(documento: {
   tipo: TipoDocumento
   funcionarioId: string | null
@@ -3515,6 +3943,17 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
     })
   )
 
+  // Confere o vínculo ANTES de gravar bytes. Sem isso, um `residenteId`
+  // inexistente só falharia na chave estrangeira do insert — depois do arquivo
+  // já estar no disco, sem registro e sem ninguém para limpá-lo.
+  if (entrada.residenteId) {
+    const residente = await prisma.residente.findUnique({
+      where: { id: entrada.residenteId },
+      select: { id: true },
+    })
+    if (!residente) throw new ErroNaoEncontrado('Residente não encontrado')
+  }
+
   const salvo = await salvarArquivo(entrada.conteudo, entrada.mimeType)
 
   return prisma.$transaction(async (tx) => {
@@ -3551,14 +3990,45 @@ export async function listarDocumentos(
 ): Promise<Documento[]> {
   exigirPapel(ctx, ...TODOS)
 
+  // Sem isso, `alvo` vazio produziria `where: { ativo: true }` — o Prisma ignora
+  // chaves `undefined` — e a função varreria todos os documentos de todos os
+  // residentes e funcionários. O contrato é "escopo em um alvo"; esta validação
+  // é o que impede uma varredura global silenciosa.
+  if (Boolean(alvo.residenteId) === Boolean(alvo.funcionarioId)) {
+    throw new ErroValidacao('Informe exatamente um vínculo: residente ou funcionário')
+  }
+
   const documentos = await prisma.documento.findMany({
-    where: { ...alvo, ativo: true },
-    orderBy: { criadoEm: 'desc' },
+    where: alvo.residenteId
+      ? { residenteId: alvo.residenteId, ativo: true }
+      : { funcionarioId: alvo.funcionarioId, ativo: true },
+    orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 
   return documentos.filter((documento) =>
     papeisQuePodemVer(documento).includes(ctx.papel)
   )
+}
+
+export async function excluirDocumento(ctx: Ctx, id: string): Promise<void> {
+  const documento = await prisma.documento.findUnique({ where: { id } })
+  if (!documento || !documento.ativo) {
+    throw new ErroNaoEncontrado('Documento não encontrado')
+  }
+
+  exigirPapel(ctx, ...papeisQuePodemVer(documento))
+
+  await prisma.$transaction(async (tx) => {
+    await tx.documento.update({ where: { id }, data: { ativo: false } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'EXCLUIR',
+      entidade: 'Documento',
+      entidadeId: id,
+      residenteId: documento.residenteId ?? undefined,
+      diff: { ativo: { de: documento.ativo, para: false } },
+    })
+  })
 }
 
 export async function obterDocumentoParaDownload(
@@ -3597,7 +4067,23 @@ export async function obterDocumentoParaDownload(
 import { NextResponse } from 'next/server'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterDocumentoParaDownload } from '@/modules/residents/documentos.service'
-import { ErroNaoEncontrado, ErroPermissao } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
+
+/**
+ * Monta o `Content-Disposition` conforme a RFC 6266: um `filename` em ASCII
+ * puro para clientes antigos e um `filename*` em UTF-8 para os demais.
+ * `encodeURIComponent` sozinho no `filename` entregaria "laudo médico.pdf"
+ * como "laudo%20m%C3%A9dico.pdf" — e num sistema em português isso seria
+ * quase todo download.
+ */
+function cabecalhoNomeArquivo(nome: string): string {
+  const ascii = nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '_')
+    .replace(/["\\]/g, '_')
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nome)}`
+}
 
 export async function GET(
   _requisicao: Request,
@@ -3612,18 +4098,30 @@ export async function GET(
     return new NextResponse(new Uint8Array(conteudo), {
       headers: {
         'Content-Type': documento.mimeType,
-        'Content-Disposition': `inline; filename="${encodeURIComponent(documento.nomeArquivoOriginal)}"`,
+        'Content-Disposition': cabecalhoNomeArquivo(documento.nomeArquivoOriginal),
         'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
       },
     })
   } catch (erro) {
-    if (erro instanceof ErroPermissao) {
-      return NextResponse.json({ erro: 'Acesso negado' }, { status: 403 })
-    }
-    if (erro instanceof ErroNaoEncontrado) {
+    // 404 também para permissão negada. `listarDocumentos` filtra em vez de
+    // recusar justamente para não revelar que existe um exame ali; devolver 403
+    // aqui entregaria essa mesma existência de volta, num código de status. Quem
+    // não pode ver não distingue "não existe" de "não é para você".
+    //
+    // Atenção: a tentativa negada NÃO gera registro em `LogAuditoria` —
+    // `obterDocumentoParaDownload` lança antes de auditar, e o mesmo vale para
+    // todo serviço que chama `exigirPapel`. Registrar tentativa indevida é
+    // desejável e está pendente como decisão transversal (exige novo valor no
+    // enum `AcaoAuditoria`); não presuma que existe esse rastro hoje.
+    if (erro instanceof ErroPermissao || erro instanceof ErroNaoEncontrado) {
       return NextResponse.json({ erro: 'Documento não encontrado' }, { status: 404 })
     }
-    throw erro
+    if (erro instanceof ErroValidacao) {
+      return NextResponse.json({ erro: erro.message }, { status: 400 })
+    }
+    console.error('Falha ao servir documento', { id, erro })
+    return NextResponse.json({ erro: 'Não foi possível abrir o documento' }, { status: 500 })
   }
 }
 ```
@@ -3812,20 +4310,34 @@ describe('retificarAnotacao', () => {
     expect(original.texto).toBe('Recebeu visita da filha na tarde de hoje.')
   })
 
-  it('registra a retificação na auditoria', async () => {
+  it('registra a retificação na auditoria apontando para a original', async () => {
     const { anotacao, ctx } = await anotacaoBase()
 
-    await retificarAnotacao(ctx, anotacao.id, { texto: 'Correção do registro anterior.' })
+    const retificacao = await retificarAnotacao(ctx, anotacao.id, {
+      texto: 'Correção do registro anterior.',
+    })
 
     const log = await prisma.logAuditoria.findFirstOrThrow({
-      where: { entidade: 'Anotacao', acao: 'CRIAR', diff: { not: undefined } },
-      orderBy: { criadoEm: 'desc' },
+      where: { entidade: 'Anotacao', acao: 'CRIAR', entidadeId: retificacao.id },
     })
-    expect(log.entidadeId).toBeTruthy()
+    expect(log.diff).toEqual({
+      retificaAnotacaoId: { de: null, para: anotacao.id },
+    })
   })
 })
 
 describe('listarAnotacoes', () => {
+  it('audita a leitura do histórico de anotações', async () => {
+    const { residente, ctx } = await anotacaoBase()
+
+    await listarAnotacoes(ctx, residente.id)
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Anotacao', acao: 'VISUALIZAR' },
+    })
+    expect(log.residenteId).toBe(residente.id)
+  })
+
   it('devolve da mais recente para a mais antiga', async () => {
     const { residente, ctx } = await anotacaoBase()
     await criarAnotacao(ctx, {
@@ -3921,15 +4433,31 @@ export async function criarAnotacao(
   })
 }
 
+/**
+ * Audita. A regra do projeto oferece duas saídas para leitura de dado sensível
+ * — minimizar campos ou registrar o acesso — e aqui só a segunda existe: o
+ * texto da anotação É o dado sensível, então uma lista sem ele não serve para
+ * nada. Devolver o histórico inteiro de visitas, ocorrências e questões
+ * jurídicas de um residente é abrir o dado dessa pessoa, não listar muitas.
+ */
 export async function listarAnotacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<Anotacao[]> {
   exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
-  return prisma.anotacao.findMany({
+
+  const anotacoes = await prisma.anotacao.findMany({
     where: { residenteId },
-    orderBy: { criadoEm: 'desc' },
+    orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
+
+  await registrarAuditoria(prisma, ctx, {
+    acao: 'VISUALIZAR',
+    entidade: 'Anotacao',
+    residenteId,
+  })
+
+  return anotacoes
 }
 
 export async function editarAnotacao(
@@ -4029,11 +4557,11 @@ git commit -m "Adiciona anotações gerais com janela de edição e retificaçã
 - Consumes: `prisma`, `Ctx`, `exigirPapel`, `registrarAuditoria`, `calcularDiff`, `validarCpf`
 - Produces:
   - `criarFuncionario(ctx, dados): Promise<Funcionario>`
-  - `listarFuncionarios(ctx, filtro?: { busca?: string; apenasAtivos?: boolean }): Promise<Funcionario[]>`
+  - `listarFuncionarios(ctx, filtro?: { busca?: string; apenasAtivos?: boolean }): Promise<FuncionarioResumo[]>` — campos reduzidos, sem dado pessoal
   - `obterFuncionario(ctx, id): Promise<Funcionario>`
   - `atualizarFuncionario(ctx, id, dados): Promise<Funcionario>`
   - `desligarFuncionario(ctx, id, dados: { dataDesligamento: Date; motivoDesligamento: string }): Promise<Funcionario>`
-  - `listarConselhosVencendo(ctx, ateDias: number): Promise<Funcionario[]>`
+  - `listarConselhosVencendo(ctx, ateDias: number): Promise<ConselhoVencendo[]>`
 
 - [ ] **Step 1: Adicionar o modelo**
 
@@ -4223,6 +4751,39 @@ describe('listarConselhosVencendo', () => {
 
     expect(vencendo.map((f) => f.nomeCompleto)).toEqual(['Ana Paula Souza'])
   })
+
+  it('não inclui funcionário desligado, mesmo com conselho vencendo', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    const emVinteDias = new Date(Date.now() + 20 * 86_400_000)
+
+    const funcionario = await criarFuncionario(ctx, {
+      ...dadosValidos,
+      conselhoValidade: emVinteDias,
+    })
+    await desligarFuncionario(ctx, funcionario.id, {
+      dataDesligamento: new Date('2026-06-30'),
+      motivoDesligamento: 'Pedido de demissão',
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
+
+  it('não inclui funcionário ativo sem data de validade de conselho', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    await criarFuncionario(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Carlos Lima',
+      cpf: '123.456.789-09',
+      cargo: 'Cozinheiro',
+      conselhoSigla: undefined,
+      conselhoNumero: undefined,
+      conselhoUf: undefined,
+      conselhoValidade: undefined,
+    })
+
+    expect(await listarConselhosVencendo(ctx, 30)).toHaveLength(0)
+  })
 })
 ```
 
@@ -4335,10 +4896,30 @@ export async function obterFuncionario(ctx: Ctx, id: string): Promise<Funcionari
   return exigirFuncionario(id)
 }
 
+/**
+ * Campos da tela de lista. Sem CPF, RG, endereço nem contatos: a listagem
+ * aponta para a pessoa, quem precisa do cadastro completo abre a ficha. Mesmo
+ * critério aplicado a `listarResidentes`.
+ */
+const CAMPOS_LISTA_FUNCIONARIO = {
+  id: true,
+  nomeCompleto: true,
+  cargo: true,
+  vinculo: true,
+  dataAdmissao: true,
+  dataDesligamento: true,
+  ativo: true,
+} as const
+
+export type FuncionarioResumo = Pick<
+  Funcionario,
+  'id' | 'nomeCompleto' | 'cargo' | 'vinculo' | 'dataAdmissao' | 'dataDesligamento' | 'ativo'
+>
+
 export async function listarFuncionarios(
   ctx: Ctx,
   filtro: { busca?: string; apenasAtivos?: boolean } = {}
-): Promise<Funcionario[]> {
+): Promise<FuncionarioResumo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
 
   const where: Prisma.FuncionarioWhereInput = {}
@@ -4350,7 +4931,11 @@ export async function listarFuncionarios(
     ]
   }
 
-  return prisma.funcionario.findMany({ where, orderBy: { nomeCompleto: 'asc' } })
+  return prisma.funcionario.findMany({
+    where,
+    select: CAMPOS_LISTA_FUNCIONARIO,
+    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+  })
 }
 
 export async function atualizarFuncionario(
@@ -4407,24 +4992,45 @@ export async function desligarFuncionario(
       acao: 'ATUALIZAR',
       entidade: 'Funcionario',
       entidadeId: id,
-      diff: { ativo: { de: true, para: false } },
+      diff: { ativo: { de: atual.ativo, para: false } },
     })
 
     return atualizado
   })
 }
 
+/**
+ * Não audita, ao contrário de `listarAnotacoes`. É relatório operacional
+ * multi-pessoa, com campos já reduzidos: sigla, número, UF e validade de
+ * registro profissional são dados verificáveis no cadastro público do próprio
+ * conselho, não a categoria que o resto do módulo trata como sensível (CPF, RG,
+ * endereço — todos fora do `select`). Cai na regra geral de listagem, não na
+ * exceção.
+ */
+export type ConselhoVencendo = Pick<
+  Funcionario,
+  'id' | 'nomeCompleto' | 'conselhoSigla' | 'conselhoNumero' | 'conselhoUf' | 'conselhoValidade'
+>
+
 export async function listarConselhosVencendo(
   ctx: Ctx,
   ateDias: number
-): Promise<Funcionario[]> {
+): Promise<ConselhoVencendo[]> {
   exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
 
   const limite = new Date(Date.now() + ateDias * 86_400_000)
 
   return prisma.funcionario.findMany({
     where: { ativo: true, conselhoValidade: { not: null, lte: limite } },
-    orderBy: { conselhoValidade: 'asc' },
+    select: {
+      id: true,
+      nomeCompleto: true,
+      conselhoSigla: true,
+      conselhoNumero: true,
+      conselhoUf: true,
+      conselhoValidade: true,
+    },
+    orderBy: [{ conselhoValidade: 'asc' }, { id: 'asc' }],
   })
 }
 ```
@@ -4569,10 +5175,11 @@ A navegação é montada a partir do papel, mas isso é conveniência — quem b
 export type PropsCampo = {
   nome: string
   rotulo: string
-  tipo?: 'text' | 'date' | 'number' | 'email'
+  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox'
   obrigatorio?: boolean
   opcoes?: { valor: string; rotulo: string }[]
   valorInicial?: string
+  marcadoInicial?: boolean
 }
 
 export function Campo({
@@ -4582,8 +5189,26 @@ export function Campo({
   obrigatorio,
   opcoes,
   valorInicial,
+  marcadoInicial,
 }: PropsCampo) {
   const classe = 'w-full rounded border border-slate-300 px-3 py-2 text-base'
+
+  // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
+  // alvo de toque grande o bastante para o dedo (`h-5 w-5`), sem `w-full`.
+  if (tipo === 'checkbox') {
+    return (
+      <label htmlFor={nome} className="flex items-center gap-2 py-2">
+        <input
+          id={nome}
+          name={nome}
+          type="checkbox"
+          defaultChecked={marcadoInicial}
+          className="h-5 w-5 rounded border-slate-300"
+        />
+        <span className="text-sm font-medium text-slate-700">{rotulo}</span>
+      </label>
+    )
+  }
 
   return (
     <div className="space-y-1">
@@ -4759,6 +5384,14 @@ export function FormularioResidente({
       {estado?.erro && (
         <p role="alert" className="text-sm text-red-600">
           {estado.erro}
+        </p>
+      )}
+
+      {/* A edição não redireciona; sem este aviso ela salva sem dar sinal
+          nenhum ao usuário, que fica sem saber se a alteração pegou. */}
+      {estado?.sucesso && (
+        <p role="status" className="text-sm text-green-700">
+          Cadastro salvo.
         </p>
       )}
 
@@ -5074,6 +5707,56 @@ export default function PaginaNovoResidente() {
 }
 ```
 
+- [ ] **Step 6b: Criar a tela de edição do cadastro**
+
+Sem ela, `acaoAtualizarResidente` fica sem chamador e **um cadastro digitado errado não tem como ser corrigido pela interface** — nome trocado, data de nascimento errada, quarto desatualizado. Numa instituição onde a admissão é digitada às pressas, isso não é hipótese remota.
+
+`src/app/(app)/residentes/[id]/editar/page.tsx`:
+
+```tsx
+import { obterCtx } from '@/modules/auth/sessao'
+import { obterResidente } from '@/modules/residents/residentes.service'
+import { FormularioResidente } from '@/components/formulario-residente'
+import { acaoAtualizarResidente } from '../../acoes'
+
+export default async function PaginaEditarResidente({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const ctx = await obterCtx()
+  const residente = await obterResidente(ctx, id)
+
+  return (
+    <section className="space-y-4">
+      <h1 className="text-lg font-semibold text-slate-800">
+        Editar {residente.nomeSocial || residente.nomeCompleto}
+      </h1>
+      <FormularioResidente
+        acao={acaoAtualizarResidente}
+        residente={residente}
+        rotuloBotao="Salvar alterações"
+      />
+    </section>
+  )
+}
+```
+
+O `FormularioResidente` precisa emitir o `id` que a ação lê — acrescente, dentro do `<form>`:
+
+```tsx
+{residente && <input type="hidden" name="id" value={residente.id} />}
+```
+
+E a ficha ganha o link para chegar aqui, no cabeçalho, visível apenas a quem pode editar (`ctx.papel !== 'SAUDE'`):
+
+```tsx
+<Link href={`/residentes/${residente.id}/editar`} className="text-sm text-slate-600 underline">
+  Editar cadastro
+</Link>
+```
+
 - [ ] **Step 7: Criar a ficha do residente**
 
 `src/app/(app)/residentes/[id]/page.tsx`:
@@ -5088,7 +5771,34 @@ import {
   obterGrauVigente,
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
-import { formatarData, formatarCpf } from '@/lib/ptbr'
+import { formatarData, formatarDataHora, formatarCpf } from '@/lib/ptbr'
+
+// A tela nunca mostra o valor cru do enum. "VISITA_FAMILIA" é identificador de
+// código; quem lê a ficha é a equipe do Lar, e a interface é toda em pt-BR.
+const ROTULO_CATEGORIA: Record<string, string> = {
+  COMPORTAMENTO: 'Comportamento',
+  VISITA_FAMILIA: 'Visita da família',
+  OCORRENCIA: 'Ocorrência',
+  SOCIAL: 'Social',
+  JURIDICO: 'Jurídico',
+  OUTRO: 'Outro',
+}
+
+const ROTULO_TIPO_DOCUMENTO: Record<string, string> = {
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+  OUTRO: 'Outro',
+}
 
 export default async function FichaResidente({
   params,
@@ -5151,7 +5861,7 @@ export default async function FichaResidente({
           {anotacoes.map((anotacao) => (
             <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
               <p className="text-sm text-slate-500">
-                {formatarData(anotacao.criadoEm)} · {anotacao.categoria}
+                {formatarDataHora(anotacao.criadoEm)} · {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
                 {anotacao.retificaAnotacaoId && ' · retificação'}
               </p>
               <p className="text-slate-800">{anotacao.texto}</p>
@@ -5174,6 +5884,9 @@ export default async function FichaResidente({
               <span className="text-slate-500">
                 — {responsavel.parentesco} · {responsavel.telefonePrincipal}
                 {responsavel.ehResponsavelLegal && ' · responsável legal'}
+                {/* Mostra a exceção, não a regra: quase todo responsável pode
+                    visitar, e é a restrição que a recepção precisa enxergar. */}
+                {!responsavel.autorizadoVisitar && ' · visitas não autorizadas'}
               </span>
             </li>
           ))}
@@ -5196,7 +5909,7 @@ export default async function FichaResidente({
                 rel="noreferrer"
                 className="text-slate-800 underline"
               >
-                {documento.tipo} — {documento.nomeArquivoOriginal}
+                {ROTULO_TIPO_DOCUMENTO[documento.tipo] ?? documento.tipo} — {documento.nomeArquivoOriginal}
               </a>
             </li>
           ))}
@@ -5282,6 +5995,19 @@ export function FormularioResponsavel({ residenteId }: { residenteId: string }) 
         { nome: 'telefonePrincipal', rotulo: 'Telefone principal', obrigatorio: true },
         { nome: 'telefoneSecundario', rotulo: 'Telefone secundário' },
         { nome: 'email', rotulo: 'E-mail', tipo: 'email' },
+        // Sem estas três, a ação lê `dados.get(...) === 'on'` de campos que não
+        // existem e grava tudo como `false`: o contato de emergência nunca
+        // apareceria no cabeçalho da ficha — exatamente o dado que alguém
+        // procura numa urgência —, e `autorizadoVisitar` sobrescreveria com
+        // `false` o padrão `true` do schema.
+        { nome: 'ehResponsavelLegal', rotulo: 'É responsável legal', tipo: 'checkbox' },
+        { nome: 'ehContatoEmergencia', rotulo: 'É contato de emergência', tipo: 'checkbox' },
+        {
+          nome: 'autorizadoVisitar',
+          rotulo: 'Autorizado a visitar',
+          tipo: 'checkbox',
+          marcadoInicial: true,
+        },
       ]}
     />
   )
@@ -5464,6 +6190,57 @@ test('exibe erro ao cadastrar com CPF inválido', async ({ page }) => {
   await page.getByRole('button', { name: 'Cadastrar residente' }).click()
 
   await expect(page.getByRole('alert')).toContainText('CPF inválido')
+})
+
+test('marca contato de emergência e ele aparece no cabeçalho da ficha', async ({ page }) => {
+  const nome = `Idosa Emergencia ${Date.now()}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1938-05-02')
+  await page.getByLabel('Sexo').selectOption('FEMININO')
+  await page.getByLabel('Data de admissão').fill('2026-02-01')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+
+  await expect(page.getByRole('heading', { name: nome })).toBeVisible()
+
+  await page.getByText('Responsáveis').click()
+  await page.getByLabel('Nome', { exact: true }).fill('João da Silva')
+  await page.getByLabel('Parentesco').fill('Filho')
+  await page.getByLabel('Telefone principal').fill('(65) 99999-0000')
+  await page.getByLabel('É contato de emergência').check()
+  await page.getByRole('button', { name: 'Adicionar responsável' }).click()
+
+  // O cabeçalho é onde alguém procura o telefone numa urgência: se a marcação
+  // não for gravada, esta linha fica vazia e o teste falha.
+  await expect(
+    page.locator('dl > div').filter({ hasText: 'Emergência:' })
+  ).toContainText('João da Silva')
+
+  // `autorizadoVisitar` vem marcado por padrão, então a ficha NÃO deve trazer a
+  // ressalva de visitas. Verificar a ausência do aviso na lista prova o valor
+  // gravado no banco — diferente de reabrir o formulário vazio e conferir que a
+  // caixa vem marcada, que só reafirma o padrão do próprio formulário.
+  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
+  await expect(page.getByText('visitas não autorizadas')).toHaveCount(0)
+})
+
+test('corrige um cadastro pela tela de edição', async ({ page }) => {
+  const nome = `Idoso Edicao ${Date.now()}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1941-09-14')
+  await page.getByLabel('Sexo').selectOption('MASCULINO')
+  await page.getByLabel('Data de admissão').fill('2026-03-10')
+  await page.getByLabel('Quarto').fill('2')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+
+  await page.getByRole('link', { name: 'Editar cadastro' }).click()
+  await page.getByLabel('Quarto').fill('9')
+  await page.getByRole('button', { name: 'Salvar alterações' }).click()
+
+  await expect(page.getByRole('status')).toBeVisible()
 })
 ```
 
@@ -5773,6 +6550,129 @@ export default async function PaginaFuncionarios({
 }
 ```
 
+- [ ] **Step 5b: Criar a tela de edição e desligamento de funcionário**
+
+Sem ela, `acaoAtualizarFuncionario` e `acaoDesligarFuncionario` ficam sem chamador — e a consequência não é só não poder corrigir um cadastro. **Não haveria caminho de interface para levar `ativo` a `false`**, então todo funcionário cadastrado permanece ativo para sempre. Quem sai da instituição com o COREN vencendo continua aparecendo no aviso de registro profissional vencendo, indefinidamente. O alerta que dá razão de ser à tela passaria a acumular falsos positivos de gente que não trabalha mais lá — e alerta poluído é alerta que a equipe aprende a ignorar.
+
+`src/app/(app)/funcionarios/[id]/editar/page.tsx`:
+
+```tsx
+import { obterCtx } from '@/modules/auth/sessao'
+import { obterFuncionario } from '@/modules/staff/funcionarios.service'
+import { FormularioSimples } from '@/components/formulario-simples'
+import { CAMPOS_FUNCIONARIO } from '@/components/formulario-funcionario'
+import { formatarData } from '@/lib/ptbr'
+import { acaoAtualizarFuncionario, acaoDesligarFuncionario } from '../../acoes'
+
+export default async function PaginaEditarFuncionario({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const ctx = await obterCtx()
+  const funcionario = await obterFuncionario(ctx, id)
+
+  const valorInicial = (nome: string): string | undefined => {
+    const valor = funcionario[nome as keyof typeof funcionario]
+    if (valor instanceof Date) return valor.toISOString().slice(0, 10)
+    return valor == null ? undefined : String(valor)
+  }
+
+  return (
+    <section className="space-y-6">
+      <h1 className="text-lg font-semibold text-slate-800">
+        {funcionario.nomeCompleto}
+      </h1>
+
+      <div className="rounded border bg-white p-4">
+        <h2 className="mb-3 font-medium text-slate-800">Dados cadastrais</h2>
+        <FormularioSimples
+          acao={acaoAtualizarFuncionario}
+          ocultos={{ id: funcionario.id }}
+          rotuloBotao="Salvar alterações"
+          campos={CAMPOS_FUNCIONARIO.map((campo) => ({
+            ...campo,
+            valorInicial: valorInicial(campo.nome),
+          }))}
+        />
+      </div>
+
+      {funcionario.ativo ? (
+        <div className="rounded border bg-white p-4">
+          <h2 className="mb-1 font-medium text-slate-800">Desligamento</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            O registro é preservado; o funcionário deixa de aparecer nas listas e
+            nos avisos de registro profissional.
+          </p>
+          <FormularioSimples
+            acao={acaoDesligarFuncionario}
+            ocultos={{ id: funcionario.id }}
+            rotuloBotao="Registrar desligamento"
+            campos={[
+              {
+                nome: 'dataDesligamento',
+                rotulo: 'Data do desligamento',
+                tipo: 'date',
+                obrigatorio: true,
+              },
+              { nome: 'motivoDesligamento', rotulo: 'Motivo', obrigatorio: true },
+            ]}
+          />
+        </div>
+      ) : (
+        <p className="rounded border bg-slate-50 p-4 text-sm text-slate-600">
+          Desligado em{' '}
+          {funcionario.dataDesligamento
+            ? formatarData(funcionario.dataDesligamento)
+            : '—'}{' '}
+          — {funcionario.motivoDesligamento ?? 'sem motivo registrado'}
+        </p>
+      )}
+    </section>
+  )
+}
+```
+
+Na lista de funcionários, cada item vira link para esta tela:
+
+```tsx
+<Link href={`/funcionarios/${funcionario.id}/editar`} className="block p-3 hover:bg-slate-50">
+```
+
+E o E2E ganha um caso que fecha o ciclo do aviso:
+
+```typescript
+test('funcionário desligado sai do aviso de conselho vencendo', async ({ page }) => {
+  const nome = `Enfermeira Saida ${Date.now()}`
+  const cpf = gerarCpfValido()
+  const emVinteDias = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10)
+
+  await page.goto('/funcionarios/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('CPF').fill(cpf)
+  await page.getByLabel('Cargo').fill('Enfermeira')
+  await page.getByLabel('Vínculo').selectOption('CLT')
+  await page.getByLabel('Data de admissão').fill('2025-01-10')
+  await page.getByLabel('Conselho (COREN, CRM, CRN…)').fill('COREN')
+  await page.getByLabel('Número do registro').fill('999999')
+  await page.getByLabel('Validade do registro').fill(emVinteDias)
+  await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
+
+  // Antes do desligamento, o aviso cita a pessoa.
+  await expect(page.getByRole('status')).toContainText(nome)
+
+  await page.getByRole('link', { name: new RegExp(nome) }).click()
+  await page.getByLabel('Data do desligamento').fill('2026-08-01')
+  await page.getByLabel('Motivo').fill('Pedido de demissão')
+  await page.getByRole('button', { name: 'Registrar desligamento' }).click()
+
+  // Depois, some — é isso que impede o aviso de encher de gente que já saiu.
+  await page.goto('/funcionarios')
+  await expect(page.getByText(nome)).toHaveCount(0)
+})
+```
+
 - [ ] **Step 6: Criar as ações e a tela de usuários**
 
 `src/app/(app)/usuarios/acoes.ts`:
@@ -5848,11 +6748,13 @@ import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarData } from '@/lib/ptbr'
 import { acaoCriarUsuario, acaoDefinirSenha, acaoDesativarUsuario } from './acoes'
 
-const ROTULO_PAPEL = {
+// Tipado contra o enum do Prisma de propósito: um papel novo no schema quebra o
+// typecheck aqui, em vez de vazar cru para a tela. Mesmo padrão de ROTULO_VINCULO.
+const ROTULO_PAPEL: Record<Papel, string> = {
   COORDENACAO: 'Coordenação',
   SAUDE: 'Saúde',
   ADMINISTRATIVO: 'Administrativo',
-} as const
+}
 
 export default async function PaginaUsuarios() {
   const ctx = await obterCtx()
@@ -5924,7 +6826,9 @@ export default async function PaginaUsuarios() {
 }
 ```
 
-A própria conta não exibe os botões de desativar e trocar senha — `desativarUsuario` já recusa (Task 6), e esconder evita o erro previsível.
+A própria conta não exibe os botões de desativar e trocar senha. As duas omissões têm força diferente, e vale ser preciso: **`desativarUsuario` recusa o auto-alvo no serviço** (Tarefa 6), então esconder o botão só evita um erro previsível. **`definirSenha` não tem essa guarda** — ela é omitida da tela por decisão de interface, não por barreira do serviço.
+
+Isso é deliberado: com uma única coordenação, uma guarda de auto-alvo deixaria a pessoa sem como trocar a própria senha. O caminho correto — uma tela "alterar minha senha" que exija a senha atual — fica registrado para uma fase futura. Até lá, quem controla a sessão da coordenação consegue trocar a senha dela sem conhecer a anterior.
 
 - [ ] **Step 7: Rodar os testes**
 
@@ -6053,7 +6957,7 @@ export async function consultarAuditoria(
   const [registros, total] = await Promise.all([
     prisma.logAuditoria.findMany({
       where,
-      orderBy: { criadoEm: 'desc' },
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
       skip: (pagina - 1) * POR_PAGINA,
       take: POR_PAGINA,
     }),
@@ -6066,6 +6970,8 @@ export async function consultarAuditoria(
 
 A consulta da auditoria não se audita: registrar cada consulta geraria crescimento sem informação nova, já que o acesso à tela é restrito a um único papel.
 
+O `orderBy` desempata por `id` de propósito. Com `skip`/`take`, uma ordenação que não distingue dois registros do mesmo milissegundo pode devolvê-los em ordem diferente a cada consulta — e então um registro aparece em duas páginas enquanto outro nunca aparece em nenhuma. Numa trilha de auditoria, um registro que some da paginação é indistinguível de um registro que nunca existiu.
+
 - [ ] **Step 4: Criar a tela**
 
 `src/app/(app)/auditoria/page.tsx`:
@@ -6075,6 +6981,7 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
+import { formatarData, formatarDataHora } from '@/lib/ptbr'
 
 const ENTIDADES = [
   'Residente',
@@ -6086,10 +6993,93 @@ const ENTIDADES = [
   'Usuario',
 ]
 
+/**
+ * Rótulos dos valores que aparecem dentro do diff. Sem isto, o desligamento de
+ * um residente — o registro mais consultado da trilha — mostraria
+ * "status: ATIVO → DESLIGADO", e uma desativação mostraria "ativo: true → false"
+ * em inglês. Os valores repetidos entre enums (OUTRO, por exemplo) têm o mesmo
+ * rótulo em todos, então a tabela única não gera ambiguidade.
+ */
+const ROTULO_VALOR: Record<string, string> = {
+  COORDENACAO: 'Coordenação',
+  SAUDE: 'Saúde',
+  ADMINISTRATIVO: 'Administrativo',
+  FEMININO: 'Feminino',
+  MASCULINO: 'Masculino',
+  ATIVO: 'Ativo',
+  DESLIGADO: 'Desligado',
+  FALECIDO: 'Falecido',
+  APOSENTADORIA: 'Aposentadoria',
+  BPC: 'BPC',
+  PENSAO: 'Pensão',
+  NENHUM: 'Nenhum',
+  CLT: 'CLT',
+  VOLUNTARIO: 'Voluntário',
+  PRESTADOR: 'Prestador de serviço',
+  ESTAGIO: 'Estágio',
+  COMPORTAMENTO: 'Comportamento',
+  VISITA_FAMILIA: 'Visita da família',
+  OCORRENCIA: 'Ocorrência',
+  SOCIAL: 'Social',
+  JURIDICO: 'Jurídico',
+  OUTRO: 'Outro',
+  // TipoDocumento: `anexarDocumento` grava `tipo` no diff a cada anexo, então
+  // sem estes a trilha mostraria "Tipo: — → TERMO_RESPONSABILIDADE".
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+}
+
+const ISO_DATA = /^\d{4}-\d{2}-\d{2}T/
+
+function formatarValorDiff(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === '') return '—'
+  if (typeof valor === 'boolean') return valor ? 'sim' : 'não'
+  if (typeof valor === 'string') {
+    if (ROTULO_VALOR[valor]) return ROTULO_VALOR[valor]
+    // Datas viajam para o JSON como ISO; mostrar o carimbo cru na trilha é
+    // ilegível para quem consulta.
+    if (ISO_DATA.test(valor)) return formatarData(new Date(valor))
+    return valor
+  }
+  return String(valor)
+}
+
+// `nomeCompleto` vira "nome completo". Os campos são nomeados em português, só
+// em camelCase — separar já os torna legíveis, sem exigir um dicionário de
+// dezenas de entradas que envelheceria a cada campo novo.
+const SIGLAS: Record<string, string> = {
+  cpf: 'CPF',
+  cns: 'CNS',
+  rg: 'RG',
+  ip: 'IP',
+  uf: 'UF',
+}
+
+function rotularCampo(campo: string): string {
+  if (SIGLAS[campo]) return SIGLAS[campo]
+  const separado = campo.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
+  return separado.charAt(0).toUpperCase() + separado.slice(1)
+}
+
 function formatarDiff(diff: unknown): string {
   if (!diff || typeof diff !== 'object') return '—'
-  return Object.entries(diff as Record<string, { de: unknown; para: unknown }>)
-    .map(([campo, { de, para }]) => `${campo}: ${String(de ?? '—')} → ${String(para ?? '—')}`)
+  const entradas = Object.entries(diff as Record<string, { de: unknown; para: unknown }>)
+  if (entradas.length === 0) return '—'
+  return entradas
+    .map(
+      ([campo, { de, para }]) =>
+        `${rotularCampo(campo)}: ${formatarValorDiff(de)} → ${formatarValorDiff(para)}`
+    )
     .join(' · ')
 }
 
@@ -6121,13 +7111,6 @@ export default async function PaginaAuditoria({
     busca.set('pagina', String(novaPagina))
     return `?${busca.toString()}`
   }
-
-  const formatarDataHora = (data: Date) =>
-    new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-      timeZone: 'America/Sao_Paulo',
-    }).format(data)
 
   return (
     <section className="space-y-4">
@@ -6277,21 +7260,21 @@ export default nextConfig
 - [ ] **Step 2: Escrever o Dockerfile**
 
 ```dockerfile
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate && npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache postgresql16-client openssl
+RUN apk add --no-cache postgresql18-client openssl
 
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
@@ -6301,6 +7284,21 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# O processo não precisa de root para servir HTTP nem para gravar em /data.
+# Num sistema que guarda documento e prontuário de idoso, rodar como usuário
+# dedicado é redução de superfície barata: se a aplicação for comprometida, o
+# invasor não herda o container inteiro.
+#
+# A posse de /app vem de `--chown=lar:lar` em cada `COPY` deste estágio, não de
+# um `chown -R` no fim: sobre um filesystem overlay, o `chown` recursivo força
+# copy-up de cada arquivo tocado para uma camada nova — com `node_modules`, isso
+# duplica mais de 100 MB na imagem. Já `/data` pode usar `chown -R` sem custo,
+# porque está vazio neste ponto: são só os dois diretórios recém-criados.
+RUN addgroup -g 1001 -S lar && adduser -u 1001 -S lar -G lar \
+ && mkdir -p /data/uploads \
+ && chown -R lar:lar /data
+USER lar
 
 EXPOSE 3000
 ENTRYPOINT ["/docker-entrypoint.sh"]
@@ -6319,7 +7317,15 @@ echo "Aplicando migrations..."
 npx prisma migrate deploy
 
 echo "Executando seed (idempotente)..."
-npx tsx prisma/seed.ts || echo "Seed ignorado."
+if ! npx tsx prisma/seed.ts; then
+  # O seed falhar não impede o sistema de subir — mas precisa aparecer no log
+  # com destaque. O cenário caro é o binário nativo do Argon2 não carregar:
+  # o servidor sobe, o HTTPS funciona, a tela de login aparece, e ninguém
+  # consegue entrar porque o usuário inicial nunca foi criado. Sem esta linha,
+  # o diagnóstico disso numa VPS remota custa horas.
+  echo "AVISO: o seed falhou. Se este for o primeiro deploy, NÃO haverá"
+  echo "usuário para entrar. Veja o erro acima antes de tentar acessar."
+fi
 
 exec "$@"
 ```
@@ -6331,9 +7337,11 @@ As migrations rodam no start do container, não em passo manual: reimplantar e e
 `docker-compose.yml`:
 
 ```yaml
+name: lar
+
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -6386,6 +7394,8 @@ volumes:
   caddy_config:
 ```
 
+O `name: lar` no topo fixa o prefixo dos volumes como `lar_` (`lar_uploads`, `lar_pgdata`). Sem ele, o Compose derivaria o prefixo do nome do diretório — e os scripts de backup da Tarefa 18, que referenciam `lar_uploads` por nome, quebrariam na primeira execução, silenciosamente copiando um volume vazio.
+
 `Caddyfile`:
 
 ```
@@ -6420,7 +7430,13 @@ SEED_ADMIN_SENHA=
 
 - [ ] **Step 5: Documentar a implantação**
 
-`docs/operacao/implantacao.md` deve conter, em ordem executável: requisitos da VPS (2 GB de RAM, Docker e Docker Compose), apontamento do DNS para o IP, cópia do `.env.producao.example` para `.env`, geração do `AUTH_SECRET` com `openssl rand -base64 32`, `docker compose up -d --build`, verificação em `https://<dominio>/login`, **troca imediata da senha do usuário inicial**, e o procedimento de atualização (`git pull && docker compose up -d --build`).
+`docs/operacao/implantacao.md` deve conter, em ordem executável: requisitos da VPS (2 GB de RAM, Docker e Docker Compose), apontamento do DNS para o IP, **liberação das portas 80 e 443 no firewall** (muitos provedores bloqueiam por padrão, e o Caddy falha ao emitir o certificado sem elas), cópia do `.env.producao.example`, geração do `AUTH_SECRET` com `openssl rand -base64 32`, `docker compose up -d --build`, verificação em `https://<dominio>/login`, **troca imediata da senha do usuário inicial**, o procedimento de atualização (`git pull && docker compose up -d --build`) e como parar o sistema (`docker compose down`, e a diferença para `down -v`, que apaga os volumes).
+
+A seção de problemas comuns precisa cobrir, além do certificado e do `UntrustedHost`:
+
+> **A tela de login abre, mas nenhuma senha funciona.** Procure `AVISO: o seed falhou` nos logs (`docker compose logs app`). Se aparecer, o usuário inicial não foi criado — o erro logo acima diz por quê. A causa mais provável num primeiro deploy é o binário nativo do Argon2 não carregar na arquitetura do servidor.
+
+Esse cenário é o mais caro de diagnosticar às cegas: tudo parece funcionar — HTTPS, tela, banco — e o sistema é inutilizável.
 
 - [ ] **Step 6: Verificar localmente**
 
@@ -6464,36 +7480,97 @@ git commit -m "Adiciona implantação com Docker, Caddy e migrations no start"
 #!/bin/sh
 set -eu
 
+# Só as duas variáveis necessárias, extraídas — não `.` no arquivo inteiro.
+# O env-file do Compose não é script de shell: a senha do Postgres é escolhida
+# por humano, e um `$(...)` ali viraria comando executado como root pelo cron.
+ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
+[ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
+# Tolera espaço em volta do `=` e aspas em volta do valor, que são as variações
+# que um humano introduz ao editar o arquivo à mão.
+ler_env() {
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$ARQUIVO_ENV" \
+    | head -1 | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+PGUSER=$(ler_env POSTGRES_USER)
+PGDB=$(ler_env POSTGRES_DB)
+[ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes em $ARQUIVO_ENV" >&2; exit 1; }
+
 DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
 REMOTO="${RCLONE_REMOTO:-}"
-SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
+COMPOSE="docker compose --env-file $ARQUIVO_ENV"
 CARIMBO=$(date +%Y-%m-%d_%H%M)
 
+# A senha vai por arquivo, não por argumento: `--passphrase` na linha de comando
+# fica visível em `ps` para qualquer usuário da máquina enquanto o gpg roda.
+ARQUIVO_SENHA="${ARQUIVO_SENHA_BACKUP:-/opt/lar/.senha-backup}"
+[ -f "$ARQUIVO_SENHA" ] || { echo "Arquivo de senha não encontrado: $ARQUIVO_SENHA" >&2; exit 1; }
+
+case "$DESTINO" in
+  /|/root|/home|/var|/etc|/usr) echo "DESTINO_BACKUP perigoso: $DESTINO" >&2; exit 1 ;;
+esac
+
 mkdir -p "$DESTINO"
+chmod 700 "$DESTINO"
 
-echo "[1/4] Exportando o banco..."
-docker compose exec -T db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
-  | gzip > "$DESTINO/banco_$CARIMBO.sql.gz"
+BANCO="$DESTINO/banco_$CARIMBO.sql"
+UPLOADS="$DESTINO/uploads_$CARIMBO.tar.gz"
+trap 'rm -f "$BANCO" "$BANCO.gz" "$UPLOADS"' EXIT
 
-echo "[2/4] Empacotando os arquivos enviados..."
-docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine \
+echo "[1/6] Conferindo que o volume de uploads existe..."
+# `docker run -v lar_uploads:...` CRIA o volume se ele não existir — um erro de
+# nome produziria um tar de diretório vazio, criptografado e enviado como se
+# fosse backup. Volume legitimamente vazio é válido; volume inexistente não.
+docker volume inspect lar_uploads >/dev/null
+
+echo "[2/6] Exportando o banco..."
+# Sem pipe: o código de saída de `a | b` é o de `b`, então um pg_dump que
+# falhasse seria mascarado por um gzip bem-sucedido sobre entrada vazia.
+# `--clean --if-exists` é o que permite restaurar sobre banco povoado.
+$COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" > "$BANCO"
+
+# `[ -s ]` só pega arquivo vazio. Um dump truncado (disco cheio, conexão
+# perdida no meio) passaria. O pg_dump sempre termina com esta linha.
+tail -5 "$BANCO" | grep -q 'PostgreSQL database dump complete' \
+  || { echo "Dump incompleto — abortando sem enviar nada." >&2; exit 1; }
+gzip -f "$BANCO"
+
+echo "[3/6] Empacotando os arquivos enviados..."
+docker run --rm -v lar_uploads:/dados -v "$DESTINO":/saida alpine:3.20 \
   tar czf "/saida/uploads_$CARIMBO.tar.gz" -C /dados .
 
-echo "[3/4] Criptografando..."
-for arquivo in "$DESTINO/banco_$CARIMBO.sql.gz" "$DESTINO/uploads_$CARIMBO.tar.gz"; do
-  gpg --batch --yes --passphrase "$SENHA_GPG" --symmetric --cipher-algo AES256 "$arquivo"
-  rm "$arquivo"
+# O dump ganhou verificacao de completude; o tarball ficaria sem nenhuma, e o
+# defeito so apareceria no dia da restauracao. Mesma checagem que restaurar.sh
+# faz antes de tocar nos dados: barata aqui, cara la.
+docker run --rm -v "$DESTINO":/entrada alpine:3.20 \
+  tar tzf "/entrada/uploads_$CARIMBO.tar.gz" > /dev/null
+
+echo "[4/6] Criptografando..."
+for arquivo in "$BANCO.gz" "$UPLOADS"; do
+  gpg --batch --yes --pinentry-mode loopback \
+      --passphrase-file "$ARQUIVO_SENHA" \
+      --symmetric --cipher-algo AES256 "$arquivo"
+  rm -f "$arquivo"
 done
 
-echo "[4/4] Enviando para fora da VPS..."
+echo "[5/6] Enviando para fora da VPS..."
 if [ -n "$REMOTO" ]; then
   rclone copy "$DESTINO" "$REMOTO" --include "*_$CARIMBO.*.gpg"
+  # `rclone copy` com filtro que não casa copia zero arquivo e sai 0.
+  enviados=$(rclone lsf "$REMOTO" --include "*_$CARIMBO.*.gpg" | wc -l)
+  [ "$enviados" -eq 2 ] || { echo "Esperava 2 arquivos no remoto, encontrei $enviados." >&2; exit 1; }
 else
   echo "AVISO: RCLONE_REMOTO não definido — a cópia ficou apenas local."
 fi
 
-find "$DESTINO" -name "*.gpg" -mtime +30 -delete
+echo "[6/6] Aplicando retenção de 30 dias..."
+find "$DESTINO" -maxdepth 1 -type f -name "*.gpg" -mtime +30 -delete
 
+# Marca de sucesso: um segundo cron semanal reclama se este arquivo envelhecer.
+# Sem isso, backup quebrado é indistinguível de backup saudável até alguém
+# abrir o log por conta própria — e o modo de falha aqui é "ninguém percebe".
+date +%Y-%m-%dT%H:%M > "$DESTINO/ultimo_sucesso"
+
+trap - EXIT
 echo "Backup $CARIMBO concluído."
 ```
 
@@ -6507,30 +7584,106 @@ A criptografia acontece **antes** do envio: o backup contém prontuário e docum
 #!/bin/sh
 set -eu
 
+ARQUIVO_ENV="${ARQUIVO_ENV:-/opt/lar/.env.producao}"
+[ -f "$ARQUIVO_ENV" ] || { echo "Arquivo de ambiente não encontrado: $ARQUIVO_ENV" >&2; exit 1; }
+PGUSER=$(sed -n 's/^POSTGRES_USER=//p' "$ARQUIVO_ENV" | head -1)
+PGDB=$(sed -n 's/^POSTGRES_DB=//p' "$ARQUIVO_ENV" | head -1)
+[ -n "$PGUSER" ] && [ -n "$PGDB" ] || { echo "POSTGRES_USER/POSTGRES_DB ausentes." >&2; exit 1; }
+
 ARQUIVO_BANCO="${1:?Informe o arquivo .sql.gz.gpg do banco}"
 ARQUIVO_UPLOADS="${2:?Informe o arquivo .tar.gz.gpg dos uploads}"
-SENHA_GPG="${SENHA_BACKUP:?Defina SENHA_BACKUP}"
+[ -f "$ARQUIVO_BANCO" ] || { echo "Não encontrei: $ARQUIVO_BANCO" >&2; exit 1; }
+[ -f "$ARQUIVO_UPLOADS" ] || { echo "Não encontrei: $ARQUIVO_UPLOADS" >&2; exit 1; }
 
-echo "ATENÇÃO: isto substitui os dados atuais. Ctrl+C para abortar."
-sleep 5
+ARQUIVO_SENHA="${ARQUIVO_SENHA_BACKUP:-/opt/lar/.senha-backup}"
+[ -f "$ARQUIVO_SENHA" ] || { echo "Arquivo de senha não encontrado: $ARQUIVO_SENHA" >&2; exit 1; }
 
-echo "[1/3] Descriptografando..."
-gpg --batch --yes --passphrase "$SENHA_GPG" -o /tmp/banco.sql.gz -d "$ARQUIVO_BANCO"
-gpg --batch --yes --passphrase "$SENHA_GPG" -o /tmp/uploads.tar.gz -d "$ARQUIVO_UPLOADS"
+DESTINO="${DESTINO_BACKUP:-/var/backups/lar}"
+COMPOSE="docker compose --env-file $ARQUIVO_ENV"
+CARIMBO=$(date +%Y-%m-%d_%H%M)
+TRABALHO=$(mktemp -d)
+trap 'rm -rf "$TRABALHO"' EXIT
 
-echo "[2/3] Restaurando o banco..."
-docker compose stop app
-gunzip -c /tmp/banco.sql.gz \
-  | docker compose exec -T db psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+echo "ATENÇÃO: isto SUBSTITUI o banco e TODOS os documentos atuais."
+echo "  Banco:    $ARQUIVO_BANCO"
+echo "  Arquivos: $ARQUIVO_UPLOADS"
+echo "Confira os carimbos de data acima antes de continuar."
+printf 'Digite RESTAURAR para confirmar: '
+read -r resposta
+[ "$resposta" = "RESTAURAR" ] || { echo "Abortado."; exit 1; }
 
-echo "[3/3] Restaurando os arquivos..."
-docker run --rm -v lar_uploads:/dados -v /tmp:/entrada alpine \
-  sh -c "rm -rf /dados/* && tar xzf /entrada/uploads.tar.gz -C /dados"
+echo "[1/6] Guardando o estado atual antes de sobrescrever..."
+# O erro provável não é ignorar que a operação é destrutiva — é escolher o
+# carimbo errado entre dois nomes quase idênticos, de madrugada, num incidente.
+# Sem esta cópia não há volta.
+RESGUARDO="$DESTINO/pre-restauracao_$CARIMBO"
+mkdir -p "$RESGUARDO"
+chmod 700 "$RESGUARDO"
+# O trap passa a cobrir também o texto claro do resguardo: se o gpg falhar no
+# segundo arquivo, ou se algo morrer entre o pg_dump e o laço, o prontuário de
+# trinta idosos ficaria em claro no disco para sempre. `set -e` faz o `rm` da
+# iteração nunca rodar nesse caso.
+trap 'rm -rf "$TRABALHO"; rm -f "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"' EXIT
+$COMPOSE exec -T db pg_dump -U "$PGUSER" --clean --if-exists --no-owner "$PGDB" \
+  > "$RESGUARDO/banco.sql"
+docker run --rm -v lar_uploads:/dados -v "$RESGUARDO":/saida alpine:3.20 \
+  tar czf /saida/uploads.tar.gz -C /dados .
 
-docker compose start app
-rm -f /tmp/banco.sql.gz /tmp/uploads.tar.gz
+# O resguardo é o mesmo prontuário que o backup protege — não pode ficar em
+# texto claro no disco esperando alguém lembrar de apagá-lo. Criptografa com a
+# mesma chave e remove o original. Diferente dos backups normais, ele NÃO é
+# enviado ao remoto: o filtro do rclone só casa os arquivos com o carimbo do
+# backup, então o resguardo é sempre local e serve só a esta máquina.
+for arquivo in "$RESGUARDO/banco.sql" "$RESGUARDO/uploads.tar.gz"; do
+  gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+      --symmetric --cipher-algo AES256 "$arquivo"
+  rm -f "$arquivo"
+done
+trap 'rm -rf "$TRABALHO"' EXIT
+echo "      Estado anterior guardado (criptografado) em $RESGUARDO"
 
-echo "Restauração concluída. Confira a aplicação."
+echo "[2/6] Descriptografando..."
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/banco.sql.gz" -d "$ARQUIVO_BANCO"
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$ARQUIVO_SENHA" \
+    -o "$TRABALHO/uploads.tar.gz" -d "$ARQUIVO_UPLOADS"
+
+echo "[3/6] Validando os pacotes ANTES de tocar nos dados..."
+gunzip -t "$TRABALHO/banco.sql.gz"
+# Sem esta validação, um tarball corrompido só seria descoberto depois de o
+# volume já ter sido esvaziado — os documentos apagados e nada para repor.
+docker run --rm -v "$TRABALHO":/entrada alpine:3.20 \
+  tar tzf /entrada/uploads.tar.gz > /dev/null
+
+echo "[4/6] Restaurando o banco..."
+$COMPOSE stop app
+gunzip -c "$TRABALHO/banco.sql.gz" > "$TRABALHO/banco.sql"
+# `ON_ERROR_STOP=1` é o que impede a restauração de "concluir com sucesso" sem
+# ter restaurado nada: sem ele, um COPY que colida com linha existente aborta só
+# aquela tabela, o psql segue adiante e sai com código 0. É seguro porque o dump
+# é gerado com `--clean --if-exists`, então não há erro de "já existe".
+$COMPOSE exec -T db psql -v ON_ERROR_STOP=1 -U "$PGUSER" -d "$PGDB" < "$TRABALHO/banco.sql"
+
+echo "[5/6] Restaurando os arquivos..."
+# Extrai ao lado e só então troca: o volume nunca fica vazio sem substituto.
+docker run --rm -v lar_uploads:/dados -v "$TRABALHO":/entrada alpine:3.20 sh -c '
+  set -e
+  rm -rf /dados/.novo && mkdir -p /dados/.novo
+  tar xzf /entrada/uploads.tar.gz -C /dados/.novo
+  find /dados -mindepth 1 -maxdepth 1 ! -name .novo -exec rm -rf {} +
+  mv /dados/.novo/* /dados/ 2>/dev/null || true
+  mv /dados/.novo/.[!.]* /dados/ 2>/dev/null || true
+  mv /dados/.novo/..?* /dados/ 2>/dev/null || true
+  rmdir /dados/.novo
+  chown -R 1001:1001 /dados
+'
+
+echo "[6/6] Subindo a aplicação..."
+$COMPOSE start app
+
+echo "Restauração concluída."
+echo "Confira na aplicação: o residente aparece E o documento anexado abre."
+echo "Estado anterior, se precisar voltar: $RESGUARDO"
 ```
 
 - [ ] **Step 3: Agendar a execução diária**
@@ -6538,18 +7691,44 @@ echo "Restauração concluída. Confira a aplicação."
 No `crontab -e` da VPS:
 
 ```
-0 3 * * * cd /opt/lar && SENHA_BACKUP=xxx RCLONE_REMOTO=remoto:lar-backup sh scripts/backup.sh >> /var/log/lar-backup.log 2>&1
+MAILTO=coordenacao@lar.exemplo.org.br
+
+# `>>` leva só a saída normal para o log. O erro (stderr) NÃO é redirecionado:
+# é o que sobra nos descritores que o cron observa, e é o que faz o MAILTO
+# valer alguma coisa. Com `2>&1` aqui, o cron não veria byte nenhum e o
+# MAILTO ficaria decorativo.
+0 3 * * * cd /opt/lar && RCLONE_REMOTO=remoto:lar-backup ARQUIVO_ENV=/opt/lar/.env.producao sh scripts/backup.sh >> /var/log/lar-backup.log
+
+# Alerta diário se o último sucesso envelhecer OU nunca tiver existido.
+# A ordem importa: `[ -f marca ] && ...` ficaria mudo justamente no pior caso —
+# backup quebrado desde o primeiro dia, marca nunca criada, nenhum aviso jamais.
+# O `tee` grava no log E deixa passar para o cron, que então envia o e-mail.
+0 8 * * * find /var/backups/lar/ultimo_sucesso -mtime -2 2>/dev/null | grep -q . || echo "$(date): ALERTA - backup do Lar sem sucesso ha mais de 2 dias" | tee -a /var/log/lar-backup.log
 ```
+
+A senha **não** entra na linha do cron: ela vive em `/opt/lar/.senha-backup`, com modo 600, e o script a lê por `--passphrase-file`. Senha em linha de comando fica visível em `ps` para qualquer usuário da máquina e entra no histórico do shell de quem editar o crontab.
+
+**O `MAILTO` só funciona porque as duas linhas deixam a saída chegar ao cron.** Ele envia por e-mail o que o comando agendado escreve nos próprios descritores — se a linha redireciona tudo para um arquivo (`>> log 2>&1`), não sobra nada para enviar e o `MAILTO` vira enfeite. Por isso o backup redireciona só a saída normal, e o alerta usa `tee` em vez de `>>`.
+
+Ainda assim, o e-mail depende de a VPS ter um agente de envio configurado — muitas não têm por padrão. **Confirme que chega**: rode `echo teste | mail -s teste seu@email` depois de configurar. Se não chegar, o log continua sendo a fonte de verdade, e vale combinar com alguém a rotina de abri-lo.
+
+O `cron` roda com ambiente mínimo — daí os scripts carregarem o `.env.producao` explicitamente em vez de contarem com variáveis herdadas do shell. Um backup que falha silenciosamente às 3h da manhã só é descoberto no dia da restauração.
 
 - [ ] **Step 4: Executar o teste de restauração — obrigatório**
 
 Este passo não é opcional e não pode ser marcado sem ter sido feito de verdade:
 
-1. Cadastre um residente com nome reconhecível e anexe um documento
-2. Rode `sh scripts/backup.sh`
-3. Apague o residente diretamente no banco e remova o arquivo do volume
-4. Rode `sh scripts/restaurar.sh <banco.gpg> <uploads.gpg>`
-5. Confirme na aplicação que o residente voltou **e que o documento anexado abre**
+1. Cadastre um residente com nome reconhecível e anexe um documento. **Não cadastre mais nada nele** — responsável, anotação ou avaliação criam vínculos que fazem o passo 3 falhar por chave estrangeira.
+2. Anote o `caminhoArmazenamento` do documento: `docker compose --env-file .env.producao exec -T db psql -U lar -d lar -c "select \"caminhoArmazenamento\" from documentos;"`
+3. Rode `sh scripts/backup.sh`
+4. Apague o residente **e o arquivo**, nesta ordem:
+   - `delete from documentos where "residenteId" = '<id>';` e `delete from residentes where id = '<id>';`
+   - `docker run --rm -v lar_uploads:/dados alpine:3.20 rm -f /dados/<caminhoArmazenamento>`
+5. **Confirme que quebrou antes de restaurar:** o residente sumiu da lista e, se você tinha o link do documento aberto, ele agora dá 404. Sem este passo o teste pode passar por acidente.
+6. Rode `sh scripts/restaurar.sh <banco.gpg> <uploads.gpg>`
+7. Confirme na aplicação que o residente voltou **e que o documento anexado abre** — não basta aparecer na lista; clique e veja o conteúdo.
+
+O passo 4 apaga o arquivo de propósito, mesmo que o `restaurar.sh` esvazie o volume de qualquer forma. Depender desse efeito colateral tornaria o teste inútil no dia em que aquela linha do script mudasse — e o teste existe justamente para pegar a divergência entre banco e arquivos.
 
 Um backup de banco que restaura sem os arquivos é uma falha silenciosa: a tela mostra o documento na lista e o download quebra. É exatamente o tipo de defeito que só aparece no dia em que já é tarde.
 
@@ -6600,3 +7779,87 @@ Fora do escopo desta fase, por pertencerem às Fases 2A, 2B e 3: prontuário, me
 4. Executar o teste de restauração de backup e registrar a data em `docs/operacao/backup.md`
 5. Cadastrar os ~30 residentes (digitação manual, conforme §13 da spec)
 6. Só então iniciar o plano da Fase 2A
+
+---
+
+### Task 19: Fechamento — correções da revisão final da branch
+
+A revisão de conjunto encontrou o que nenhuma revisão de tarefa isolada podia ver: serviços prontos sem caminho de interface, e afirmações que eram verdadeiras no módulo onde foram escritas e passaram a ser falsas quando outro módulo se apoiou nelas.
+
+**Files:**
+- Modify: `src/app/(app)/usuarios/page.tsx`, `src/components/campo.tsx`, `src/app/(app)/residentes/[id]/page.tsx`, `src/app/(app)/residentes/acoes.ts`, `src/app/(app)/funcionarios/acoes.ts`, `src/app/(app)/layout.tsx`, `src/modules/residents/documentos.service.ts`, `src/modules/audit/auditoria.service.ts`, `src/components/formulario-documento.tsx`, `prisma/schema.prisma`, `docker-compose.yml`, `README.md`
+- Create: `src/app/(app)/residentes/[id]/desligar/page.tsx`, `src/components/formularios-anotacao.tsx`, `src/app/(app)/error.tsx`, `src/app/(app)/not-found.tsx`
+
+**Interfaces:** consome tudo que já existe; não cria serviço novo.
+
+- [ ] **Step 1: Destravar a troca da própria senha (Crítico)**
+
+`usuarios/page.tsx` esconde os dois formulários da própria conta com `usuario.id !== ctx.usuarioId`. Separe as condições: **desativar** continua escondido para si mesmo (o serviço recusa); **definir senha** passa a aparecer.
+
+Com um único coordenador — a situação garantida logo após o deploy — não havia como cumprir o Passo 10 da implantação, e o sistema ficava com a senha que veio em texto plano do `.env.producao`.
+
+Acrescente aviso no formulário: trocar a própria senha encerra a sessão em curso, porque `obterCtx` recusa token anterior a `senhaAlteradaEm`. É comportamento correto e surpreendente sem aviso.
+
+- [ ] **Step 2: Tela de desligamento de residente (Crítico)**
+
+`src/app/(app)/residentes/[id]/desligar/page.tsx`, no padrão da tela de desligamento de funcionário: campos `status` (`DESLIGADO` ou `FALECIDO`), `dataSaida`, `motivoSaida`, `observacaoSaida`, chamando `acaoDesligarResidente` (criar em `residentes/acoes.ts`, espelhando `acaoDesligarFuncionario`).
+
+Link na ficha, visível a quem pode (`ctx.papel !== 'SAUDE'`). Residente já desligado mostra data e motivo em vez do formulário.
+
+Sem isto **o sistema não sabe registrar um óbito**, e a lista oferece filtrar por "Falecidos" — status que nenhuma tela atribui.
+
+- [ ] **Step 3: Edição e retificação de anotação (Crítico)**
+
+Na ficha, cada anotação dentro da janela de 15 minutos e de autoria do usuário atual ganha "Editar"; todas ganham "Retificar". Dois formulários em `src/components/formularios-anotacao.tsx`, com as ações correspondentes.
+
+A regra R3 da spec — janela curta, depois só retificação — estava implementada e testada no serviço, e inalcançável pela tela. A ficha já exibe o rótulo "· retificação" para anotações que ninguém conseguia criar.
+
+- [ ] **Step 4: O diff de auditoria não pode registrar o que não mudou (Importante)**
+
+Em `residentes/acoes.ts` e `funcionarios/acoes.ts`, os conversores montam o objeto completo com `undefined` nos campos vazios. `calcularDiff` itera `Object.keys(depois)`, então **toda edição sem alteração alguma** grava linhas como `Data de nascimento: 12/03/1940 → 12/03/1940`.
+
+Duas correções:
+
+1. Os conversores **omitem** a chave quando o valor é `undefined`, em vez de emiti-la.
+2. `normalizar` em `auditoria.service.ts` compara `Date` por dia civil e converte `Decimal` para número — `JSON.stringify` de um `Decimal` devolve string e de um número devolve número, então valores iguais divergem.
+
+Decida e documente: hoje **não é possível limpar um campo opcional pela tela**, porque o Prisma ignora `undefined`. Se a omissão for adotada, isso continua verdade — escreva no comentário, em vez de deixar como acidente.
+
+Acrescente teste com a forma que a produção realmente produz: chave **presente** com `undefined`. O teste atual usa chave ausente, que nenhuma ação monta.
+
+- [ ] **Step 5: O papel SAUDE precisa conseguir anexar exame (Importante)**
+
+A ficha usa `podeCadastrar = ctx.papel !== 'SAUDE'` para esconder o formulário de anexo — justamente do papel que `papeisQuePodemVer` autoriza a anexar `EXAME` e `LAUDO`. E `formulario-documento.tsx` omite os três tipos restritos do seletor.
+
+Derive a condição de `papeisQuePodemVer` e ofereça os tipos que o papel do usuário pode anexar. Hoje **a enfermeira não consegue anexar o laudo do grau de dependência** — documento que a fiscalização sanitária cobra.
+
+- [ ] **Step 6: `error.tsx` e `not-found.tsx` (Importante)**
+
+Não existe nenhum dos dois em toda a árvore. Um id inexistente na URL, ou um papel sem permissão para a rota, entrega a tela genérica de exceção do Next. Crie ambos em `src/app/(app)/`, em pt-BR, sem vazar mensagem de exceção interna.
+
+- [ ] **Step 7: Rotação de log (Importante)**
+
+Bloco `logging` com driver `json-file`, `max-size: 10m` e `max-file: 3` nos três serviços do `docker-compose.yml`, e entrada de logrotate para `/var/log/lar-backup.log` documentada em `docs/operacao/implantacao.md`. O disco que enche é o mesmo que guarda o banco e os uploads.
+
+- [ ] **Step 8: Correções pontuais (Importante e Menor)**
+
+- **`id` HTML duplicado:** `Campo` emite `id={nome}`, e a página de usuários renderiza um campo `senha` por usuário. Clicar no rótulo do terceiro foca a caixa do formulário de criação. Aceite um prefixo opcional no `Campo` e use-o nos formulários em laço.
+- **`funcionarioId` sem validação nem FK:** `anexarDocumento` valida `residenteId` e não `funcionarioId`. Acrescente a checagem simétrica e a relação no schema, com migration.
+- **`LOGOUT` nunca gravado:** o botão "Sair" chama `signOut` sem auditar. O valor existe no enum e tem rótulo na tela.
+- **`README.md`:** é o boilerplate do `create-next-app` e termina instruindo implantar na Vercel — para um sistema que roda em VPS com volume Docker. Substitua por: o que é o sistema, pré-requisitos, como subir em desenvolvimento, como rodar os testes, o gate do `npm approve-scripts`, e ponteiros para `docs/operacao/`.
+- **E-mail vazio:** `atualizarFuncionario` e `atualizarResponsavel` não normalizam para `null`, divergindo dos respectivos `criar`/`adicionar`.
+- **`listarDocumentos`:** é a única leitura sem JSDoc justificando não auditar. Escreva a justificativa, no padrão das outras seis.
+- **Mensagem de desligamento:** "Este residente já está desligado" quando o status é `FALECIDO`.
+- **`expect.assertions(1)`** no teste `'não vaza dados internos na mensagem de erro'` em `contexto.test.ts`: sem isso, se `exigirPapel` deixar de lançar, o `catch` não roda e o teste passa verde.
+
+- [ ] **Step 9: Testes da camada de adaptação (Importante)**
+
+Hoje `src/app/**/acoes.ts` e `executarAcao` não têm nenhum teste — é a costura onde `FormData` vira objeto de domínio, e onde o defeito do Step 4 mora inteiro.
+
+- `executarAcao`: erro de domínio vira mensagem; erro inesperado vira mensagem genérica e vai para o log.
+- Conversores de `FormData`: campo vazio, data, número, checkbox marcado e desmarcado.
+- Um segundo perfil E2E autenticado como **SAUDE**, verificando que a ficha oferece anexo de exame e não oferece o link de desligamento. Metade da interface condicionada a papel nunca foi executada por ninguém além da coordenação — foi lá que o Step 5 se escondeu.
+
+- [ ] **Step 10: Rodar tudo e commitar**
+
+`npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, `npm run build`.
