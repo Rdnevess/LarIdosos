@@ -13,7 +13,11 @@ import {
 } from '@/modules/residents/residentes.service'
 import { dadosDoResidente } from './conversores'
 import { adicionarResponsavel } from '@/modules/residents/responsaveis.service'
-import { criarAnotacao } from '@/modules/residents/anotacoes.service'
+import {
+  criarAnotacao,
+  editarAnotacao,
+  retificarAnotacao,
+} from '@/modules/residents/anotacoes.service'
 import { registrarAvaliacao } from '@/modules/residents/dependencia.service'
 import { anexarDocumento } from '@/modules/residents/documentos.service'
 
@@ -116,6 +120,52 @@ export async function acaoCriarAnotacao(
       residenteId,
       categoria: texto(dados, 'categoria') as 'OUTRO',
       texto: texto(dados, 'texto')!,
+    })
+  })
+
+  revalidatePath(`/residentes/${residenteId}`)
+  return resultado
+}
+
+/**
+ * Correção dentro da janela de 15 minutos, só pelo autor. As duas restrições
+ * são do serviço (`editarAnotacao`, em
+ * `src/modules/residents/anotacoes.service.ts`), não desta camada: a ficha
+ * esconde o botão fora da janela, mas quem recusa é ele.
+ */
+export async function acaoEditarAnotacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    // `?? ''` e não `!`: campo vazio precisa chegar como string vazia, para o
+    // Zod do serviço devolver "Escreva o conteúdo da anotação". Com `!`, o
+    // `undefined` viraria a string "undefined" mais adiante.
+    await editarAnotacao(ctx, String(dados.get('id')), texto(dados, 'texto') ?? '')
+  })
+
+  revalidatePath(`/residentes/${residenteId}`)
+  return resultado
+}
+
+/**
+ * Depois da janela, o registro antigo não é apagado nem alterado: nasce uma
+ * anotação nova apontando para ele. É a regra R3 da spec, e era inalcançável
+ * pela tela até agora.
+ */
+export async function acaoRetificarAnotacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await retificarAnotacao(ctx, String(dados.get('id')), {
+      texto: texto(dados, 'texto') ?? '',
     })
   })
 

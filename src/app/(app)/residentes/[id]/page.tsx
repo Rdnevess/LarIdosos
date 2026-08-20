@@ -22,6 +22,10 @@ import {
   FormularioAvaliacao,
 } from '@/components/formularios-ficha'
 import { FormularioDocumento } from '@/components/formulario-documento'
+import {
+  FormularioEditarAnotacao,
+  FormularioRetificarAnotacao,
+} from '@/components/formularios-anotacao'
 
 // A tela nunca mostra o valor cru do enum. "VISITA_FAMILIA" é identificador de
 // código; quem lê a ficha é a equipe do Lar, e a interface é toda em pt-BR. O
@@ -81,6 +85,14 @@ export default async function FichaResidente({
   ])
 
   const emergencia = responsaveis.filter((r) => r.ehContatoEmergencia)
+
+  // Ids das anotações que já receberam uma retificação. Sem esta marca, quem
+  // lê a ficha vê o texto original errado e o texto retificado como dois
+  // registros independentes, sem pista de qual substitui qual.
+  const retificadas = new Set(
+    anotacoes.map((anotacao) => anotacao.retificaAnotacaoId).filter(Boolean)
+  )
+  const agora = Date.now()
 
   // Esconder o formulário poupa ao usuário um erro previsível; quem recusa de
   // fato é o serviço, que checa o papel de novo.
@@ -162,16 +174,57 @@ export default async function FichaResidente({
           Anotações ({anotacoes.length})
         </summary>
         <ul className="mt-3 space-y-3">
-          {anotacoes.map((anotacao) => (
-            <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
-              <p className="text-sm text-slate-500">
-                {formatarDataHora(anotacao.criadoEm)} ·{' '}
-                {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
-                {anotacao.retificaAnotacaoId && ' · retificação'}
-              </p>
-              <p className="text-slate-800">{anotacao.texto}</p>
-            </li>
-          ))}
+          {anotacoes.map((anotacao) => {
+            // As duas condições são do serviço, repetidas aqui só para não
+            // oferecer um botão que sempre falharia: `editarAnotacao` exige
+            // autoria e janela aberta, e recusa com `ErroPermissao` /
+            // `ErroValidacao` (`src/modules/residents/anotacoes.service.ts`).
+            const podeEditar =
+              anotacao.criadoPorId === ctx.usuarioId &&
+              anotacao.editavelAte.getTime() > agora
+
+            return (
+              <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
+                <p className="text-sm text-slate-500">
+                  {formatarDataHora(anotacao.criadoEm)} ·{' '}
+                  {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
+                  {anotacao.retificaAnotacaoId && ' · retificação'}
+                  {retificadas.has(anotacao.id) && ' · retificada depois'}
+                </p>
+                <p className="text-slate-800">{anotacao.texto}</p>
+
+                <div className="mt-1 space-y-1">
+                  {podeEditar && (
+                    <details>
+                      <summary className="cursor-pointer text-sm text-slate-600 underline">
+                        Editar
+                      </summary>
+                      <div className="mt-2">
+                        <FormularioEditarAnotacao
+                          anotacaoId={anotacao.id}
+                          residenteId={id}
+                          textoAtual={anotacao.texto}
+                        />
+                      </div>
+                    </details>
+                  )}
+                  {/* Retificar não tem janela nem exigência de autoria: é o
+                      caminho que continua aberto depois que a edição fecha. */}
+                  <details>
+                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      Retificar
+                    </summary>
+                    <div className="mt-2">
+                      <FormularioRetificarAnotacao
+                        anotacaoId={anotacao.id}
+                        residenteId={id}
+                      />
+                    </div>
+                  </details>
+                </div>
+              </li>
+            )
+          })}
           {anotacoes.length === 0 && (
             <li className="text-sm text-slate-500">Nenhuma anotação registrada.</li>
           )}
