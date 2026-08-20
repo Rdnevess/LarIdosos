@@ -1,4 +1,4 @@
-import type { StatusResidente } from '@prisma/client'
+import type { StatusResidente, TipoDocumento } from '@prisma/client'
 
 export function somenteDigitos(valor: string): string {
   return (valor ?? '').replace(/\D/g, '')
@@ -89,4 +89,28 @@ export const ROTULO_STATUS_RESIDENTE: Record<StatusResidente, string> = {
   ATIVO: 'Ativo',
   DESLIGADO: 'Desligado',
   FALECIDO: 'Falecido',
+}
+
+/**
+ * Rótulo em português do tipo de documento anexado. Tipado com o enum do
+ * Prisma pelo mesmo motivo de `ROTULO_STATUS_RESIDENTE`: um tipo novo no
+ * schema quebra o `typecheck` aqui em vez de aparecer cru na ficha — e, como
+ * `tiposQuePodeAnexar` (`src/modules/residents/documentos.service.ts`) monta o
+ * seletor a partir de `Object.values(TipoDocumento)`, um tipo sem rótulo
+ * apareceria no seletor de anexo, não só na listagem.
+ */
+export const ROTULO_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
+  RG: 'RG',
+  CPF: 'CPF',
+  CNS: 'Cartão SUS',
+  CERTIDAO: 'Certidão',
+  LAUDO: 'Laudo',
+  PROCURACAO: 'Procuração',
+  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
+  TERMO_LGPD: 'Termo de ciência (LGPD)',
+  FOTO: 'Foto',
+  EXAME: 'Exame',
+  COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+  OUTRO: 'Outro',
 }

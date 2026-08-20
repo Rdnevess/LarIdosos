@@ -1,6 +1,8 @@
 'use client'
 
 import { useActionState } from 'react'
+import type { TipoDocumento } from '@prisma/client'
+import { ROTULO_TIPO_DOCUMENTO } from '@/lib/ptbr'
 import { acaoAnexarDocumento } from '@/app/(app)/residentes/acoes'
 
 /**
@@ -8,8 +10,22 @@ import { acaoAnexarDocumento } from '@/app/(app)/residentes/acoes'
  * `'use client'` vale para o arquivo inteiro: o anexo precisa de
  * `multipart/form-data` e de um `<input type="file">`, que o `Campo` não cobre,
  * enquanto os outros três formulários são componentes de servidor.
+ *
+ * `tipos` chega pronto de quem renderiza — a ficha o obtém de
+ * `tiposQuePodeAnexar` (`src/modules/residents/documentos.service.ts`), que o
+ * deriva de `papeisQuePodemVer`. Antes, este arquivo trazia a lista escrita à
+ * mão e omitia LAUDO, EXAME e COMPROVANTE_FISCAL de todo mundo, inclusive de
+ * quem tinha permissão de anexá-los. Não é este componente que autoriza nada:
+ * `anexarDocumento` chama `exigirPapel` com os papéis do tipo escolhido, e
+ * recusa mesmo que um valor fora da lista seja forjado no formulário.
  */
-export function FormularioDocumento({ residenteId }: { residenteId: string }) {
+export function FormularioDocumento({
+  residenteId,
+  tipos,
+}: {
+  residenteId: string
+  tipos: TipoDocumento[]
+}) {
   const [estado, enviar, enviando] = useActionState(acaoAnexarDocumento, null)
 
   return (
@@ -21,15 +37,11 @@ export function FormularioDocumento({ residenteId }: { residenteId: string }) {
           Tipo do documento <span className="text-red-600">*</span>
         </label>
         <select id="tipo" name="tipo" required className="w-full rounded border border-slate-300 px-3 py-2 text-base">
-          <option value="RG">RG</option>
-          <option value="CPF">CPF</option>
-          <option value="CNS">Cartão SUS</option>
-          <option value="CERTIDAO">Certidão</option>
-          <option value="PROCURACAO">Procuração</option>
-          <option value="TERMO_RESPONSABILIDADE">Termo de responsabilidade</option>
-          <option value="TERMO_LGPD">Termo de ciência (LGPD)</option>
-          <option value="FOTO">Foto</option>
-          <option value="OUTRO">Outro</option>
+          {tipos.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {ROTULO_TIPO_DOCUMENTO[tipo]}
+            </option>
+          ))}
         </select>
       </div>
 

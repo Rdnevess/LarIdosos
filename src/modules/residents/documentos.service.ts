@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { Documento, Papel, TipoDocumento } from '@prisma/client'
+import { TipoDocumento } from '@prisma/client'
+import type { Documento, Papel } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
@@ -26,6 +27,33 @@ export function papeisQuePodemVer(documento: {
   if (documento.tipo === 'EXAME' || documento.tipo === 'LAUDO') return CLINICO
   if (documento.tipo === 'COMPROVANTE_FISCAL') return FINANCEIRO_E_PESSOAL
   return TODOS
+}
+
+/**
+ * Tipos que `papel` pode anexar ao alvo informado.
+ *
+ * Derivado de `papeisQuePodemVer`, consultando-a — não é uma segunda lista de
+ * permissões. Era essa segunda lista que fazia a ficha esconder o formulário
+ * de anexo justamente do papel SAUDE, autorizado a anexar EXAME e LAUDO, e o
+ * seletor omitir os três tipos restritos: a enfermeira não conseguia anexar o
+ * laudo do grau de dependência, documento que a fiscalização sanitária cobra.
+ *
+ * O universo vem de `Object.values(TipoDocumento)`, o enum gerado pelo Prisma
+ * a partir de `prisma/schema.prisma`: um tipo novo no schema entra aqui
+ * sozinho, e o `Record<TipoDocumento, string>` de `ROTULO_TIPO_DOCUMENTO`
+ * (`src/lib/ptbr.ts`) quebra o typecheck se ele não tiver rótulo.
+ *
+ * O alvo importa porque `papeisQuePodemVer` testa `funcionarioId` ANTES do
+ * tipo — um LAUDO de funcionário é assunto de pessoal, não da equipe clínica.
+ * Passar o alvo adiante em vez de assumir residente preserva essa ordem.
+ */
+export function tiposQuePodeAnexar(
+  papel: Papel,
+  alvo: { funcionarioId?: string | null } = {}
+): TipoDocumento[] {
+  return Object.values(TipoDocumento).filter((tipo) =>
+    papeisQuePodemVer({ tipo, funcionarioId: alvo.funcionarioId ?? null }).includes(papel)
+  )
 }
 
 const anexoSchema = z

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { TipoDocumento } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
@@ -8,6 +9,7 @@ import {
   obterDocumentoParaDownload,
   excluirDocumento,
   papeisQuePodemVer,
+  tiposQuePodeAnexar,
 } from './documentos.service'
 
 const conteudo = Buffer.from('%PDF-1.4 laudo')
@@ -256,5 +258,58 @@ describe('listarDocumentos', () => {
     const lista = await listarDocumentos(administrativo, { residenteId: residente.id })
 
     expect(lista.map((d) => d.tipo)).toEqual(['RG'])
+  })
+})
+
+describe('tiposQuePodeAnexar', () => {
+  it('oferece a SAUDE os tipos clínicos que a ficha escondia dela', () => {
+    const tipos = tiposQuePodeAnexar('SAUDE')
+
+    // O laudo do grau de dependência é o documento que a fiscalização
+    // sanitária cobra, e a enfermeira não conseguia anexá-lo.
+    expect(tipos).toContain('LAUDO')
+    expect(tipos).toContain('EXAME')
+    expect(tipos).toContain('RG')
+  })
+
+  it('não oferece a SAUDE o que ela não pode ver', () => {
+    expect(tiposQuePodeAnexar('SAUDE')).not.toContain('COMPROVANTE_FISCAL')
+  })
+
+  it('não oferece ao ADMINISTRATIVO os tipos clínicos', () => {
+    const tipos = tiposQuePodeAnexar('ADMINISTRATIVO')
+
+    expect(tipos).not.toContain('EXAME')
+    expect(tipos).not.toContain('LAUDO')
+    expect(tipos).toContain('COMPROVANTE_FISCAL')
+  })
+
+  it('concorda com papeisQuePodemVer para todo tipo e todo papel', () => {
+    // Esta é a asserção que impede as duas listas de divergirem de novo: se
+    // alguém acrescentar uma exceção só na tela, ou mexer na ordem dos ifs de
+    // `papeisQuePodemVer`, este teste acusa.
+    const papeis = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] as const
+
+    for (const papel of papeis) {
+      for (const alvo of [{}, { funcionarioId: 'fun_1' }]) {
+        const oferecidos = tiposQuePodeAnexar(papel, alvo)
+
+        for (const tipo of Object.values(TipoDocumento)) {
+          const autorizado = papeisQuePodemVer({
+            tipo,
+            funcionarioId: alvo.funcionarioId ?? null,
+          }).includes(papel)
+
+          expect(oferecidos.includes(tipo)).toBe(autorizado)
+        }
+      }
+    }
+  })
+
+  it('trata documento de funcionário como assunto de pessoal, não da equipe clínica', () => {
+    // `papeisQuePodemVer` testa `funcionarioId` ANTES do tipo, e a derivação
+    // precisa preservar isso: um LAUDO de funcionário não é oferecido a SAUDE.
+    expect(tiposQuePodeAnexar('SAUDE', { funcionarioId: 'fun_1' })).toEqual([])
+    expect(tiposQuePodeAnexar('ADMINISTRATIVO', { funcionarioId: 'fun_1' })).toContain('LAUDO')
   })
 })

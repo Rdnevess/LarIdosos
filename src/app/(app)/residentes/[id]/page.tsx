@@ -4,7 +4,10 @@ import { ErroNaoEncontrado } from '@/lib/erros'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterResidente } from '@/modules/residents/residentes.service'
 import { listarResponsaveis } from '@/modules/residents/responsaveis.service'
-import { listarDocumentos } from '@/modules/residents/documentos.service'
+import {
+  listarDocumentos,
+  tiposQuePodeAnexar,
+} from '@/modules/residents/documentos.service'
 import { listarAnotacoes } from '@/modules/residents/anotacoes.service'
 import {
   obterGrauVigente,
@@ -15,6 +18,7 @@ import {
   formatarDataHora,
   formatarCpf,
   ROTULO_STATUS_RESIDENTE,
+  ROTULO_TIPO_DOCUMENTO,
 } from '@/lib/ptbr'
 import {
   FormularioAnotacao,
@@ -37,22 +41,6 @@ const ROTULO_CATEGORIA: Record<string, string> = {
   OCORRENCIA: 'Ocorrência',
   SOCIAL: 'Social',
   JURIDICO: 'Jurídico',
-  OUTRO: 'Outro',
-}
-
-const ROTULO_TIPO_DOCUMENTO: Record<string, string> = {
-  RG: 'RG',
-  CPF: 'CPF',
-  CNS: 'Cartão SUS',
-  CERTIDAO: 'Certidão',
-  LAUDO: 'Laudo',
-  PROCURACAO: 'Procuração',
-  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
-  TERMO_LGPD: 'Termo de ciência (LGPD)',
-  FOTO: 'Foto',
-  EXAME: 'Exame',
-  COMPROVANTE_FISCAL: 'Comprovante fiscal',
-  CONSELHO_PROFISSIONAL: 'Registro em conselho',
   OUTRO: 'Outro',
 }
 
@@ -98,6 +86,13 @@ export default async function FichaResidente({
   // fato é o serviço, que checa o papel de novo.
   const podeCadastrar = ctx.papel !== 'SAUDE'
   const podeAvaliar = ctx.papel !== 'ADMINISTRATIVO'
+
+  // O anexo NÃO usa `podeCadastrar`. Era esse o defeito: a condição escondia o
+  // formulário do papel SAUDE, justamente o que `papeisQuePodemVer` autoriza a
+  // anexar EXAME e LAUDO. A lista vem derivada da própria política de
+  // permissão (`tiposQuePodeAnexar`), e a seção só some para quem não pode
+  // anexar tipo nenhum.
+  const tiposAnexaveis = tiposQuePodeAnexar(ctx.papel)
 
   return (
     <section className="space-y-4">
@@ -275,7 +270,10 @@ export default async function FichaResidente({
                 rel="noreferrer"
                 className="text-slate-800 underline"
               >
-                {ROTULO_TIPO_DOCUMENTO[documento.tipo] ?? documento.tipo} —{' '}
+                {/* Sem `??`: `ROTULO_TIPO_DOCUMENTO` é `Record<TipoDocumento,
+                    string>`, então um tipo sem rótulo não compila — não há
+                    caso em tempo de execução para cair num valor cru. */}
+                {ROTULO_TIPO_DOCUMENTO[documento.tipo]} —{' '}
                 {documento.nomeArquivoOriginal}
               </a>
             </li>
@@ -284,9 +282,9 @@ export default async function FichaResidente({
             <li className="text-sm text-slate-500">Nenhum documento anexado.</li>
           )}
         </ul>
-        {podeCadastrar && (
+        {tiposAnexaveis.length > 0 && (
           <div className="mt-4 border-t pt-4">
-            <FormularioDocumento residenteId={id} />
+            <FormularioDocumento residenteId={id} tipos={tiposAnexaveis} />
           </div>
         )}
       </details>
