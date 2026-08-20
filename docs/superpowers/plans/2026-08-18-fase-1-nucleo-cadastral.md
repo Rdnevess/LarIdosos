@@ -7779,3 +7779,87 @@ Fora do escopo desta fase, por pertencerem às Fases 2A, 2B e 3: prontuário, me
 4. Executar o teste de restauração de backup e registrar a data em `docs/operacao/backup.md`
 5. Cadastrar os ~30 residentes (digitação manual, conforme §13 da spec)
 6. Só então iniciar o plano da Fase 2A
+
+---
+
+### Task 19: Fechamento — correções da revisão final da branch
+
+A revisão de conjunto encontrou o que nenhuma revisão de tarefa isolada podia ver: serviços prontos sem caminho de interface, e afirmações que eram verdadeiras no módulo onde foram escritas e passaram a ser falsas quando outro módulo se apoiou nelas.
+
+**Files:**
+- Modify: `src/app/(app)/usuarios/page.tsx`, `src/components/campo.tsx`, `src/app/(app)/residentes/[id]/page.tsx`, `src/app/(app)/residentes/acoes.ts`, `src/app/(app)/funcionarios/acoes.ts`, `src/app/(app)/layout.tsx`, `src/modules/residents/documentos.service.ts`, `src/modules/audit/auditoria.service.ts`, `src/components/formulario-documento.tsx`, `prisma/schema.prisma`, `docker-compose.yml`, `README.md`
+- Create: `src/app/(app)/residentes/[id]/desligar/page.tsx`, `src/components/formularios-anotacao.tsx`, `src/app/(app)/error.tsx`, `src/app/(app)/not-found.tsx`
+
+**Interfaces:** consome tudo que já existe; não cria serviço novo.
+
+- [ ] **Step 1: Destravar a troca da própria senha (Crítico)**
+
+`usuarios/page.tsx` esconde os dois formulários da própria conta com `usuario.id !== ctx.usuarioId`. Separe as condições: **desativar** continua escondido para si mesmo (o serviço recusa); **definir senha** passa a aparecer.
+
+Com um único coordenador — a situação garantida logo após o deploy — não havia como cumprir o Passo 10 da implantação, e o sistema ficava com a senha que veio em texto plano do `.env.producao`.
+
+Acrescente aviso no formulário: trocar a própria senha encerra a sessão em curso, porque `obterCtx` recusa token anterior a `senhaAlteradaEm`. É comportamento correto e surpreendente sem aviso.
+
+- [ ] **Step 2: Tela de desligamento de residente (Crítico)**
+
+`src/app/(app)/residentes/[id]/desligar/page.tsx`, no padrão da tela de desligamento de funcionário: campos `status` (`DESLIGADO` ou `FALECIDO`), `dataSaida`, `motivoSaida`, `observacaoSaida`, chamando `acaoDesligarResidente` (criar em `residentes/acoes.ts`, espelhando `acaoDesligarFuncionario`).
+
+Link na ficha, visível a quem pode (`ctx.papel !== 'SAUDE'`). Residente já desligado mostra data e motivo em vez do formulário.
+
+Sem isto **o sistema não sabe registrar um óbito**, e a lista oferece filtrar por "Falecidos" — status que nenhuma tela atribui.
+
+- [ ] **Step 3: Edição e retificação de anotação (Crítico)**
+
+Na ficha, cada anotação dentro da janela de 15 minutos e de autoria do usuário atual ganha "Editar"; todas ganham "Retificar". Dois formulários em `src/components/formularios-anotacao.tsx`, com as ações correspondentes.
+
+A regra R3 da spec — janela curta, depois só retificação — estava implementada e testada no serviço, e inalcançável pela tela. A ficha já exibe o rótulo "· retificação" para anotações que ninguém conseguia criar.
+
+- [ ] **Step 4: O diff de auditoria não pode registrar o que não mudou (Importante)**
+
+Em `residentes/acoes.ts` e `funcionarios/acoes.ts`, os conversores montam o objeto completo com `undefined` nos campos vazios. `calcularDiff` itera `Object.keys(depois)`, então **toda edição sem alteração alguma** grava linhas como `Data de nascimento: 12/03/1940 → 12/03/1940`.
+
+Duas correções:
+
+1. Os conversores **omitem** a chave quando o valor é `undefined`, em vez de emiti-la.
+2. `normalizar` em `auditoria.service.ts` compara `Date` por dia civil e converte `Decimal` para número — `JSON.stringify` de um `Decimal` devolve string e de um número devolve número, então valores iguais divergem.
+
+Decida e documente: hoje **não é possível limpar um campo opcional pela tela**, porque o Prisma ignora `undefined`. Se a omissão for adotada, isso continua verdade — escreva no comentário, em vez de deixar como acidente.
+
+Acrescente teste com a forma que a produção realmente produz: chave **presente** com `undefined`. O teste atual usa chave ausente, que nenhuma ação monta.
+
+- [ ] **Step 5: O papel SAUDE precisa conseguir anexar exame (Importante)**
+
+A ficha usa `podeCadastrar = ctx.papel !== 'SAUDE'` para esconder o formulário de anexo — justamente do papel que `papeisQuePodemVer` autoriza a anexar `EXAME` e `LAUDO`. E `formulario-documento.tsx` omite os três tipos restritos do seletor.
+
+Derive a condição de `papeisQuePodemVer` e ofereça os tipos que o papel do usuário pode anexar. Hoje **a enfermeira não consegue anexar o laudo do grau de dependência** — documento que a fiscalização sanitária cobra.
+
+- [ ] **Step 6: `error.tsx` e `not-found.tsx` (Importante)**
+
+Não existe nenhum dos dois em toda a árvore. Um id inexistente na URL, ou um papel sem permissão para a rota, entrega a tela genérica de exceção do Next. Crie ambos em `src/app/(app)/`, em pt-BR, sem vazar mensagem de exceção interna.
+
+- [ ] **Step 7: Rotação de log (Importante)**
+
+Bloco `logging` com driver `json-file`, `max-size: 10m` e `max-file: 3` nos três serviços do `docker-compose.yml`, e entrada de logrotate para `/var/log/lar-backup.log` documentada em `docs/operacao/implantacao.md`. O disco que enche é o mesmo que guarda o banco e os uploads.
+
+- [ ] **Step 8: Correções pontuais (Importante e Menor)**
+
+- **`id` HTML duplicado:** `Campo` emite `id={nome}`, e a página de usuários renderiza um campo `senha` por usuário. Clicar no rótulo do terceiro foca a caixa do formulário de criação. Aceite um prefixo opcional no `Campo` e use-o nos formulários em laço.
+- **`funcionarioId` sem validação nem FK:** `anexarDocumento` valida `residenteId` e não `funcionarioId`. Acrescente a checagem simétrica e a relação no schema, com migration.
+- **`LOGOUT` nunca gravado:** o botão "Sair" chama `signOut` sem auditar. O valor existe no enum e tem rótulo na tela.
+- **`README.md`:** é o boilerplate do `create-next-app` e termina instruindo implantar na Vercel — para um sistema que roda em VPS com volume Docker. Substitua por: o que é o sistema, pré-requisitos, como subir em desenvolvimento, como rodar os testes, o gate do `npm approve-scripts`, e ponteiros para `docs/operacao/`.
+- **E-mail vazio:** `atualizarFuncionario` e `atualizarResponsavel` não normalizam para `null`, divergindo dos respectivos `criar`/`adicionar`.
+- **`listarDocumentos`:** é a única leitura sem JSDoc justificando não auditar. Escreva a justificativa, no padrão das outras seis.
+- **Mensagem de desligamento:** "Este residente já está desligado" quando o status é `FALECIDO`.
+- **`expect.assertions(1)`** no teste `'não vaza dados internos na mensagem de erro'` em `contexto.test.ts`: sem isso, se `exigirPapel` deixar de lançar, o `catch` não roda e o teste passa verde.
+
+- [ ] **Step 9: Testes da camada de adaptação (Importante)**
+
+Hoje `src/app/**/acoes.ts` e `executarAcao` não têm nenhum teste — é a costura onde `FormData` vira objeto de domínio, e onde o defeito do Step 4 mora inteiro.
+
+- `executarAcao`: erro de domínio vira mensagem; erro inesperado vira mensagem genérica e vai para o log.
+- Conversores de `FormData`: campo vazio, data, número, checkbox marcado e desmarcado.
+- Um segundo perfil E2E autenticado como **SAUDE**, verificando que a ficha oferece anexo de exame e não oferece o link de desligamento. Metade da interface condicionada a papel nunca foi executada por ninguém além da coordenação — foi lá que o Step 5 se escondeu.
+
+- [ ] **Step 10: Rodar tudo e commitar**
+
+`npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, `npm run build`.
