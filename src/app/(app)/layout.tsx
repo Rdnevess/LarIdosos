@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { Papel } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { obterCtxOuNulo } from '@/modules/auth/sessao'
 import { signOut } from '@/modules/auth/config'
+import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
 const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
   { href: '/residentes', rotulo: 'Residentes', papeis: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
@@ -32,6 +34,29 @@ export default async function LayoutAutenticado({
           <form
             action={async () => {
               'use server'
+              // `LOGOUT` existe no enum `AcaoAuditoria` (`prisma/schema.prisma`)
+              // e tem rótulo na tela de auditoria
+              // (`src/app/(app)/auditoria/page.tsx`, linha 20), e nunca foi
+              // gravado: o botão chamava `signOut` direto. A trilha mostrava
+              // quando cada pessoa entrou e nunca quando saiu.
+              //
+              // `obterCtxOuNulo` e não `obterCtx`: uma sessão já revogada
+              // (conta desativada, senha trocada noutro dispositivo) ainda
+              // mostra este botão, e um erro aqui impediria a pessoa de sair.
+              // Sem contexto não há ator para registrar, e sair continua sendo
+              // o comportamento certo.
+              //
+              // Fora de qualquer `try`: `signOut` sinaliza lançando, como o
+              // `redirect`. Auditar antes garante que o registro exista mesmo
+              // com o redirecionamento em curso.
+              const ator = await obterCtxOuNulo()
+              if (ator) {
+                await registrarAuditoria(prisma, ator, {
+                  acao: 'LOGOUT',
+                  entidade: 'Usuario',
+                  entidadeId: ator.usuarioId,
+                })
+              }
               await signOut({ redirectTo: '/login' })
             }}
           >

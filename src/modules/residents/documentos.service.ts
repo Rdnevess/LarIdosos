@@ -89,12 +89,27 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
   // Confere o vínculo ANTES de gravar bytes. Sem isso, um `residenteId`
   // inexistente só falharia na chave estrangeira do insert — depois do arquivo
   // já estar no disco, sem registro e sem ninguém para limpá-lo.
+  //
+  // A checagem do funcionário é simétrica e faltava. Até a migration
+  // `documento_funcionario_fk`, `funcionarioId` não tinha nem chave
+  // estrangeira: um id inexistente entrava no banco e nem no insert falhava —
+  // o documento ficava vinculado a ninguém, e `papeisQuePodemVer`, que testa
+  // `funcionarioId` antes do tipo, continuava tratando-o como assunto de
+  // pessoal para sempre.
   if (entrada.residenteId) {
     const residente = await prisma.residente.findUnique({
       where: { id: entrada.residenteId },
       select: { id: true },
     })
     if (!residente) throw new ErroNaoEncontrado('Residente não encontrado')
+  }
+
+  if (entrada.funcionarioId) {
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id: entrada.funcionarioId },
+      select: { id: true },
+    })
+    if (!funcionario) throw new ErroNaoEncontrado('Funcionário não encontrado')
   }
 
   const salvo = await salvarArquivo(entrada.conteudo, entrada.mimeType)
@@ -133,6 +148,19 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
  * não pode ver um tipo específico vazaria por omissão a existência desse
  * documento — por isso a função filtra o resultado em vez de recusar o
  * acesso.
+ *
+ * **Não audita, e o motivo não é o das outras listagens.** A regra do projeto
+ * dá duas saídas para leitura de dado sensível — minimizar campos ou registrar
+ * o acesso — e aqui nenhuma das duas é o que decide: o dado sensível de um
+ * documento é o **conteúdo do arquivo**, e ele não passa por aqui. Esta função
+ * devolve metadado (tipo, nome original, data, tamanho, hash); quem lê os
+ * bytes é `obterDocumentoParaDownload`, logo abaixo, e essa leitura registra
+ * `DOWNLOAD` a cada vez. O acesso à ficha que dispara esta listagem também já
+ * deixa rastro, por `obterResidente`
+ * (`src/modules/residents/residentes.service.ts`, que registra `VISUALIZAR`).
+ * Auditar aqui somaria uma linha a cada abertura de ficha sem acrescentar
+ * rastro nenhum que as duas outras não deem — o mesmo raciocínio de
+ * `listarResponsaveis`.
  */
 export async function listarDocumentos(
   ctx: Ctx,

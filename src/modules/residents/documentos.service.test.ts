@@ -52,6 +52,46 @@ describe('anexarDocumento', () => {
     ).rejects.toThrow(ErroPermissao)
   })
 
+  it('recusa funcionarioId inexistente, do mesmo jeito que residenteId', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    await expect(
+      anexarDocumento(ctx, {
+        tipo: 'CONSELHO_PROFISSIONAL',
+        nomeArquivoOriginal: 'coren.pdf',
+        mimeType: 'application/pdf',
+        conteudo,
+        funcionarioId: 'clfake000000000000000000',
+      })
+    ).rejects.toThrow(ErroNaoEncontrado)
+
+    // Recusado ANTES de gravar bytes: nada de arquivo órfão no disco.
+    expect(await prisma.documento.count()).toBe(0)
+  })
+
+  it('anexa ao funcionário existente e o vincula pela chave estrangeira', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const funcionario = await prisma.funcionario.create({
+      data: {
+        nomeCompleto: 'Ana Souza',
+        cpf: '11144477735',
+        cargo: 'Enfermeira',
+        vinculo: 'CLT',
+        dataAdmissao: new Date('2025-02-01'),
+      },
+    })
+
+    const documento = await anexarDocumento(ctx, {
+      tipo: 'CONSELHO_PROFISSIONAL',
+      nomeArquivoOriginal: 'coren.pdf',
+      mimeType: 'application/pdf',
+      conteudo,
+      funcionarioId: funcionario.id,
+    })
+
+    expect(documento.funcionarioId).toBe(funcionario.id)
+  })
+
   it('nega anexar documento fiscal ao papel SAUDE', async () => {
     const saude = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()

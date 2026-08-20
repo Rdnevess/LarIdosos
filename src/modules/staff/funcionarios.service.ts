@@ -120,10 +120,17 @@ export async function atualizarFuncionario(
     if (existente) throw new ErroValidacao('Já existe um funcionário com este CPF')
   }
 
-  const diff = calcularDiff(atual as unknown as Record<string, unknown>, entrada)
+  // `criarFuncionario` grava `entrada.email || null`; sem o mesmo tratamento
+  // aqui, salvar a edição com o campo de e-mail apagado gravava string vazia
+  // — dois "sem e-mail" diferentes no banco, e `WHERE email IS NULL` deixando
+  // de encontrar metade deles. A normalização vem ANTES do diff, senão a
+  // trilha registraria "E-mail: — → —".
+  const gravavel = entrada.email === '' ? { ...entrada, email: null } : entrada
+
+  const diff = calcularDiff(atual as unknown as Record<string, unknown>, gravavel)
 
   return prisma.$transaction(async (tx) => {
-    const atualizado = await tx.funcionario.update({ where: { id }, data: entrada })
+    const atualizado = await tx.funcionario.update({ where: { id }, data: gravavel })
 
     await registrarAuditoria(tx, ctx, {
       acao: 'ATUALIZAR',

@@ -97,10 +97,17 @@ export async function atualizarResponsavel(
   exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(atualizacaoSchema, dados)
   const atual = await exigirResponsavel(id)
-  const diff = calcularDiff(atual as unknown as Record<string, unknown>, entrada)
+
+  // `adicionarResponsavel` grava `entrada.email || null`; sem o mesmo
+  // tratamento aqui, salvar a edição com o campo apagado gravava string vazia.
+  // A normalização vem ANTES do diff, senão a trilha registraria
+  // "E-mail: — → —".
+  const gravavel = entrada.email === '' ? { ...entrada, email: null } : entrada
+
+  const diff = calcularDiff(atual as unknown as Record<string, unknown>, gravavel)
 
   return prisma.$transaction(async (tx) => {
-    const atualizado = await tx.responsavel.update({ where: { id }, data: entrada })
+    const atualizado = await tx.responsavel.update({ where: { id }, data: gravavel })
 
     await registrarAuditoria(tx, ctx, {
       acao: 'ATUALIZAR',

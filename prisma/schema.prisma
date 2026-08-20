@@ -203,6 +203,15 @@ model Documento {
   residenteId          String?
   residente            Residente?    @relation(fields: [residenteId], references: [id])
   funcionarioId        String?
+  // `onDelete: Restrict`, e não o `SetNull` que o Prisma põe por padrão em
+  // relação opcional: `papeisQuePodemVer` testa `funcionarioId` ANTES do tipo
+  // (`src/modules/residents/documentos.service.ts`), então zerar esse campo
+  // reclassificaria o laudo de um funcionário como documento clínico de
+  // residente e o tornaria visível ao papel SAUDE. Como a exclusão neste
+  // sistema é sempre lógica (`ativo = false`), nenhum DELETE físico deveria
+  // acontecer — e se acontecer, é melhor falhar alto do que mudar quem pode
+  // ver o documento em silêncio.
+  funcionario          Funcionario?  @relation(fields: [funcionarioId], references: [id], onDelete: Restrict)
   ativo                Boolean       @default(true)
   criadoEm             DateTime      @default(now())
   criadoPorId          String?
@@ -272,6 +281,8 @@ model Funcionario {
   criadoEm            DateTime           @default(now())
   atualizadoEm        DateTime           @updatedAt
   criadoPorId         String?
+
+  documentos          Documento[]
 
   @@index([ativo, nomeCompleto])
   @@map("funcionarios")

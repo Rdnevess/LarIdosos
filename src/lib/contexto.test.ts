@@ -25,6 +25,12 @@ describe('exigirPapel', () => {
   })
 
   it('não vaza dados internos na mensagem de erro', () => {
+    // Sem o `expect.assertions(1)`, este teste passa verde se `exigirPapel`
+    // deixar de lançar: o `catch` simplesmente não roda, nenhuma asserção é
+    // avaliada e o Vitest não tem como saber que faltou uma. Justamente o
+    // cenário mais grave — a barreira de papel sumindo — passaria despercebido.
+    expect.assertions(1)
+
     try {
       exigirPapel(ctxCom('SAUDE'), 'ADMINISTRATIVO')
     } catch (erro) {
