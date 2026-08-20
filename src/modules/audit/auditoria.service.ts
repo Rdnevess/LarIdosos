@@ -34,13 +34,16 @@ export type DadosAuditoria = {
  * - **`Date` pelo dia civil em UTC.** O Postgres devolve um campo `@db.Date`
  *   como meia-noite UTC; a tela monta `new Date('aaaa-mm-ddT12:00:00')`, que
  *   é meio-dia no fuso do processo. Mesmo dia, carimbos diferentes — e o
- *   `toISOString()` completo os fazia divergir sempre. Todo campo de data que
- *   entra num diff hoje é `@db.Date` no `prisma/schema.prisma`
- *   (`dataNascimento`, `dataAdmissao`, `dataSaida`, `conselhoValidade`), e a
- *   tela já os exibe em UTC (`formatarData`, em `src/lib/ptbr.ts`, fixa
+ *   `toISOString()` completo os fazia divergir sempre. Nos cinco pontos que
+ *   chamam `calcularDiff` hoje (`atualizarUsuario`, `atualizarResidente`,
+ *   `desligarResidente`, `atualizarResponsavel`, `atualizarFuncionario`), os
+ *   únicos campos de data que podem entrar num diff são `dataNascimento`,
+ *   `dataAdmissao`, `dataSaida` e `conselhoValidade` — os quatro `@db.Date` no
+ *   `prisma/schema.prisma`, sem hora nenhuma para preservar. A tela também os
+ *   exibe em UTC (`formatarData`, em `src/lib/ptbr.ts`, fixa
  *   `timeZone: 'UTC'`). Se um dia um campo `DateTime` com hora significativa
  *   entrar num diff, esta comparação passará a ignorar mudança de hora — é a
- *   contrapartida assumida.
+ *   contrapartida assumida, e o momento de revisitar isto.
  * - **`Decimal` para número.** `JSON.stringify` de um `Prisma.Decimal` devolve
  *   `"1200"` (string, via `toJSON`) e de um número devolve `1200`. Sem a
  *   conversão, `beneficioValor` aparecia como alterado a cada gravação.
