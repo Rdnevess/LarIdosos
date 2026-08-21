@@ -96,36 +96,40 @@ planilha que a instituição usa hoje tem a busca de CPF/CNPJ apontando para
 resolver o dado nativamente. Está aqui para que ninguém tente "consertar a
 planilha" achando que o sistema depende dela.
 
-## 6. Seções da ficha se fecham sozinhas depois de gravar
+## 6. Seções da ficha que se fecham — artefato de desenvolvimento, não defeito
 
-**Situação:** as seções recolhíveis da ficha do residente (Anotações, Documentos,
-Grau de dependência) fecham sozinhas quando uma Server Action revalida a rota —
-mas **só quando a ficha foi aberta por clique de link**, que é o caminho normal
-de uso. Chegando por redirect ou após recarregar a página, permanecem abertas.
+**Este item foi investigado e fechado em 21/08/2026. Fica registrado porque o
+diagnóstico anterior estava errado e mandaria alguém a um refactor inútil.**
 
-**Cenário concreto:** a cuidadora abre a lista, clica no nome do residente,
-expande "Anotações", registra a anotação do plantão — e a seção se fecha. Para
-conferir se gravou, precisa expandir de novo. Em cada anotação do dia.
+**O que se dizia:** as seções recolhíveis da ficha fechavam sozinhas ao gravar,
+porque "o nó do DOM é remontado pelo React na revalidação"; o conserto indicado
+era transformá-las em componentes de cliente.
 
-**Causa, verificada:** não é o atributo `open` sendo reescrito. O nó do DOM é
-**remontado** pelo React na revalidação — uma marca posta em JavaScript no
-elemento antes da ação desaparece depois dela. Isso descarta os consertos
-baratos: `defaultOpen` ou qualquer atributo vindo do servidor não resolveriam.
+**O que é, medido:** não há remontagem. Um objeto gravado em `window` antes da
+ação **não existe** depois dela — e `window` sobrevive a qualquer
+re-renderização do React, por mais agressiva. A página recarrega inteira. A
+causa é o formulário ser enviado **antes de o React hidratar**: sem hidratação,
+o navegador faz o POST nativo do HTML em vez de passar pela Server Action, e o
+resultado é uma navegação de documento, que devolve tudo no estado do servidor.
 
-**Conserto certo:** passar as seções a componentes de cliente com estado próprio
-de abertura. É refactor de tamanho médio, e por isso não entrou na tarefa de
-fechamento.
+**Por que nenhum usuário vive isso:** medido contra build de produção, com CPU
+estrangulada em 6× e rede 3G (400 ms de latência, 400 kbps), e **espera zero**
+entre carregar e enviar — nenhuma recarga, em nenhum dos casos. A janela existe
+só no build de desenvolvimento, cujo bundle é ordens de grandeza maior. A suíte
+E2E a encontra porque roda contra `npm run dev`; a implantação roda o standalone
+de produção.
 
-**O que ainda não se sabe:** a condição exata. Em três variações testadas
-(primeira visita por link, com e sem filtro, ação disparada de outra seção) a
-seção **continuou aberta**. A regra é mais estreita do que "chegou por link", e
-não foi isolada. Quem for consertar deve determinar isso primeiro — o conserto
-por componente de cliente funciona de qualquer forma, mas sem a condição exata
-não há como escrever teste que morda no caso certo.
+**Consequência prática:** nada a corrigir no produto. Se um dia a janela voltar
+a importar, o conserto **não** é estado do React — que se perde numa recarga
+exatamente como o `<details>` — e sim persistir a abertura fora dele, em
+`sessionStorage`, restaurada ao montar.
 
-**Nota:** o defeito é anterior à tarefa de fechamento; existe desde que as seções
-recolhíveis foram criadas. Só apareceu agora porque nenhum teste até então
-chegava à ficha por clique de link.
+**Melhoria considerada e não feita:** rodar a suíte E2E contra build de
+produção, o que eliminaria o artefato e aproximaria o teste do que o usuário
+recebe. Custa um `npm run build` por execução. Vale reavaliar na Fase 2A, quando
+a suíte crescer — subir o servidor de produção nesta investigação já revelou uma
+classe de problema que o modo de desenvolvimento não mostra (o `AUTH_TRUST_HOST`
+que o `docker-compose.yml` define e o desenvolvimento dispensa).
 
 ## 7. Apagar um campo opcional devolve "Registro salvo." e não apaga nada
 

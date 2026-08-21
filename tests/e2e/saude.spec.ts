@@ -67,16 +67,18 @@ test('a enfermeira anexa o laudo do grau de dependência e ele aparece na ficha'
   const secaoDocumentos = page.locator('details').filter({ hasText: 'Documentos (' })
   await expect(secaoDocumentos).toContainText(nomeArquivo)
 
-  // Neste caminho exato (lista → filtro → clique no link → anexo), a seção
-  // fecha sozinha quando a Server Action revalida a rota — reproduzido de
-  // forma determinística. A condição exata que dispara isso NÃO foi isolada:
-  // outras variações do mesmo passo (primeira visita por link, com e sem
-  // filtro, revalidação disparada por Server Action de outra seção) deixaram
-  // a seção aberta. É uma aspereza da ficha, anterior a esta tarefa e
-  // registrada no relatório da Tarefa 19 — não uma falha do anexo. Reabrir é
-  // o que a pessoa faria na tela, e o que este teste faz antes de conferir o
-  // que ela veria; o `if` abaixo é defensivo e não custa nada quando a seção
-  // já está aberta.
+  // A seção pode estar fechada aqui, e a causa é do ambiente de teste, não da
+  // ficha: esta suíte roda contra `npm run dev`, cujo bundle é grande o
+  // bastante para o Playwright clicar em "Anexar documento" antes de o React
+  // hidratar. Sem hidratação o navegador faz o POST nativo do HTML — a Server
+  // Action grava do mesmo jeito, mas o retorno é uma navegação de documento,
+  // que devolve a página no estado do servidor, com as seções fechadas.
+  //
+  // Medido em 21/08/2026 contra build de produção, com CPU estrangulada em 6x,
+  // rede 3G e espera zero entre carregar e enviar: nenhuma recarga, em nenhum
+  // caso. Nenhum usuário alcança isso — ver `docs/operacao/pendencias-fase-1.md`,
+  // item 6. Por isso o `if` é defensivo em vez de uma espera fixa: quando a
+  // máquina é rápida a seção já está aberta e nada acontece.
   const aberta = await secaoDocumentos.evaluate((e: HTMLDetailsElement) => e.open)
   if (!aberta) await secaoDocumentos.locator('summary').first().click()
 
