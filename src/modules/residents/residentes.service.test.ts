@@ -146,6 +146,23 @@ describe('atualizarResidente', () => {
     expect(log.diff).toEqual({ quarto: { de: '3', para: '5' } })
   })
 
+  it('apaga o campo quando recebe null e registra a limpeza na auditoria', async () => {
+    // A outra ponta da limpeza pela tela: o conversor manda `null`, e é aqui
+    // que ele precisa virar coluna vazia. Com `.optional()` sozinho, o Zod
+    // recusava `null` e a limpeza morria na validação, antes do banco.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidente(ctx, { ...dadosValidos, religiao: 'Católica' })
+
+    const atualizado = await atualizarResidente(ctx, residente.id, { religiao: null })
+
+    expect(atualizado.religiao).toBeNull()
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Residente', acao: 'ATUALIZAR', entidadeId: residente.id },
+    })
+    expect(log.diff).toEqual({ religiao: { de: 'Católica', para: null } })
+  })
+
   it('nega atualização para o papel SAUDE', async () => {
     const admin = await ctxComPapel('ADMINISTRATIVO')
     const residente = await criarResidente(admin, dadosValidos)

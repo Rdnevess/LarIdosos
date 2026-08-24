@@ -4,6 +4,24 @@ Registro do que ficou em aberto ao fechar o núcleo cadastral. Nenhum item
 impede o uso do sistema; todos foram decididos com o dono do projeto e estão
 aqui para não dependerem da memória de ninguém.
 
+Os itens **6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
+sumirem dele: cada um deles reverte uma decisão que estava escrita e defendida
+como deliberada, e apagar o registro apagaria junto o motivo de ela ter mudado.
+Quem encontrar a decisão antiga citada em comentário, relatório de tarefa ou
+revisão precisa achar aqui o que aconteceu depois.
+
+| # | Estado | Onde se resolve |
+|---|---|---|
+| 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
+| 2. Acesso negado não é auditado | aberto | Fase 2, com a tela de auditoria |
+| 3. Trocar senha não exige a senha de quem troca | aberto | Fase 2 — prioridade de segurança |
+| 4. Quatro serviços sem tela | aberto | Fase 2 |
+| 5. `XLOOKUP` quebrado da planilha | aberto | Fase 3, por eliminação |
+| 6. Seções da ficha que se fecham | resolvido | artefato de desenvolvimento, nada a corrigir |
+| 7. Apagar campo opcional não apagava | resolvido | 23/08/2026 |
+| 8. "Registro em conselho" na ficha do residente | resolvido | 23/08/2026 |
+| 9. E2E contra o banco de desenvolvimento | aberto | aceito; nunca use esse banco como origem de dump |
+
 ## 1. O teste de restauração do backup nunca foi executado
 
 **Situação:** `docs/operacao/backup.md` traz o procedimento de restauração e a
@@ -131,34 +149,88 @@ a suíte crescer — subir o servidor de produção nesta investigação já rev
 classe de problema que o modo de desenvolvimento não mostra (o `AUTH_TRUST_HOST`
 que o `docker-compose.yml` define e o desenvolvimento dispensa).
 
-## 7. Apagar um campo opcional devolve "Registro salvo." e não apaga nada
+## 7. Apagar um campo opcional não apagava nada — resolvido
 
-**Situação:** a Fase 1 fechou os conversores omitindo a chave quando o campo vem
-vazio, para que a trilha de auditoria parasse de registrar alterações que não
-aconteceram. O efeito colateral, aceito e documentado no código: o Prisma ignora
-chave ausente, então **limpar um campo opcional pela tela é impossível**.
+**Resolvido em 23/08/2026.** Fica registrado porque a decisão contrária estava
+escrita em comentário de código e defendida como deliberada; quem a encontrar
+citada em outro lugar precisa saber que foi revertida de propósito.
 
-**Cenário concreto:** a coordenação apaga "Religião" da ficha e salva. A tela
-responde "Registro salvo.", o banco não muda, e a trilha não registra nada. Na
-próxima vez que abrir a ficha, o valor antigo está lá.
+**O que era:** os conversores de `FormData` omitiam a chave do campo vazio, para
+que a trilha de auditoria parasse de registrar alterações que não aconteceram. O
+Prisma ignora chave ausente, então limpar um campo opcional pela tela era
+impossível: a coordenação apagava "Religião", salvava, a tela respondia
+"Registro salvo.", o banco não mudava e a trilha ficava tão silenciosa quanto
+ele. O problema não era a limitação — era a tela afirmar o contrário do que
+acontecia.
 
-O problema não é a limitação — é a tela **afirmar o contrário do que aconteceu**.
-É assim que a equipe vai descobrir: achando que apagou.
+**O que resolveu:** o `FormData` distingue, por `has()`, três estados que a Fase
+1 tratava como dois. Era essa distinção que faltava, não a sentinela inventada
+que se temia:
 
-**Encaminhamento:** resolver junto, na Fase 2, a sentinela de "limpar campo" e a
-mensagem de confirmação. Enquanto não houver sentinela, a confirmação não deveria
-prometer gravação que não houve.
+| estado do campo | vira | efeito no banco |
+|---|---|---|
+| ausente do formulário | `undefined` | `semIndefinidos` omite a chave; a coluna não é tocada |
+| presente e vazio | `null` | grava `null` — a pessoa apagou |
+| preenchido | o valor aparado | grava o valor |
 
-## 8. "Registro em conselho" aparece ao anexar documento de residente
+Oferecer um campo na tela passa a ser o que autoriza apagá-lo. O medo registrado
+na decisão anterior — "gravaria `null` em qualquer campo deixado em branco por
+engano" — não se materializa: quem monta o formulário escolhe quais campos
+oferece, e campo que a tela não mostra continua intocável.
 
-`papeisQuePodemVer` classifica `CONSELHO_PROFISSIONAL` como visível a todos os
-papéis quando não há `funcionarioId` — então o seletor da ficha do residente
-oferece o tipo, que só faz sentido para funcionário.
+**O que mudou:** `texto`, `data` e `numero` (`src/lib/formulario.ts`) devolvem os
+três estados, e `semIndefinidos` preserva `null` enquanto continua removendo
+`undefined`. Todo campo opcional dos schemas trocou `.optional()` por
+`.nullish()` — conferido campo a campo contra `prisma/schema.prisma`: cada um dos
+que agora aceitam `null` corresponde a uma coluna anulável. E `mapaErroZodPtBr`
+passou a traduzir `received: 'null'` como "Campo obrigatório", porque apagar um
+campo que não pode ficar vazio é erro de preenchimento, não "esperado texto,
+recebido nulo".
 
-Não foi corrigido escondendo o tipo na tela de propósito: seria a segunda lista de
-política, exatamente o que a Fase 1 eliminou ao fazer a tela consultar
-`papeisQuePodemVer` em vez de repetir a regra. O lugar de resolver é a política —
-dar ao tipo um alvo obrigatório, ou uma classificação própria.
+**O que garante que continua funcionando:** `formulario.test.ts` cobre os três
+estados nos três conversores; os dois `conversores.test.ts` cobrem a fronteira
+que interessa (campo oferecido e em branco vira `null`; campo que a tela nem
+mostrou some) e o diff que a limpeza gera; e
+`residentes.service.test.ts` fecha a ponta do banco — `atualizarResidente`
+recebendo `null` esvazia a coluna e registra `{ de: 'Católica', para: null }` na
+auditoria. Cada um foi visto falhando contra o código anterior antes de passar.
+
+**Sobre a confirmação da tela:** "Registro salvo." só aparece com
+`estado.sucesso`, e a gravação agora de fato acontece. A mensagem deixou de
+mentir por consequência, sem precisar mudar.
+
+## 8. "Registro em conselho" na ficha do residente — resolvido
+
+**Resolvido em 23/08/2026**, pelas duas saídas que o registro anterior apontava,
+que se mostraram complementares e não alternativas: classificação própria na
+política e alvo obrigatório na entrada.
+
+**O que era:** `papeisQuePodemVer` classificava `CONSELHO_PROFISSIONAL` como
+visível a todos os papéis quando não havia `funcionarioId`, e o seletor da ficha
+do residente — que deriva dessa política — oferecia o tipo. Registro em conselho
+é o vínculo do profissional com o órgão de classe; não existe para quem mora
+aqui.
+
+**O que resolveu:** sem `funcionarioId`, a política devolve lista vazia — ninguém
+vê. `tiposQuePodeAnexar` continua derivando dela, então o tipo sai do seletor sem
+que a tela ganhe exceção própria, que era a armadilha registrada aqui: a segunda
+lista de política que a Fase 1 eliminou. A ordem das checagens preserva o caso
+legítimo — o registro em conselho **de um funcionário** continua sendo documento
+de pessoal, visível a COORDENACAO e ADMINISTRATIVO. O teste que já existia,
+"concorda com `papeisQuePodemVer` para todo tipo e todo papel", é o que garante
+que a tela não volte a divergir.
+
+Como a tela não é o que autoriza, `anexoSchema` ganhou a recusa correspondente:
+`CONSELHO_PROFISSIONAL` exige `funcionarioId`, e um POST montado à mão recebe
+"Registro em conselho pertence ao cadastro do funcionário". Sem isso a
+combinação entraria no banco escondida de todo mundo — inclusive de quem
+tentasse excluí-la pela tela.
+
+**Dado existente:** nenhum. Conferido no banco de desenvolvimento (zero
+documentos `CONSELHO_PROFISSIONAL` vinculados a residente) e a produção ainda não
+foi implantada. Se um dia aparecer um, ele some da listagem e do download — é a
+contrapartida assumida de a política tratar a combinação como inexistente, e o
+caminho para lidar com ele é o banco, não a tela.
 
 ## 9. A suíte E2E roda contra o banco de desenvolvimento e acumula registros
 

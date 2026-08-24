@@ -11,6 +11,10 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 const TODOS: Papel[] = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO']
 const CLINICO: Papel[] = ['COORDENACAO', 'SAUDE']
 const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
+// Lista vazia significa ninguém: `exigirPapel` recusa todo papel, e
+// `tiposQuePodeAnexar` não oferece o tipo. É como a política diz "esta
+// combinação não existe" sem que a tela precise de uma exceção própria.
+const NINGUEM: Papel[] = []
 
 /**
  * A ordem das checagens importa e é deliberada: o vínculo com funcionário vem
@@ -18,12 +22,21 @@ const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
  * pessoal, não da equipe que cuida dos idosos; por isso fica visível ao
  * ADMINISTRATIVO e oculto ao SAUDE, ao contrário do laudo de um residente.
  * Inverter esses dois ifs abriria prontuário de funcionário à equipe clínica.
+ *
+ * Pelo mesmo motivo, a exceção do CONSELHO_PROFISSIONAL vem depois do vínculo:
+ * o registro em conselho de um funcionário é documento legítimo de pessoal.
  */
 export function papeisQuePodemVer(documento: {
   tipo: TipoDocumento
   funcionarioId: string | null
 }): Papel[] {
   if (documento.funcionarioId) return FINANCEIRO_E_PESSOAL
+  // O registro em conselho é o vínculo do profissional com o órgão de classe;
+  // não existe para quem mora aqui. Chegando neste ponto, o alvo é residente —
+  // combinação que `anexoSchema` recusa ao gravar e que ninguém enxerga. É
+  // esse vazio que tira "Registro em conselho" do seletor da ficha, porque
+  // `tiposQuePodeAnexar` deriva daqui em vez de repetir a regra.
+  if (documento.tipo === 'CONSELHO_PROFISSIONAL') return NINGUEM
   if (documento.tipo === 'EXAME' || documento.tipo === 'LAUDO') return CLINICO
   if (documento.tipo === 'COMPROVANTE_FISCAL') return FINANCEIRO_E_PESSOAL
   return TODOS
@@ -63,7 +76,7 @@ const anexoSchema = z
       'TERMO_RESPONSABILIDADE', 'TERMO_LGPD', 'FOTO', 'EXAME',
       'COMPROVANTE_FISCAL', 'CONSELHO_PROFISSIONAL', 'OUTRO',
     ]),
-    descricao: z.string().trim().optional(),
+    descricao: z.string().trim().nullish(),
     nomeArquivoOriginal: z.string().trim().min(1, 'Informe o nome do arquivo'),
     mimeType: z.string().trim().min(1),
     conteudo: z.instanceof(Buffer),
@@ -72,6 +85,13 @@ const anexoSchema = z
   })
   .refine((d) => Boolean(d.residenteId) !== Boolean(d.funcionarioId), {
     message: 'Informe exatamente um vínculo: residente ou funcionário',
+  })
+  // A tela deixou de oferecer o tipo na ficha do residente, mas quem monta o
+  // POST à mão escolhe o que quiser. Sem esta recusa, o documento entraria no
+  // banco numa combinação que `papeisQuePodemVer` esconde de todo mundo — e
+  // ficaria lá, invisível e impossível de excluir pela tela.
+  .refine((d) => d.tipo !== 'CONSELHO_PROFISSIONAL' || Boolean(d.funcionarioId), {
+    message: 'Registro em conselho pertence ao cadastro do funcionário',
   })
 
 export type DadosAnexo = z.input<typeof anexoSchema>

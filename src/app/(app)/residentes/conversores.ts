@@ -8,9 +8,10 @@ import { texto, data, numero, semIndefinidos } from '@/lib/formulario'
  * Ver `conversores.test.ts` ao lado.
  *
  * O `semIndefinidos` no fim é o que impede a trilha de auditoria de registrar
- * mudanças que não aconteceram. Ele também é o motivo de **não ser possível
- * limpar um campo opcional pela tela** — a explicação inteira está em
- * `src/lib/formulario.ts`, na própria função.
+ * mudanças que não aconteceram: some com a chave do campo que o formulário
+ * nem ofereceu. Campo oferecido e deixado em branco é outra coisa — chega
+ * aqui como `null`, e gravar `null` é como se limpa um campo pela tela. A
+ * explicação inteira está em `src/lib/formulario.ts`, na própria função.
  */
 export function dadosDoResidente(dados: FormData) {
   return semIndefinidos({

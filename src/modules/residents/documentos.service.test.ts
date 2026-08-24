@@ -106,6 +106,24 @@ describe('anexarDocumento', () => {
       })
     ).rejects.toThrow(ErroPermissao)
   })
+
+  it('recusa registro em conselho vinculado a residente', async () => {
+    // O conselho é do profissional, não de quem mora aqui. A tela deixou de
+    // oferecer o tipo na ficha do residente, mas quem monta o POST à mão
+    // escolhe o que quiser: a recusa tem de estar no serviço.
+    const ctx = await ctxComPapel('COORDENACAO')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      anexarDocumento(ctx, {
+        tipo: 'CONSELHO_PROFISSIONAL',
+        nomeArquivoOriginal: 'coren.pdf',
+        mimeType: 'application/pdf',
+        conteudo,
+        residenteId: residente.id,
+      })
+    ).rejects.toThrow(ErroValidacao)
+  })
 })
 
 describe('obterDocumentoParaDownload', () => {
@@ -195,6 +213,10 @@ describe('papeisQuePodemVer', () => {
       // mesmo sendo LAUDO, fica com o administrativo e fora do alcance de SAUDE.
       { tipo: 'LAUDO' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
       { tipo: 'CONSELHO_PROFISSIONAL' as const, funcionarioId: 'fun_1', esperado: ['COORDENACAO', 'ADMINISTRATIVO'] },
+      // Sem funcionário, é combinação que não pode existir: ninguém vê. É
+      // esse vazio que tira o tipo do seletor da ficha do residente, pela
+      // derivação de `tiposQuePodeAnexar` — sem uma segunda lista na tela.
+      { tipo: 'CONSELHO_PROFISSIONAL' as const, funcionarioId: null, esperado: [] },
     ]
 
     for (const caso of casos) {
@@ -310,6 +332,20 @@ describe('tiposQuePodeAnexar', () => {
     expect(tipos).toContain('LAUDO')
     expect(tipos).toContain('EXAME')
     expect(tipos).toContain('RG')
+  })
+
+  it('não oferece registro em conselho na ficha do residente', () => {
+    // O seletor da ficha oferecia "Registro em conselho" — tipo que só faz
+    // sentido para funcionário — porque a política o classificava como
+    // visível a todos quando não havia `funcionarioId`.
+    for (const papel of ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] as const) {
+      expect(tiposQuePodeAnexar(papel)).not.toContain('CONSELHO_PROFISSIONAL')
+    }
+
+    // E continua sendo oferecido onde faz sentido.
+    expect(tiposQuePodeAnexar('ADMINISTRATIVO', { funcionarioId: 'fun_1' })).toContain(
+      'CONSELHO_PROFISSIONAL'
+    )
   })
 
   it('não oferece a SAUDE o que ela não pode ver', () => {
