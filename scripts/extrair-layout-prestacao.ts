@@ -55,6 +55,23 @@ function dentroDaFaixa(linha: number, faixa: FaixaDados | undefined): boolean {
 }
 
 /**
+ * Células cujo texto **não é layout**: são conteúdo com dado dentro.
+ *
+ * O ofício da contra-capa traz o período e a razão social; a declaração do
+ * encerramento traz o número da conta e o mês. Copiados como rótulo fixo, eles
+ * congelariam "dezembro de 2025" em toda prestação gerada — um documento que
+ * mente sobre a própria competência.
+ *
+ * Os dois moram em `src/modules/financeiro/textos-prestacao.ts`, como modelo
+ * com substituição. A declaração perdeu, lá, a primeira linha do modelo, que
+ * era uma nota de trabalho e não parte do documento.
+ */
+const CELULAS_QUE_SAO_CONTEUDO: Record<string, string[]> = {
+  '2-Contra-Capa': ['A16'],
+  '6-Encerramento': ['A11'],
+}
+
+/**
  * As células que uma faixa mesclada cobre, exceto a âncora. Todas carregam o
  * mesmo valor no arquivo, e guardar as doze cópias de um título de página só
  * engorda o arquivo gerado — a ponto de ninguém conseguir lê-lo antes de
@@ -101,6 +118,7 @@ function extrairRotulos(
 ): Record<string, string> {
   const rotulos: Record<string, string> = {}
   const cobertas = cobertasPorMerge(merges)
+  const conteudo = new Set(CELULAS_QUE_SAO_CONTEUDO[folha.name] ?? [])
 
   folha.eachRow((linha, n) => {
     // A regra que protege o arquivo gerado: fora da faixa, tudo; dentro,
@@ -110,6 +128,8 @@ function extrairRotulos(
     linha.eachCell((celula) => {
       // Só a âncora do merge: as demais repetem o mesmo texto.
       if (cobertas.has(celula.address)) return
+      // Texto que é conteúdo, não layout: mora em `textos-prestacao.ts`.
+      if (conteudo.has(celula.address)) return
 
       const valor = celula.value
       // Só texto simples. Fórmula, data e número ficam de fora: o

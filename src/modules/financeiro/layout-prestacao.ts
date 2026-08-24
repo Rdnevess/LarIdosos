@@ -183,7 +183,6 @@ export const LAYOUT: Record<NomeFolha, LayoutFolha> = {
     "rotulos": {
       "A5": "Cuiabá/MT, 04 de julho de 2026.",
       "A10": "Assunto: Prestação de Contas",
-      "A16": "Prezado Senhor,\n\n             Em anexo apresentamos a Prestação de Contas referente aos repasses referente o período de  dezembro de 2025, correspondente aos gastos efetuados, pagos, utilizando os recursos recebidos para tal fim, conforme demonstrado abaixo e fotocópias anexas:\n\n              Informamos ainda, que, a Associação Lar dos Idosos, entidade filantrópica, sem fins lucrativos, políticos ou de proselitismo religioso, cujo objetivo é dar apoio aos idosos da cidade e região.\n\n              Como é uma associação sem fins lucrativos e sobrevive de realização de promoções, contribuições e doações, carece e muito de todos nós, pois a nossa contribuição e esforço, reverte-se em benefício de pessoas ali residentes.\n \n              Agradecidos e esperando ter atendido a necessidade da prestação de contas, desejamos um bom trabalho coroado de êxitos, aproveitamos para reiterar votos de estima e consideração.\n\nRespeitosamente,",
       "A38": "_______________________________________",
       "G38": "_______________________________________",
       "A39": "Nome Presidente",
@@ -971,7 +970,6 @@ export const LAYOUT: Record<NomeFolha, LayoutFolha> = {
     "rotulos": {
       "A5": "DECLARAÇÃO DE GUARDA E CONSERVAÇÃO DOS DOCUMENTOS CONTÁBEIS",
       "A7": "Unidade Executora:",
-      "A11": "Instrução para Claude, aqui deve caber também anotações importante que devem ser citadas na Prestação de Contas, como justificativa de valores utilizados ou qualquer outro assunto.\n\n           Declaramos para os devidos fins de direito que os Documentos Contábeis referentes à Prestação de Contas da Conte Corrente xx.xxx-x, referente ao mês de junho de 2026, encontram-se guardados, arquivados em boa ordem e conservação, identificados e à disposição dos condôminos.",
       "A24": "Unidade Executora:",
       "A28": "_______________________________________",
       "G28": "_______________________________________",

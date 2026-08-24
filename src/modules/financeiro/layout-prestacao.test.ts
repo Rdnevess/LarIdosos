@@ -58,6 +58,19 @@ describe('LAYOUT', () => {
     expect(rotulos.B8).toBeUndefined()
   })
 
+  it('não guarda o ofício nem a declaração: aqueles são conteúdo', () => {
+    // Os dois carregam período, conta e razão social. Copiados como rótulo
+    // fixo, congelariam "dezembro de 2025" em toda prestação gerada. Moram em
+    // `textos-prestacao.ts`, como modelo com substituição.
+    const tudo = JSON.stringify(LAYOUT)
+
+    expect(tudo).not.toContain('Prezado Senhor')
+    expect(tudo).not.toContain('Declaramos para os devidos fins')
+    // E a nota de trabalho que estava dentro do modelo não sobrevive em
+    // lugar nenhum.
+    expect(tudo).not.toContain('Instrução para Claude')
+  })
+
   it('preserva os merges de cada folha', () => {
     // 109 na de despesas: 88 das vinte e duas linhas de dado, quatro por
     // linha, mais os do cabeçalho e do rodapé.

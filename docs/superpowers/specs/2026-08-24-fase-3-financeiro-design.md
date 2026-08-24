@@ -181,6 +181,34 @@ export type DocumentoPrestacao = {
 **É aqui que os totais são calculados**, e em nenhum outro lugar. Os dois
 renderizadores recebem números prontos.
 
+### 4.1 Os textos institucionais
+
+`src/modules/financeiro/textos-prestacao.ts` guarda o ofício da contra-capa e a
+declaração do encerramento — como **modelo com substituição**, não como rótulo
+fixo do layout. Os dois carregam período, número da conta e razão social;
+copiados literalmente, congelariam "dezembro de 2025" em toda prestação gerada.
+
+Três decisões sobre essa redação, tomadas em 24/08/2026:
+
+**A primeira linha da declaração saiu.** O modelo trazia "Instrução para
+Claude, aqui deve caber também anotações importante que devem ser citadas na
+Prestação de Contas" — nota de trabalho de quem montou o arquivo, não parte do
+documento, e que sairia impressa em toda prestação entregue ao órgão. Há teste
+conferindo que ela não sobrevive em lugar nenhum.
+
+**O que aquela nota pedia está atendido:** as observações do mês entram **acima**
+da declaração. É o campo livre para justificar movimentações incomuns, valores
+atípicos e esclarecimentos ao órgão. A ele se somam, automaticamente, a
+justificativa de ajuste do saldo anterior e o motivo de uma reabertura, quando
+houver — os dois são exatamente o que o órgão precisa ler, e depender de alguém
+lembrar de copiá-los seria depender de alguém lembrar.
+
+**"Conte Corrente" virou "Conta Corrente"**, erro de digitação sem mudança de
+sentido. **"à disposição dos condôminos" ficou como está**, e é estranho:
+condômino é dono de apartamento, não órgão conveniador — a frase provavelmente
+veio de outro modelo. Não foi corrigida porque é a redação que o órgão já
+recebeu, e mudá-la é decisão da instituição.
+
 O agrupamento de receitas usa `OrigemReceita.rotuloPrestacao`, e não o texto
 digitado: no Excel o `SUMIF` casa a descrição literal, e `"Doação "` com espaço
 sobrando sai do subtotal sem avisar. Aqui o agrupamento é por chave estrangeira.
