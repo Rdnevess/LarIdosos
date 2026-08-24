@@ -225,6 +225,45 @@ export async function ajustarSaldoAnterior(
   })
 }
 
+/**
+ * O texto livre que vai ao órgão, acima da declaração de encerramento: onde a
+ * instituição justifica movimentação incomum do mês — uma doação atípica, uma
+ * despesa que não se repete, um valor que salta aos olhos.
+ *
+ * Fechada, não muda: o documento já foi protocolado com um texto, e alterá-lo
+ * em silêncio faria o arquivo do órgão divergir do sistema. Reabra antes.
+ */
+export async function registrarObservacoes(
+  ctx: Ctx,
+  id: string,
+  texto: string
+): Promise<PrestacaoContas> {
+  exigirPapel(ctx, 'PrestacaoContas', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  // Sem mínimo: escrito por engano precisa poder sair, e vazio é o normal.
+  const observacoes = validar(z.string().trim(), texto)
+
+  const atual = await exigirPrestacao(id)
+  if (atual.status === 'FECHADA') {
+    throw new ErroValidacao(
+      'Esta prestação está fechada. Reabra-a antes de alterar as observações.'
+    )
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const salva = await tx.prestacaoContas.update({ where: { id }, data: { observacoes } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'ATUALIZAR',
+      entidade: 'PrestacaoContas',
+      entidadeId: id,
+      diff: { observacoes: { de: atual.observacoes, para: observacoes } },
+    })
+
+    return salva
+  })
+}
+
 export async function fecharPrestacao(ctx: Ctx, id: string): Promise<PrestacaoContas> {
   // Só COORDENACAO: fechar é ato institucional, não de escrituração.
   exigirPapel(ctx, 'PrestacaoContas', 'COORDENACAO')

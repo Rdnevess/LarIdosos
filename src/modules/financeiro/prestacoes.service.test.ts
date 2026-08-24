@@ -16,6 +16,7 @@ import {
   fecharPrestacao,
   reabrirPrestacao,
   listarPrestacoes,
+  registrarObservacoes,
 } from './prestacoes.service'
 
 async function cenario(papel: 'COORDENACAO' | 'ADMINISTRATIVO' = 'COORDENACAO') {
@@ -306,5 +307,54 @@ describe('listarPrestacoes', () => {
   it('nega ao papel SAUDE', async () => {
     const ctx = await ctxComPapel('SAUDE')
     await expect(listarPrestacoes(ctx, {})).rejects.toThrow(ErroPermissao)
+  })
+})
+
+describe('registrarObservacoes', () => {
+  it('guarda o texto livre que vai ao órgão junto da declaração', async () => {
+    // É onde a instituição justifica movimentação incomum do mês: uma doação
+    // atípica, uma despesa que não se repete, um valor que salta aos olhos.
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const salva = await registrarObservacoes(
+      ctx,
+      prestacao.id,
+      'A despesa com telhado (R$ 12.400,00) é reforma emergencial após o temporal de 12/08.'
+    )
+
+    expect(salva.observacoes).toContain('reforma emergencial')
+  })
+
+  it('aceita apagar o texto', async () => {
+    // Escrito por engano precisa poder sair; string vazia é o estado normal.
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    await registrarObservacoes(ctx, prestacao.id, 'Texto provisório')
+
+    const limpa = await registrarObservacoes(ctx, prestacao.id, '   ')
+    expect(limpa.observacoes).toBe('')
+  })
+
+  it('recusa alterar prestação fechada', async () => {
+    // O documento já foi protocolado com um texto. Mudá-lo em silêncio faria
+    // o arquivo do órgão divergir do sistema.
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    await fecharPrestacao(ctx, prestacao.id)
+
+    await expect(
+      registrarObservacoes(ctx, prestacao.id, 'Esqueci de explicar o telhado')
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('nega ao papel SAUDE', async () => {
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    const saude = await ctxComPapel('SAUDE')
+
+    await expect(registrarObservacoes(saude, prestacao.id, 'Qualquer coisa')).rejects.toThrow(
+      ErroPermissao
+    )
   })
 })
