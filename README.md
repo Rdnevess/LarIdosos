@@ -9,10 +9,21 @@ o **prontuário**: cabeçalho clínico, anotações de saúde por turno, sinais
 vitais, exames com controle de pendências, consultas, vacinas e linha do
 tempo.
 
+Cobre também o **controle de medicação**: esquema medicamentoso, mapa do
+turno, registro dose a dose e relatório de aderência.
+
 O prontuário vive em rota própria (`/residentes/[id]/prontuario`), fora do
 alcance do papel ADMINISTRATIVO. A área `/pendencias` atravessa todos os
 residentes e mostra o que está em aberto: exame solicitado e esquecido é o
 problema real numa ILPI, e ninguém o percebe abrindo trinta fichas uma a uma.
+A tela `/turno` faz o mesmo pelas doses do plantão em curso.
+
+**As doses previstas são derivadas do esquema, não materializadas.** Só o que
+aconteceu é gravado. Uma dose que ninguém marcou aparece como **"sem
+registro"**, e nunca como "não administrada" — ela pode ter sido dada e apenas
+não anotada, e afirmar o contrário gravaria mentira no prontuário. O percentual
+de doses sem registro é, ele próprio, o indicador de qualidade que a
+coordenação acompanha.
 
 A interface é inteiramente em português do Brasil. Nenhuma exclusão é
 física: registros saem de cena por desligamento ou por `ativo = false`, e

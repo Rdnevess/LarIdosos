@@ -42,6 +42,13 @@ test('a rota do prontuário digitada na URL recusa o ADMINISTRATIVO, e a trilha 
     page.getByRole('heading', { name: /Não foi possível abrir esta tela/ })
   ).toBeVisible()
 
+  // A tela do turno também: medicação é prontuário.
+  await expect(page.getByRole('link', { name: 'Turno' })).toHaveCount(0)
+  await page.goto('/turno')
+  await expect(
+    page.getByRole('heading', { name: /Não foi possível abrir esta tela/ })
+  ).toBeVisible()
+
   // E a trilha registra as tentativas — o sinal que a LGPD (art. 11) torna
   // relevante para dado de saúde.
   const coordenacao = await browser.newContext({
