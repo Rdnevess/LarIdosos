@@ -2,26 +2,36 @@ import { describe, it, expect } from 'vitest'
 import { exigirPapel, type Ctx } from './contexto'
 import { ErroPermissao } from './erros'
 
+/**
+ * Estes casos usam um `Ctx` inventado, e desde que `exigirPapel` passou a
+ * auditar a negação eles deixam no banco de teste algumas linhas
+ * `ACESSO_NEGADO` de um `usuarioId` que não existe — `LogAuditoria.usuarioId`
+ * não tem chave estrangeira, de propósito, porque a trilha precisa registrar
+ * até tentativa de e-mail inexistente. As linhas são inofensivas e ninguém
+ * as consulta: quem verifica o registro da negação é
+ * `src/modules/audit/acesso-negado.test.ts`, com usuário de verdade.
+ */
+
 function ctxCom(papel: Ctx['papel']): Ctx {
   return { usuarioId: 'usr_1', email: 'teste@lar.local', papel }
 }
 
 describe('exigirPapel', () => {
   it('permite quando o papel está na lista', () => {
-    expect(() => exigirPapel(ctxCom('COORDENACAO'), 'COORDENACAO')).not.toThrow()
+    expect(() => exigirPapel(ctxCom('COORDENACAO'), 'Residente', 'COORDENACAO')).not.toThrow()
     expect(() =>
-      exigirPapel(ctxCom('SAUDE'), 'COORDENACAO', 'SAUDE')
+      exigirPapel(ctxCom('SAUDE'), 'Residente', 'COORDENACAO', 'SAUDE')
     ).not.toThrow()
   })
 
   it('lança ErroPermissao quando o papel não está na lista', () => {
-    expect(() => exigirPapel(ctxCom('SAUDE'), 'ADMINISTRATIVO')).toThrow(
+    expect(() => exigirPapel(ctxCom('SAUDE'), 'Residente', 'ADMINISTRATIVO')).toThrow(
       ErroPermissao
     )
   })
 
   it('lança ErroPermissao quando nenhum papel é informado', () => {
-    expect(() => exigirPapel(ctxCom('COORDENACAO'))).toThrow(ErroPermissao)
+    expect(() => exigirPapel(ctxCom('COORDENACAO'), 'Residente')).toThrow(ErroPermissao)
   })
 
   it('não vaza dados internos na mensagem de erro', () => {
@@ -32,7 +42,7 @@ describe('exigirPapel', () => {
     expect.assertions(1)
 
     try {
-      exigirPapel(ctxCom('SAUDE'), 'ADMINISTRATIVO')
+      exigirPapel(ctxCom('SAUDE'), 'Residente', 'ADMINISTRATIVO')
     } catch (erro) {
       expect((erro as Error).message).toBe('Acesso negado')
     }

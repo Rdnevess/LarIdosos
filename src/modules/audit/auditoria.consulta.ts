@@ -31,7 +31,7 @@ export async function consultarAuditoria(
   ctx: Ctx,
   filtro: FiltroAuditoria
 ): Promise<ResultadoAuditoria> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'LogAuditoria', 'COORDENACAO')
 
   const where: Prisma.LogAuditoriaWhereInput = {}
   if (filtro.usuarioId) where.usuarioId = filtro.usuarioId

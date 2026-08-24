@@ -33,7 +33,7 @@ export async function criarUsuario(
   ctx: Ctx,
   dados: DadosNovoUsuario
 ): Promise<UsuarioPublico> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
   const entrada = validar(novoUsuarioSchema, dados)
 
   const existente = await prisma.usuario.findUnique({ where: { email: entrada.email } })
@@ -66,7 +66,7 @@ export async function criarUsuario(
 }
 
 export async function listarUsuarios(ctx: Ctx): Promise<UsuarioPublico[]> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
   return prisma.usuario.findMany({
     select: CAMPOS_PUBLICOS,
     orderBy: [{ ativo: 'desc' }, { nome: 'asc' }],
@@ -78,7 +78,7 @@ export async function atualizarUsuario(
   id: string,
   dados: DadosAtualizacaoUsuario
 ): Promise<UsuarioPublico> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
   const entrada = validar(atualizacaoUsuarioSchema, dados)
 
   const atual = await prisma.usuario.findUnique({ where: { id } })
@@ -137,7 +137,7 @@ export async function definirSenha(
   novaSenha: string,
   senhaAtual: string
 ): Promise<void> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
   if (novaSenha.length < 8) {
     throw new ErroValidacao('A senha deve ter ao menos 8 caracteres')
   }
@@ -166,7 +166,7 @@ export async function definirSenha(
 }
 
 export async function desativarUsuario(ctx: Ctx, id: string): Promise<void> {
-  exigirPapel(ctx, 'COORDENACAO')
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
 
   if (id === ctx.usuarioId) {
     throw new ErroValidacao('Não é possível desativar o próprio usuário')

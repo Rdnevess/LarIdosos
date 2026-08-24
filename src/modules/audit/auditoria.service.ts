@@ -6,6 +6,30 @@ export type ClientePrisma = PrismaClient | Prisma.TransactionClient
 export type Diff = Record<string, { de: unknown; para: unknown }>
 
 /**
+ * As entidades que a trilha registra.
+ *
+ * Era `string`, e o rótulo de cada uma na tela de consulta era mantido por
+ * grep — o próprio comentário de `ROTULO_ENTIDADE` registrava a falta. Como
+ * união, entidade nova sem rótulo deixa de compilar, que é onde a falta
+ * apareceria para quem lê a trilha.
+ *
+ * É também o que torna seguro o segundo parâmetro de `exigirPapel`: um `Papel`
+ * não é atribuível a este tipo, então esquecer a entidade quebra o build em
+ * vez de virar, em silêncio, uma checagem de permissão diferente.
+ */
+export type EntidadeAuditada =
+  | 'Residente'
+  | 'Responsavel'
+  | 'Documento'
+  | 'Anotacao'
+  | 'AvaliacaoDependencia'
+  | 'Funcionario'
+  | 'Usuario'
+  // A própria trilha. Só aparece em `ACESSO_NEGADO`: consultar a auditoria não
+  // se audita — seria uma linha a cada abertura da tela, sobre a própria tela.
+  | 'LogAuditoria'
+
+/**
  * O ator de um evento de auditoria. `Ctx` (usuário autenticado e autorizado)
  * satisfaz esta forma estruturalmente, mas o login em si precisa registrar
  * eventos antes de existir um `Ctx` completo — por exemplo, uma tentativa
@@ -20,7 +44,7 @@ export type AtorAuditoria = {
 
 export type DadosAuditoria = {
   acao: AcaoAuditoria
-  entidade: string
+  entidade: EntidadeAuditada
   entidadeId?: string
   residenteId?: string
   diff?: Diff | null

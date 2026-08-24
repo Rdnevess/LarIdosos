@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { EMAIL_SAUDE } from './credenciais'
 
 test('registra e mostra a criação de um residente, com rótulos em pt-BR', async ({ page }) => {
   const nome = `Auditoria Teste ${Date.now()}`
@@ -106,4 +107,38 @@ test('a tabela rola dentro do próprio contêiner, sem empurrar a página', asyn
   // quem rola horizontalmente, não a página inteira.
   const contentor = page.locator('table').locator('xpath=ancestor::div[contains(@class, "overflow-x-auto")]')
   await expect(contentor).toHaveCount(1)
+})
+
+test('mostra a tentativa de acesso negada, com o papel de quem tentou', async ({
+  page,
+  browser,
+}) => {
+  // A trilha registrava o que aconteceu, nunca o que foi tentado — e para dado
+  // de saúde sob a LGPD (art. 11) é a tentativa que interessa. Só este teste
+  // percorre o caminho inteiro: papel que não alcança a tela, negação gravada
+  // fora de qualquer transação, e a linha aparecendo para a coordenação.
+  const sessaoSaude = await browser.newContext({
+    storageState: 'tests/e2e/.sessao-saude.json',
+    baseURL: 'http://localhost:3000',
+  })
+  const paginaSaude = await sessaoSaude.newPage()
+  await paginaSaude.goto('/usuarios')
+  await expect(
+    paginaSaude.getByRole('heading', { name: /Não foi possível abrir esta tela/ })
+  ).toBeVisible()
+  await sessaoSaude.close()
+
+  await page.goto('/auditoria')
+  await page.getByLabel('Entidade').selectOption('Usuario')
+  await page.getByRole('button', { name: 'Filtrar' }).click()
+
+  const linha = page
+    .locator('tbody tr', { hasText: EMAIL_SAUDE })
+    .filter({ hasText: 'Acesso negado' })
+    .first()
+
+  await expect(linha).toBeVisible()
+  // O papel vai no diff porque o papel de uma conta pode ser corrigido depois.
+  await expect(linha).toContainText('Papel: — → Saúde')
+  await expect(linha).toContainText('Tentativas: — → 1')
 })

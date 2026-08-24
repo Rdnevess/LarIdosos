@@ -3,6 +3,7 @@ import type { AcaoAuditoria } from '@prisma/client'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
+import type { EntidadeAuditada } from '@/modules/audit/auditoria.service'
 import { formatarDiff } from '@/modules/audit/auditoria.formatacao'
 import { formatarDataHora } from '@/lib/ptbr'
 
@@ -20,15 +21,14 @@ const ROTULO_ACAO: Record<AcaoAuditoria, string> = {
   LOGOUT: 'Logout',
   EXPORTAR: 'Exportação',
   DOWNLOAD: 'Download',
+  ACESSO_NEGADO: 'Acesso negado',
 }
 
-// `entidade` é `String` no schema (não um enum do Prisma — cada serviço
-// grava o nome da classe que auditou), então não há como o `typecheck`
-// obrigar um rótulo para um valor novo como faz `ROTULO_ACAO` acima. O mapa
-// cobre toda entidade gravada hoje pelos serviços (grep por
-// `entidade: '...'` em `src/modules`); um nome fora dele cai no próprio
-// valor como resguardo, não porque seja o comportamento desejado.
-const ROTULO_ENTIDADE: Record<string, string> = {
+// Desde que `entidade` deixou de ser `string` solta e virou `EntidadeAuditada`
+// (`auditoria.service.ts`), este mapa é `Record` da união: entidade nova sem
+// rótulo quebra o `typecheck`, como já acontecia com `ROTULO_ACAO`. Era o que
+// o comentário anterior aqui lamentava não ser possível.
+const ROTULO_ENTIDADE: Record<EntidadeAuditada, string> = {
   Residente: 'Residente',
   Responsavel: 'Responsável',
   Documento: 'Documento',
@@ -36,10 +36,14 @@ const ROTULO_ENTIDADE: Record<string, string> = {
   AvaliacaoDependencia: 'Avaliação de dependência',
   Funcionario: 'Funcionário',
   Usuario: 'Usuário',
+  LogAuditoria: 'Trilha de auditoria',
 }
 
+// O banco guarda `String`, então o valor que chega aqui pode ser de uma
+// versão anterior do sistema. O resguardo é isso, não uma entidade nova
+// esquecida — essa não compila mais.
 function rotularEntidade(entidade: string): string {
-  return ROTULO_ENTIDADE[entidade] ?? entidade
+  return ROTULO_ENTIDADE[entidade as EntidadeAuditada] ?? entidade
 }
 
 // `formatarDiff` mora em `auditoria.formatacao.ts` (não aqui): ela traduz

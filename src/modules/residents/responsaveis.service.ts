@@ -49,7 +49,7 @@ export async function adicionarResponsavel(
   ctx: Ctx,
   dados: DadosResponsavel
 ): Promise<Responsavel> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Responsavel', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(responsavelSchema, dados)
 
   return prisma.$transaction(async (tx) => {
@@ -81,7 +81,7 @@ export async function listarResponsaveis(
   ctx: Ctx,
   residenteId: string
 ): Promise<Responsavel[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Responsavel', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   return prisma.responsavel.findMany({
     where: { residenteId, ativo: true },
     orderBy: [{ ehResponsavelLegal: 'desc' }, { nome: 'asc' }, { id: 'asc' }],
@@ -99,7 +99,7 @@ export async function atualizarResponsavel(
   id: string,
   dados: DadosAtualizacaoResponsavel
 ): Promise<Responsavel> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Responsavel', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(atualizacaoSchema, dados)
   const atual = await exigirResponsavel(id)
 
@@ -129,7 +129,7 @@ export async function atualizarResponsavel(
 }
 
 export async function removerResponsavel(ctx: Ctx, id: string): Promise<void> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Responsavel', 'COORDENACAO', 'ADMINISTRATIVO')
   const atual = await exigirResponsavel(id)
 
   await prisma.$transaction(async (tx) => {

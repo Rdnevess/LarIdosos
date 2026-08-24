@@ -23,7 +23,7 @@ export async function criarResidente(
   ctx: Ctx,
   dados: DadosNovoResidente
 ): Promise<Residente> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Residente', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(novoResidenteSchema, dados)
 
   if (entrada.cpf) {
@@ -49,7 +49,7 @@ export async function criarResidente(
 }
 
 export async function obterResidente(ctx: Ctx, id: string): Promise<Residente> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Residente', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   const residente = await exigirResidente(id)
 
   await registrarAuditoria(prisma, ctx, {
@@ -88,7 +88,7 @@ export async function listarResidentes(
   ctx: Ctx,
   filtro: { busca?: string; status?: StatusResidente } = {}
 ): Promise<ResidenteResumo[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Residente', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const where: Prisma.ResidenteWhereInput = {}
   if (filtro.status) where.status = filtro.status
@@ -111,7 +111,7 @@ export async function atualizarResidente(
   id: string,
   dados: DadosAtualizacaoResidente
 ): Promise<Residente> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Residente', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(atualizacaoResidenteSchema, dados)
   const atual = await exigirResidente(id)
 
@@ -142,7 +142,7 @@ export async function desligarResidente(
   id: string,
   dados: DadosDesligamento
 ): Promise<Residente> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Residente', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(desligamentoSchema, dados)
   const atual = await exigirResidente(id)
 
