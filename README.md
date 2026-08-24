@@ -108,6 +108,21 @@ npm run db:migrate   # aplica as migrations no banco de desenvolvimento
 npm run db:seed      # cria o usuário de coordenação
 ```
 
+### O layout da prestação de contas
+
+`src/modules/financeiro/layout-prestacao.ts` é **arquivo gerado**. Ele vem do
+modelo `.xlsx` que o órgão conveniador aceita, guardado em `docs/convenio/` e
+fora do controle de versão. Para regerar:
+
+```bash
+npx tsx scripts/extrair-layout-prestacao.ts > src/modules/financeiro/layout-prestacao.ts
+```
+
+Só saem de lá faixas de célula, larguras de coluna e rótulos fixos — nenhuma
+célula da faixa de dados é copiada, e há teste conferindo que nenhum CPF ou
+CNPJ escapou. Se esse teste falhar, o conserto é o critério do script, nunca o
+teste.
+
 > **Não edite uma migration já aplicada**, nem para corrigir um comentário.
 > O Prisma guarda o checksum do arquivo, e `migrate dev` passa a exigir um
 > reset do banco de desenvolvimento antes de gerar qualquer migration nova.
