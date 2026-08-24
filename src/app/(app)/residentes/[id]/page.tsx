@@ -86,6 +86,10 @@ export default async function FichaResidente({
   // Esconder o formulário poupa ao usuário um erro previsível; quem recusa de
   // fato é o serviço, que checa o papel de novo.
   const podeCadastrar = ctx.papel !== 'SAUDE'
+  // O prontuário é a fronteira oposta à de `podeCadastrar`: SAUDE alcança,
+  // ADMINISTRATIVO não. Esconder poupa o erro previsível; quem barra é
+  // `obterCabecalhoClinico`, que recusa o papel no serviço.
+  const podeVerProntuario = ctx.papel !== 'ADMINISTRATIVO'
   const podeAvaliar = ctx.papel !== 'ADMINISTRATIVO'
 
   // O anexo NÃO usa `podeCadastrar`. Era esse o defeito: a condição escondia o
@@ -107,6 +111,16 @@ export default async function FichaResidente({
               chegava lá. Escondido do papel SAUDE porque `desligarResidente`
               exige COORDENACAO ou ADMINISTRATIVO
               (`src/modules/residents/residentes.service.ts`, linha 145). */}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {podeVerProntuario && (
+              <Link
+                href={`/residentes/${residente.id}/prontuario`}
+                className="whitespace-nowrap text-sm font-medium text-slate-800 underline"
+              >
+                Prontuário
+              </Link>
+            )}
+          </div>
           {podeCadastrar && (
             <div className="flex shrink-0 flex-col items-end gap-1">
               <Link
