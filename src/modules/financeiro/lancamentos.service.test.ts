@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
-import type { Ctx } from '@/lib/contexto'
 import { criarContaBancaria } from './instituicao.service'
 import {
   criarOrigemReceita,
