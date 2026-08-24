@@ -43,7 +43,7 @@ export async function acaoDefinirSenha(
   const resultado = await executarAcao(async () => {
     const ctx = await obterCtx()
     ehPropriaConta = ctx.usuarioId === id
-    await definirSenha(ctx, id, texto(dados, 'senha'))
+    await definirSenha(ctx, id, texto(dados, 'senha'), texto(dados, 'senhaAtual'))
   })
 
   if (resultado.erro) return resultado

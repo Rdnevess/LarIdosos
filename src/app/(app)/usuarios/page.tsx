@@ -80,10 +80,12 @@ export default async function PaginaUsuarios() {
               para trocar a senha dela, e o sistema seguia com a senha que
               veio em texto plano do `.env.producao`.
 
-              O que continua faltando, e fica registrado para uma fase futura:
-              este formulário não pede a senha atual. Quem estiver com a
-              sessão da coordenação aberta troca a senha dela sem conhecer a
-              anterior.
+              O campo "Sua senha atual" é a senha de **quem troca**, não a do
+              alvo: `definirSenha` a confere com Argon2 contra o próprio `ctx`
+              (`src/modules/auth/usuarios.service.ts`). É o que impede que uma
+              tela deixada aberta na mesa da coordenação — a sessão é um JWT de
+              12 horas sem timeout de inatividade — valha poder de trocar a
+              senha de qualquer conta.
             */}
             {usuario.ativo && (
               <div className="flex flex-wrap gap-2">
@@ -107,6 +109,12 @@ export default async function PaginaUsuarios() {
                       : undefined
                   }
                   campos={[
+                    {
+                      nome: 'senhaAtual',
+                      rotulo: 'Sua senha atual',
+                      tipo: 'password',
+                      obrigatorio: true,
+                    },
                     { nome: 'senha', rotulo: 'Nova senha', tipo: 'password', obrigatorio: true },
                   ]}
                 />

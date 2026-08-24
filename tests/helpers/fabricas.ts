@@ -5,6 +5,13 @@ import type { Ctx } from '@/lib/contexto'
 
 let contador = 0
 
+/**
+ * A senha de toda conta criada por `criarUsuarioDeTeste`. Exportada porque
+ * `definirSenha` passou a exigir a senha de quem troca: o teste precisa saber
+ * qual é a do `ctx` que ele mesmo fabricou.
+ */
+export const SENHA_DE_TESTE = 'senha-de-teste-123'
+
 export async function criarUsuarioDeTeste(
   overrides: Partial<{ email: string; nome: string; papel: Papel; ativo: boolean }> = {}
 ): Promise<Usuario> {
@@ -15,7 +22,7 @@ export async function criarUsuarioDeTeste(
       nome: overrides.nome ?? `Usuário ${contador}`,
       papel: overrides.papel ?? 'COORDENACAO',
       ativo: overrides.ativo ?? true,
-      senhaHash: await hashSenha('senha-de-teste-123'),
+      senhaHash: await hashSenha(SENHA_DE_TESTE),
     },
   })
 }
