@@ -4,12 +4,16 @@ Registro do que ficou em aberto ao fechar o financeiro e a prestação de contas
 Mesmo formato dos de Fase 1, 2A e 2B: nenhum item impede o uso, e todos estão
 aqui para não dependerem da memória de ninguém.
 
+O item **4 já foi resolvido** e continua neste documento em vez de sumir dele:
+ele reverte uma decisão que estava escrita e defendida como deliberada, e
+apagar o registro apagaria junto o motivo de ela ter mudado.
+
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. Fidelidade do `.xlsx` ao modelo do órgão | aberto — só se confirma abrindo os dois | na primeira entrega real, com o órgão |
 | 2. O PDF não é pixel a pixel igual ao `.xlsx` | aberto, deliberado | não se resolve sem 400 MB de conversor |
 | 3. Categorias de despesa como lista aberta | aberto, deliberado | se a conciliação virar sopa de categorias |
-| 4. "à disposição dos condôminos" na declaração | **aberto — decisão da instituição** | uma linha, quando alguém decidir |
+| 4. "à disposição dos condôminos" na declaração | resolvido | 24/08/2026 |
 | 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | aberto, sem exposição | quando o `exceljs` atualizar |
 | 6. O layout extraído carrega categorias do exemplo | aberto — contornado | no extrator, se o modelo mudar |
 
@@ -68,19 +72,21 @@ Se elas começarem a se repetir com nomes diferentes, o documento entregue ao
 **O que fazer então:** desativar as duplicadas e reclassificar os lançamentos,
 não fechar a lista.
 
-## 4. "à disposição dos condôminos" continua na declaração
+## 4. "à disposição dos condôminos" na declaração — resolvido
 
-**Situação:** a declaração de guarda e conservação, copiada do modelo do órgão,
-termina dizendo que os documentos ficam "identificados e à disposição dos
-**condôminos**". Condômino é dono de apartamento, não órgão conveniador — a
-frase quase certamente veio de outro modelo, por cópia.
+**Resolvido em 24/08/2026.** A declaração agora termina dizendo que os
+documentos ficam "identificados e **à disposição do órgão conveniador**".
 
-**Por que não foi corrigida:** é a redação que o órgão já recebeu e aceitou.
-Mudar o texto de um documento oficial é decisão da instituição, não do sistema.
+**O que estava errado:** a declaração de guarda e conservação, copiada do
+modelo do órgão, dizia "à disposição dos **condôminos**". Condômino é dono de
+apartamento, não órgão conveniador — a frase veio de outro modelo, por cópia.
 
-**Onde se resolve:** `src/modules/financeiro/textos-prestacao.ts`, na função
-`montarDeclaracao`. É uma linha, num arquivo pequeno, com comentário no lugar
-explicando exatamente isto. Basta alguém decidir.
+**Por que ficou aberta até aqui:** é a redação que o órgão já tinha recebido e
+aceitado, e mudar o texto de um documento oficial é decisão da instituição, não
+do sistema. O dono do projeto confirmou o erro e autorizou a correção.
+
+**Onde ficou:** `src/modules/financeiro/textos-prestacao.ts`, na função
+`montarDeclaracao`, com o comentário no lugar registrando a mudança e a data.
 
 **Duas outras decisões da mesma redação, essas já tomadas:** a primeira linha
 do modelo — uma nota de trabalho de quem montou o arquivo, que sairia impressa
