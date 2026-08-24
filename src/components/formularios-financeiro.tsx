@@ -9,6 +9,12 @@ import {
   acaoLancarReceita,
   acaoLancarDespesa,
   acaoCancelarLancamento,
+  acaoAbrirPrestacao,
+  acaoAjustarSaldoAnterior,
+  acaoRegistrarObservacoes,
+  acaoFecharPrestacao,
+  acaoReabrirPrestacao,
+  acaoDefinirContribuicao,
 } from '@/app/(app)/financeiro/acoes'
 
 /**
@@ -247,6 +253,154 @@ export function FormularioCancelarLancamento({ id }: { id: string }) {
       rotuloBotao="Cancelar lançamento"
       aviso="O lançamento não é apagado: fica registrado como cancelado, com o motivo. Um lançamento apagado é um buraco no extrato que ninguém explica depois."
       campos={[{ nome: 'motivo', rotulo: 'Motivo do cancelamento', obrigatorio: true }]}
+    />
+  )
+}
+
+const MESES: Opcao[] = [
+  { valor: '1', rotulo: 'Janeiro' },
+  { valor: '2', rotulo: 'Fevereiro' },
+  { valor: '3', rotulo: 'Março' },
+  { valor: '4', rotulo: 'Abril' },
+  { valor: '5', rotulo: 'Maio' },
+  { valor: '6', rotulo: 'Junho' },
+  { valor: '7', rotulo: 'Julho' },
+  { valor: '8', rotulo: 'Agosto' },
+  { valor: '9', rotulo: 'Setembro' },
+  { valor: '10', rotulo: 'Outubro' },
+  { valor: '11', rotulo: 'Novembro' },
+  { valor: '12', rotulo: 'Dezembro' },
+]
+
+export function FormularioAbrirPrestacao({ contas }: { contas: Opcao[] }) {
+  const agora = new Date()
+
+  return (
+    <FormularioSimples
+      acao={acaoAbrirPrestacao}
+      prefixoId="abrir-prestacao"
+      rotuloBotao="Abrir prestação"
+      campos={[
+        { nome: 'contaBancariaId', rotulo: 'Conta bancária', obrigatorio: true, opcoes: contas },
+        {
+          nome: 'anoCompetencia',
+          rotulo: 'Ano',
+          tipo: 'number',
+          obrigatorio: true,
+          valorInicial: String(agora.getFullYear()),
+        },
+        { nome: 'mesCompetencia', rotulo: 'Mês', obrigatorio: true, opcoes: MESES },
+      ]}
+    />
+  )
+}
+
+export function FormularioAjustarSaldo({
+  id,
+  saldoDerivado,
+}: {
+  id: string
+  saldoDerivado: number
+}) {
+  return (
+    <FormularioSimples
+      acao={acaoAjustarSaldoAnterior}
+      ocultos={{ id }}
+      prefixoId={`ajuste-${id}`}
+      rotuloBotao="Ajustar saldo anterior"
+      aviso="O valor derivado continua guardado, e a divergência fica na trilha com o seu nome. A justificativa sai nas observações do documento entregue ao órgão."
+      campos={[
+        {
+          nome: 'valor',
+          rotulo: 'Saldo anterior correto',
+          tipo: 'number',
+          obrigatorio: true,
+          valorInicial: String(saldoDerivado),
+        },
+        { nome: 'justificativa', rotulo: 'Justificativa', obrigatorio: true },
+      ]}
+    />
+  )
+}
+
+export function FormularioObservacoes({
+  id,
+  atual,
+}: {
+  id: string
+  atual: string
+}) {
+  return (
+    <FormularioSimples
+      acao={acaoRegistrarObservacoes}
+      ocultos={{ id }}
+      prefixoId={`obs-${id}`}
+      colunas={1}
+      rotuloBotao="Salvar observações"
+      campos={[
+        {
+          nome: 'observacoes',
+          rotulo: 'Observações do mês',
+          valorInicial: atual,
+        },
+      ]}
+    />
+  )
+}
+
+export function FormularioFecharPrestacao({ id }: { id: string }) {
+  return (
+    <FormularioSimples
+      acao={acaoFecharPrestacao}
+      ocultos={{ id }}
+      prefixoId={`fechar-${id}`}
+      colunas={1}
+      rotuloBotao="Fechar prestação"
+      aviso="Fechar congela os lançamentos realizados da competência: eles deixam de aceitar cancelamento, e o documento entregue ao órgão para de mudar sozinho."
+      campos={[]}
+    />
+  )
+}
+
+export function FormularioReabrirPrestacao({ id }: { id: string }) {
+  return (
+    <FormularioSimples
+      acao={acaoReabrirPrestacao}
+      ocultos={{ id }}
+      prefixoId={`reabrir-${id}`}
+      colunas={1}
+      rotuloBotao="Reabrir prestação"
+      aviso="O documento pode sair diferente do que já foi protocolado. A reabertura fica na trilha e o motivo sai impresso nas observações do documento regerado."
+      campos={[{ nome: 'motivo', rotulo: 'Motivo da reabertura', obrigatorio: true }]}
+    />
+  )
+}
+
+export function FormularioContribuicao({ residenteId }: { residenteId: string }) {
+  return (
+    <FormularioSimples
+      acao={acaoDefinirContribuicao}
+      ocultos={{ residenteId }}
+      prefixoId={`contribuicao-${residenteId}`}
+      rotuloBotao="Definir contribuição"
+      aviso="A contribuição do idoso não pode passar de 70% do benefício (art. 35, §2º da Lei 10.741/2003). Definir uma nova encerra a anterior, preservando o histórico."
+      campos={[
+        {
+          nome: 'percentual',
+          rotulo: 'Percentual do benefício (%)',
+          tipo: 'number',
+          obrigatorio: true,
+          valorInicial: '70',
+        },
+        {
+          nome: 'valorBaseBeneficio',
+          rotulo: 'Valor do benefício',
+          tipo: 'number',
+          obrigatorio: true,
+        },
+        { nome: 'vigenciaInicio', rotulo: 'Vigente a partir de', tipo: 'date', obrigatorio: true },
+        { nome: 'observacao', rotulo: 'Observação' },
+      ]}
     />
   )
 }

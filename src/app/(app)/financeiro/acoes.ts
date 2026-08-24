@@ -19,6 +19,14 @@ import {
   cancelarLancamento,
   conciliarLancamento,
 } from '@/modules/financeiro/lancamentos.service'
+import {
+  abrirPrestacao,
+  ajustarSaldoAnterior,
+  registrarObservacoes,
+  fecharPrestacao,
+  reabrirPrestacao,
+} from '@/modules/financeiro/prestacoes.service'
+import { definirContribuicao } from '@/modules/financeiro/contribuicoes.service'
 
 /**
  * As ações do financeiro.
@@ -219,5 +227,104 @@ export async function acaoConciliarLancamento(
   })
 
   revalidatePath('/financeiro')
+  return resultado
+}
+
+export async function acaoAbrirPrestacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await abrirPrestacao(
+      ctx,
+      exigirTexto(dados, 'contaBancariaId'),
+      exigirNumero(dados, 'anoCompetencia'),
+      exigirNumero(dados, 'mesCompetencia')
+    )
+  })
+
+  revalidatePath('/financeiro/prestacoes')
+  return resultado
+}
+
+export async function acaoAjustarSaldoAnterior(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await ajustarSaldoAnterior(
+      ctx,
+      exigirTexto(dados, 'id'),
+      exigirNumero(dados, 'valor'),
+      exigirTexto(dados, 'justificativa')
+    )
+  })
+
+  revalidatePath('/financeiro/prestacoes')
+  return resultado
+}
+
+export async function acaoRegistrarObservacoes(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    // `?? ''` e não `exigirTexto`: apagar o texto é uma operação legítima, e
+    // `texto` devolve `null` para campo vazio.
+    await registrarObservacoes(ctx, exigirTexto(dados, 'id'), texto(dados, 'observacoes') ?? '')
+  })
+
+  revalidatePath('/financeiro/prestacoes')
+  return resultado
+}
+
+export async function acaoFecharPrestacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await fecharPrestacao(ctx, exigirTexto(dados, 'id'))
+  })
+
+  revalidatePath('/financeiro/prestacoes')
+  revalidatePath('/financeiro')
+  return resultado
+}
+
+export async function acaoReabrirPrestacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await reabrirPrestacao(ctx, exigirTexto(dados, 'id'), exigirTexto(dados, 'motivo'))
+  })
+
+  revalidatePath('/financeiro/prestacoes')
+  revalidatePath('/financeiro')
+  return resultado
+}
+
+export async function acaoDefinirContribuicao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await definirContribuicao(ctx, {
+      residenteId: exigirTexto(dados, 'residenteId'),
+      percentual: exigirNumero(dados, 'percentual'),
+      valorBaseBeneficio: exigirNumero(dados, 'valorBaseBeneficio'),
+      vigenciaInicio: exigirData(dados, 'vigenciaInicio'),
+      observacao: texto(dados, 'observacao'),
+    })
+  })
+
+  revalidatePath(`/residentes/${exigirTexto(dados, 'residenteId')}`)
+  revalidatePath('/financeiro/contribuicoes')
   return resultado
 }

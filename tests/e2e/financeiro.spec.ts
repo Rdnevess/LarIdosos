@@ -128,3 +128,58 @@ test('lança uma receita e uma despesa, e mostra as duas em reais', async ({ pag
   await expect(page.getByText('R$ 2.000,00').first()).toBeVisible()
   await expect(page.getByText('R$ 800,00').first()).toBeVisible()
 })
+
+test('abre a prestação, fecha, e baixa os dois arquivos', async ({ page }) => {
+  await page.goto('/financeiro/prestacoes')
+
+  const abrir = await abrirSecao(page, 'Abrir prestação')
+  await abrir.getByLabel('Conta bancária').selectOption({ label: `Banco do Brasil — ${CONTA}` })
+  await abrir.getByLabel('Ano').fill('2026')
+  await abrir.getByLabel('Mês').selectOption('8')
+  await abrir.getByRole('button', { name: 'Abrir prestação' }).click()
+  await expect(abrir.getByRole('status')).toBeVisible()
+
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const prestacao = page.getByRole('article').filter({ hasText: 'agosto de 2026' }).first()
+
+  // O saldo anterior vem do saldo inicial da conta: não há prestação fechada
+  // anterior de onde herdar.
+  await expect(prestacao.getByText('R$ 15.000,00')).toBeVisible()
+  await expect(prestacao.getByText('Aberta', { exact: true })).toBeVisible()
+
+  await prestacao.getByRole('button', { name: 'Fechar prestação' }).click()
+
+  // O formulário de fechar some na revalidação, e leva a confirmação junto:
+  // quem prova que fechou é o próprio cartão, que passa a "Fechada" e a
+  // oferecer os downloads.
+  const fechada = page.getByRole('article').filter({ hasText: 'agosto de 2026' }).first()
+  await expect(fechada.getByText('Fechada')).toBeVisible()
+
+  // Os dois formatos, pelo endpoint, com a sessão do navegador.
+  const xlsx = await page.request.get(
+    (await fechada.getByRole('link', { name: 'Baixar .xlsx' }).getAttribute('href')) ?? ''
+  )
+  expect(xlsx.status()).toBe(200)
+  expect(xlsx.headers()['content-type']).toContain('spreadsheetml')
+
+  const pdf = await page.request.get(
+    (await fechada.getByRole('link', { name: 'Baixar PDF' }).getAttribute('href')) ?? ''
+  )
+  expect(pdf.status()).toBe(200)
+  expect(pdf.headers()['content-type']).toContain('application/pdf')
+})
+
+test('reabrir exige motivo, e o motivo sai no documento regerado', async ({ page }) => {
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const prestacao = page.getByRole('article').filter({ hasText: 'agosto de 2026' }).first()
+
+  const reabrir = prestacao.getByRole('group').filter({ hasText: 'Reabrir' })
+  await reabrir.locator('summary').click()
+  await reabrir.getByLabel('Motivo da reabertura').fill('Nota fiscal do telhado chegou atrasada')
+  await reabrir.getByRole('button', { name: 'Reabrir prestação' }).click()
+
+  const reaberta = page.getByRole('article').filter({ hasText: 'agosto de 2026' }).first()
+  // `exact`: sem ele, "Aberta" casa também o "Reaberta:" da linha do motivo.
+  await expect(reaberta.getByText('Aberta', { exact: true })).toBeVisible()
+  await expect(reaberta.getByText(/chegou atrasada/)).toBeVisible()
+})

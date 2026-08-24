@@ -1,0 +1,255 @@
+import Link from 'next/link'
+import { obterCtx } from '@/modules/auth/sessao'
+import { listarContasBancarias } from '@/modules/financeiro/instituicao.service'
+import {
+  listarPrestacoes,
+  calcularSaldoAnterior,
+} from '@/modules/financeiro/prestacoes.service'
+import { listarLancamentos } from '@/modules/financeiro/lancamentos.service'
+import { formatarMoeda } from '@/lib/ptbr'
+import { mesPorExtenso } from '@/modules/financeiro/textos-prestacao'
+import {
+  FormularioAbrirPrestacao,
+  FormularioAjustarSaldo,
+  FormularioObservacoes,
+  FormularioFecharPrestacao,
+  FormularioReabrirPrestacao,
+} from '@/components/formularios-financeiro'
+
+/**
+ * As prestações de contas, por conta e competência.
+ *
+ * Os totais exibidos são recalculados a cada visita, de propósito: enquanto a
+ * prestação está aberta eles ainda podem mudar, e mostrar um número guardado
+ * seria mostrar o passado. Depois de fechada, os lançamentos estão congelados e
+ * o número para de se mover sozinho.
+ *
+ * Quem manda no que aparece é o serviço: fechar e reabrir são só de
+ * COORDENACAO, e o ADMINISTRATIVO que apertar o botão recebe a recusa em
+ * português — a tela não esconde o botão porque esconder não é permissão, e um
+ * botão que some sem explicação vira chamado de suporte.
+ */
+
+type Filtros = { conta?: string; ano?: string }
+
+async function totaisDa(
+  ctx: Awaited<ReturnType<typeof obterCtx>>,
+  contaBancariaId: string,
+  ano: number,
+  mes: number
+): Promise<{ receitas: number; despesas: number }> {
+  const lancamentos = await listarLancamentos(ctx, {
+    contaBancariaId,
+    de: new Date(ano, mes - 1, 1),
+    ate: new Date(ano, mes, 0, 23, 59, 59),
+  })
+
+  let receitas = 0
+  let despesas = 0
+  for (const lancamento of lancamentos) {
+    if (lancamento.status !== 'REALIZADO') continue
+    if (lancamento.natureza === 'RECEITA') receitas += Number(lancamento.valor)
+    else despesas += Number(lancamento.valor)
+  }
+
+  return { receitas: Math.round(receitas * 100) / 100, despesas: Math.round(despesas * 100) / 100 }
+}
+
+export default async function PaginaPrestacoes({
+  searchParams,
+}: {
+  searchParams: Promise<Filtros>
+}) {
+  const ctx = await obterCtx()
+  const filtros = await searchParams
+  const contas = await listarContasBancarias(ctx)
+
+  // O filtro aceita o número da conta, que é o que a pessoa tem na mão — o id
+  // é detalhe do banco e não deveria precisar aparecer na barra de endereço.
+  const contaFiltrada = filtros.conta
+    ? contas.find((conta) => conta.numeroConta === filtros.conta)
+    : undefined
+
+  const prestacoes = await listarPrestacoes(ctx, {
+    contaBancariaId: contaFiltrada?.id,
+    anoCompetencia: filtros.ano ? Number(filtros.ano) : undefined,
+  })
+
+  const porConta = new Map(contas.map((conta) => [conta.id, conta]))
+
+  const cartoes = await Promise.all(
+    prestacoes.map(async (prestacao) => {
+      const { receitas, despesas } = await totaisDa(
+        ctx,
+        prestacao.contaBancariaId,
+        prestacao.anoCompetencia,
+        prestacao.mesCompetencia
+      )
+      const derivado = await calcularSaldoAnterior(
+        ctx,
+        prestacao.contaBancariaId,
+        prestacao.anoCompetencia,
+        prestacao.mesCompetencia
+      )
+      const saldoAnterior = Number(prestacao.saldoAnteriorAjustado ?? prestacao.saldoAnterior)
+
+      return {
+        prestacao,
+        receitas,
+        despesas,
+        derivado,
+        saldoAnterior,
+        saldoDisponivel: Math.round((saldoAnterior + receitas - despesas) * 100) / 100,
+      }
+    })
+  )
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-800">Prestações de contas</h1>
+          <p className="text-sm text-slate-500">Uma por conta bancária, por mês.</p>
+        </div>
+        <Link href="/financeiro" className="text-sm underline">
+          Voltar aos lançamentos
+        </Link>
+      </div>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          <h2 className="inline">Abrir prestação</h2>
+        </summary>
+        <div className="mt-4">
+          <FormularioAbrirPrestacao
+            contas={contas.map((conta) => ({
+              valor: conta.id,
+              rotulo: `${conta.banco} — ${conta.numeroConta}`,
+            }))}
+          />
+        </div>
+      </details>
+
+      {cartoes.map(
+        ({ prestacao, receitas, despesas, derivado, saldoAnterior, saldoDisponivel }) => {
+          const conta = porConta.get(prestacao.contaBancariaId)
+          const aberta = prestacao.status === 'ABERTA'
+          const ajustado = prestacao.saldoAnteriorAjustado !== null
+
+          return (
+            <article key={prestacao.id} className="space-y-3 rounded border bg-white p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-medium text-slate-800">
+                  {mesPorExtenso(prestacao.mesCompetencia)} de {prestacao.anoCompetencia}
+                  {conta && ` — ${conta.banco} ${conta.numeroConta}`}
+                </h2>
+                <span
+                  className={`rounded px-2 py-1 text-xs font-medium ${
+                    aberta ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-900'
+                  }`}
+                >
+                  {aberta ? 'Aberta' : 'Fechada'}
+                </span>
+              </div>
+
+              <dl className="grid gap-2 text-sm sm:grid-cols-4">
+                <div>
+                  <dt className="text-slate-500">Saldo anterior</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {formatarMoeda(saldoAnterior)}
+                    {ajustado && (
+                      <span className="block text-xs font-normal text-amber-800">
+                        ajustado (derivado: {formatarMoeda(derivado)})
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Receitas</dt>
+                  <dd className="font-semibold text-slate-800">{formatarMoeda(receitas)}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Despesas</dt>
+                  <dd className="font-semibold text-slate-800">{formatarMoeda(despesas)}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Saldo disponível</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {formatarMoeda(saldoDisponivel)}
+                  </dd>
+                </div>
+              </dl>
+
+              {prestacao.justificativaAjuste && (
+                <p className="text-sm text-slate-600">
+                  Ajuste do saldo: {prestacao.justificativaAjuste}
+                </p>
+              )}
+              {prestacao.motivoReabertura && (
+                <p className="text-sm text-slate-600">
+                  Reaberta: {prestacao.motivoReabertura}
+                </p>
+              )}
+
+              {!aberta && (
+                <p className="flex flex-wrap gap-3 text-sm">
+                  <Link
+                    href={`/api/prestacoes/${prestacao.id}/xlsx`}
+                    className="underline"
+                    prefetch={false}
+                  >
+                    Baixar .xlsx
+                  </Link>
+                  <Link
+                    href={`/api/prestacoes/${prestacao.id}/pdf`}
+                    className="underline"
+                    prefetch={false}
+                  >
+                    Baixar PDF
+                  </Link>
+                </p>
+              )}
+
+              {aberta ? (
+                <div className="space-y-2">
+                  <details>
+                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      Observações do mês
+                    </summary>
+                    <div className="mt-2">
+                      <FormularioObservacoes id={prestacao.id} atual={prestacao.observacoes} />
+                    </div>
+                  </details>
+                  <details>
+                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      Ajustar saldo anterior
+                    </summary>
+                    <div className="mt-2">
+                      <FormularioAjustarSaldo id={prestacao.id} saldoDerivado={derivado} />
+                    </div>
+                  </details>
+                  <FormularioFecharPrestacao id={prestacao.id} />
+                </div>
+              ) : (
+                <details>
+                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    Reabrir esta prestação
+                  </summary>
+                  <div className="mt-2">
+                    <FormularioReabrirPrestacao id={prestacao.id} />
+                  </div>
+                </details>
+              )}
+            </article>
+          )
+        }
+      )}
+
+      {cartoes.length === 0 && (
+        <p className="rounded border bg-white p-4 text-sm text-slate-500">
+          Nenhuma prestação aberta ainda.
+        </p>
+      )}
+    </section>
+  )
+}
