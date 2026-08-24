@@ -3,7 +3,9 @@ import { hashSenha, verificarSenha } from '../../src/lib/senha'
 import {
   EMAIL_SEMENTE,
   SENHA_SEMENTE,
+  EMAIL_ADMINISTRATIVO,
   EMAIL_SAUDE,
+  SENHA_ADMINISTRATIVO,
   SENHA_SAUDE,
   NOME_RESIDENTE_SAUDE,
 } from './credenciais'
@@ -73,6 +75,13 @@ export default async function garantirSementes(): Promise<void> {
       senha: SENHA_SAUDE,
       papel: 'SAUDE',
       nome: 'Enfermagem (E2E)',
+    })
+
+    await garantirUsuario(prisma, {
+      email: EMAIL_ADMINISTRATIVO,
+      senha: SENHA_ADMINISTRATIVO,
+      papel: 'ADMINISTRATIVO',
+      nome: 'Administrativo (E2E)',
     })
 
     // O perfil SAUDE não pode cadastrar residente, então o residente sobre o

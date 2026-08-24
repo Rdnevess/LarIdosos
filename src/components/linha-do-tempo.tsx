@@ -32,9 +32,14 @@ export function LinhaDoTempo({
   residenteId: string
 }) {
   return (
-    <section className="space-y-3 rounded border bg-white p-4">
+    <section
+      aria-labelledby="titulo-linha-do-tempo"
+      className="space-y-3 rounded border bg-white p-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium text-slate-800">Linha do tempo</h2>
+        <h2 id="titulo-linha-do-tempo" className="font-medium text-slate-800">
+          Linha do tempo
+        </h2>
         <form action={`/residentes/${residenteId}/prontuario`} className="flex gap-2">
           <select
             name="tipo"

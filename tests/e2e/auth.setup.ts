@@ -2,7 +2,9 @@ import { test as setup, expect } from '@playwright/test'
 import {
   EMAIL_SEMENTE,
   SENHA_SEMENTE,
+  EMAIL_ADMINISTRATIVO,
   EMAIL_SAUDE,
+  SENHA_ADMINISTRATIVO,
   SENHA_SAUDE,
 } from './credenciais'
 
@@ -32,4 +34,19 @@ setup('autentica como saúde', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/residentes/)
   await page.context().storageState({ path: ARQUIVO_SESSAO_SAUDE })
+})
+
+/**
+ * Terceira sessão, no papel ADMINISTRATIVO. A Fase 2A pôs o prontuário
+ * inteiro fora do alcance dele, e uma fronteira que nenhum teste atravessa é
+ * uma fronteira que ninguém sabe se existe.
+ */
+setup('autentica como administrativo', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill(EMAIL_ADMINISTRATIVO)
+  await page.getByLabel('Senha').fill(SENHA_ADMINISTRATIVO)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+
+  await expect(page).toHaveURL(/\/residentes/)
+  await page.context().storageState({ path: 'tests/e2e/.sessao-administrativo.json' })
 })
