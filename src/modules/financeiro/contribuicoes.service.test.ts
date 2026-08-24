@@ -81,7 +81,7 @@ describe('definirContribuicao', () => {
   })
 
   it('nega ao papel SAUDE', async () => {
-    const { ctx: _ } = await cenario()
+    await cenario()
     const ctx = await ctxComPapel('SAUDE')
     const residente = await criarResidenteDeTeste()
 
