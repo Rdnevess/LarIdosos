@@ -4,7 +4,7 @@ Registro do que ficou em aberto ao fechar o núcleo cadastral. Nenhum item
 impede o uso do sistema; todos foram decididos com o dono do projeto e estão
 aqui para não dependerem da memória de ninguém.
 
-Os itens **6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
+Os itens **3, 4, 6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
 sumirem dele: cada um deles reverte uma decisão que estava escrita e defendida
 como deliberada, e apagar o registro apagaria junto o motivo de ela ter mudado.
 Quem encontrar a decisão antiga citada em comentário, relatório de tarefa ou
@@ -14,8 +14,8 @@ revisão precisa achar aqui o que aconteceu depois.
 |---|---|---|
 | 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
 | 2. Acesso negado não é auditado | aberto | Fase 2, com a tela de auditoria |
-| 3. Trocar senha não exige a senha de quem troca | aberto | Fase 2 — prioridade de segurança |
-| 4. Quatro serviços sem tela | aberto | Fase 2 |
+| 3. Trocar senha não exigia a senha de quem troca | resolvido | 23/08/2026 |
+| 4. Quatro serviços sem tela | resolvido | 23/08/2026 |
 | 5. `XLOOKUP` quebrado da planilha | aberto | Fase 3, por eliminação |
 | 6. Seções da ficha que se fecham | resolvido | artefato de desenvolvimento, nada a corrigir |
 | 7. Apagar campo opcional não apagava | resolvido | 23/08/2026 |
@@ -60,51 +60,79 @@ milhares de linhas. É trabalho de projeto, não de correção.
 auditoria, se a negação vira linha de `LogAuditoria` com ação própria ou log
 estruturado separado com alerta por volume.
 
-## 3. Trocar a senha de um usuário não exige a senha de quem troca
+## 3. Trocar a senha exigia só a sessão aberta — resolvido
 
-**Situação:** `definirSenha` exige o papel COORDENACAO e nada mais. Uma sessão
-é um JWT de **12 horas sem timeout de inatividade** (`auth.config.ts`).
+**Resolvido em 23/08/2026.** Era o item de segurança de maior prioridade da
+Fase 2, e a correção saiu do tamanho que estava previsto aqui: um campo de
+senha atual no formulário, conferido com Argon2 contra o próprio `ctx`.
 
-**Cenário concreto:** a coordenadora entra no sistema às 7h no computador da
-sala administrativa e sai para o refeitório. Até as 19h, qualquer pessoa que
-sente naquela mesa abre `/usuarios` e define a senha de qualquer conta —
-inclusive uma do papel SAUDE, que enxerga evolução clínica e laudo de grau de
-dependência.
+**O que era:** `definirSenha` exigia o papel COORDENACAO e nada mais. Como a
+sessão é um JWT de 12 horas sem timeout de inatividade (`auth.config.ts`), a
+coordenadora que entrava às 7h e saía para o refeitório deixava, até as 19h,
+qualquer pessoa naquela mesa definir a senha de qualquer conta — inclusive uma
+do papel SAUDE, que enxerga evolução clínica e laudo de grau de dependência.
 
-**O que reduz a gravidade — e por que isto não trava a Fase 1:** a operação é
-auditada dentro da transação, com o autor atribuído. O ataque não é silencioso:
-deixa rastro no nome da coordenadora. E `definirSenha` grava `senhaAlteradaEm`,
-o que derruba as sessões da conta afetada — a vítima percebe. É detecção, não
-prevenção, mas muda o cálculo.
+**O que resolveu:** `definirSenha` recebe `senhaAtual` e a confere contra o
+hash de **quem troca**, não do alvo. Estar com a sessão aberta deixa de bastar;
+é preciso saber a senha.
 
-**Decisão:** fica de fora da Fase 1. A spec não exige reautenticação, e o escopo
-foi fechado nas duas telas que ela exige. É, ainda assim, **o item de segurança
-de maior prioridade da Fase 2** — a correção é barata (um campo de senha atual
-no formulário, conferido com Argon2 contra o próprio `ctx`).
+A escolha de conferir a senha do autor, e não a do alvo, não é detalhe: a senha
+inicial de uma conta recém-criada aparece em texto plano na própria tela de
+usuários para quem a criou. Conferir a do alvo devolveria a fechadura a quem já
+tinha a chave. O teste "confere a senha de quem troca, não a do alvo" existe
+para prender essa decisão.
 
-**Mitigação disponível hoje, sem código:** bloquear a tela ao sair da mesa.
-Vale estar em `docs/operacao/implantacao.md` como instrução de uso, não como
-recomendação genérica de segurança.
+A conferência vem **antes** de procurar o alvo, também de propósito: quem erra
+a própria senha recebe "Senha atual incorreta" mesmo passando um id
+inexistente, e não descobre pela mensagem quais contas existem.
 
-## 4. Quatro serviços permanecem sem caminho de interface
+**O que não muda:** a sessão continua valendo 12 horas sem timeout, e tudo o
+que ela já lia continua exposto numa tela deixada aberta. O bloqueio de tela
+segue sendo instrução de implantação (Passo 11), agora com o texto certo — ele
+afirmava que a coordenação trocava senha sem digitar a própria.
 
-Implementados, testados e sem tela — decisão explícita do dono do projeto de
-manter fora da Fase 1, porque a spec não os exige. O inventário foi conferido
-percorrendo cada função exportada dos serviços e procurando referência em
-`src/app` e `src/components`:
+## 4. Quatro serviços sem caminho de interface — resolvido
 
-| Serviço | Onde | O que falta | Consequência hoje |
-|---|---|---|---|
-| `atualizarUsuario` | `auth/usuarios.service.ts` | formulário de edição de usuário | **o papel de um usuário não pode ser corrigido**; papel errado no cadastro só se resolve desativando e recriando a conta |
-| `excluirDocumento` | `residents/documentos.service.ts` | botão de excluir na lista da ficha | documento anexado por engano só sai pelo banco |
-| `atualizarResponsavel` | `residents/responsaveis.service.ts` | formulário de edição | telefone novo do responsável exige remover e recadastrar — o que a tela também não faz |
-| `removerResponsavel` | `residents/responsaveis.service.ts` | ação de remover na lista | responsável que deixou de sê-lo continua listado |
+**Resolvido em 23/08/2026.** Os quatro ganharam tela, e nenhum serviço exportado
+segue sem caminho a partir de `src/app` — exceto `registrarAuditoria`, que nunca
+foi órfão: é infraestrutura chamada de dentro dos serviços, dentro da transação.
 
-Os dois de responsável se agravam mutuamente: sem editar **e** sem remover, um
-telefone desatualizado fica permanente. Vale tratá-los juntos, e primeiro.
+| Serviço | Onde ficou | O que resolve |
+|---|---|---|
+| `atualizarResponsavel` | ficha do residente, "Editar" por responsável | telefone novo deixa de exigir remover e recadastrar |
+| `removerResponsavel` | ficha do residente, "Remover" por responsável | quem deixou de ser responsável sai da ficha |
+| `excluirDocumento` | ficha do residente, "Excluir" por documento | documento anexado por engano sai sem passar pelo banco |
+| `atualizarUsuario` | tela de usuários, "Editar" por linha | papel errado no cadastro se corrige sem desativar e recriar a conta |
 
-`registrarAuditoria` também não aparece em `src/app`, e não é órfão: é
-infraestrutura chamada de dentro dos serviços, dentro da transação.
+Os dois de responsável se agravavam mutuamente — sem editar **e** sem remover, um
+telefone desatualizado ficava permanente — e por isso foram tratados juntos e
+primeiro.
+
+**Três decisões que a tela obrigou a tomar:**
+
+**A edição de responsável oferece todos os campos, inclusive os opcionais em
+branco.** É o que a torna também a tela que *apaga* um telefone secundário que
+deixou de existir: campo oferecido e deixado vazio chega como `null` e limpa a
+coluna (pendência 7). Sem aquela correção, esta tela prometeria uma limpeza que
+não aconteceria.
+
+**Excluir documento não ganhou condição de papel própria.** `excluirDocumento`
+autoriza com o mesmo `papeisQuePodemVer` que filtra a listagem, então todo
+documento que a ficha mostra é um que aquele papel pode excluir. Repetir a regra
+na tela seria a segunda lista de política que a pendência 8 acabou de eliminar.
+
+**Trocar o próprio papel passou a ser recusado pelo serviço.** A tela criou um
+risco que não existia: a única conta de coordenação — a situação garantida logo
+depois da implantação — que se rebaixasse a SAUDE deixaria o sistema sem ninguém
+capaz de abrir `/usuarios`, sem caminho de volta que não fosse o banco.
+`atualizarUsuario` recusa a **mudança** de papel na própria conta (não o campo,
+que o formulário manda sempre), e a tela omite o seletor na própria linha. É a
+mesma família da recusa de auto-alvo que `desativarUsuario` já tinha.
+
+**O que continua sem tela, e de propósito:** ligar usuário a funcionário
+(`funcionarioId`). Não existe em lugar nenhum — nem na criação —, e um campo de
+id cru seria pior que a ausência. A chave some do `FormData`, o Prisma não toca
+na coluna, e o vínculo de quem já tem um é preservado a cada edição.
 
 ## 5. O `XLOOKUP` quebrado do modelo de prestação de contas
 

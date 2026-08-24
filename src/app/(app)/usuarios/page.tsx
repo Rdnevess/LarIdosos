@@ -3,7 +3,12 @@ import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarDataHora } from '@/lib/ptbr'
-import { acaoCriarUsuario, acaoDefinirSenha, acaoDesativarUsuario } from './acoes'
+import {
+  acaoCriarUsuario,
+  acaoAtualizarUsuario,
+  acaoDefinirSenha,
+  acaoDesativarUsuario,
+} from './acoes'
 
 // Tipado contra o enum do Prisma de propósito: um papel novo no schema quebra
 // o typecheck aqui, em vez de vazar cru para a tela. Mesmo padrão de
@@ -14,6 +19,14 @@ const ROTULO_PAPEL: Record<Papel, string> = {
   ADMINISTRATIVO: 'Administrativo',
 }
 
+// Derivado do rótulo em vez de repetido: os dois formulários desta tela — criar
+// e editar — oferecem os mesmos papéis, e duas listas escritas à mão
+// divergiriam no dia em que um papel novo entrasse no enum.
+const OPCOES_PAPEL = (Object.keys(ROTULO_PAPEL) as Papel[]).map((papel) => ({
+  valor: papel,
+  rotulo: ROTULO_PAPEL[papel],
+}))
+
 export default async function PaginaUsuarios() {
   const ctx = await obterCtx()
   const usuarios = await listarUsuarios(ctx)
@@ -22,24 +35,21 @@ export default async function PaginaUsuarios() {
     <section className="space-y-6">
       <h1 className="text-lg font-semibold text-slate-800">Usuários</h1>
 
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-3 font-medium text-slate-800">Novo usuário</h2>
+      {/* Região nomeada porque a lista abaixo passou a ter um formulário de
+          edição por linha, com os mesmos rótulos "Nome" e "Papel". Sem o nome
+          acessível, nem o leitor de tela nem o teste conseguem dizer de qual
+          formulário se está falando. */}
+      <section aria-labelledby="titulo-novo-usuario" className="rounded border bg-white p-4">
+        <h2 id="titulo-novo-usuario" className="mb-3 font-medium text-slate-800">
+          Novo usuário
+        </h2>
         <FormularioSimples
           acao={acaoCriarUsuario}
           rotuloBotao="Criar usuário"
           campos={[
             { nome: 'nome', rotulo: 'Nome', obrigatorio: true },
             { nome: 'email', rotulo: 'E-mail', tipo: 'email', obrigatorio: true },
-            {
-              nome: 'papel',
-              rotulo: 'Papel',
-              obrigatorio: true,
-              opcoes: [
-                { valor: 'COORDENACAO', rotulo: 'Coordenação' },
-                { valor: 'SAUDE', rotulo: 'Saúde' },
-                { valor: 'ADMINISTRATIVO', rotulo: 'Administrativo' },
-              ],
-            },
+            { nome: 'papel', rotulo: 'Papel', obrigatorio: true, opcoes: OPCOES_PAPEL },
             {
               nome: 'senha',
               rotulo: 'Senha inicial (mínimo 8 caracteres)',
@@ -48,7 +58,7 @@ export default async function PaginaUsuarios() {
             },
           ]}
         />
-      </div>
+      </section>
 
       <ul className="divide-y rounded border bg-white">
         {usuarios.map((usuario) => (
@@ -80,11 +90,55 @@ export default async function PaginaUsuarios() {
               para trocar a senha dela, e o sistema seguia com a senha que
               veio em texto plano do `.env.producao`.
 
-              O que continua faltando, e fica registrado para uma fase futura:
-              este formulário não pede a senha atual. Quem estiver com a
-              sessão da coordenação aberta troca a senha dela sem conhecer a
-              anterior.
+              O campo "Sua senha atual" é a senha de **quem troca**, não a do
+              alvo: `definirSenha` a confere com Argon2 contra o próprio `ctx`
+              (`src/modules/auth/usuarios.service.ts`). É o que impede que uma
+              tela deixada aberta na mesa da coordenação — a sessão é um JWT de
+              12 horas sem timeout de inatividade — valha poder de trocar a
+              senha de qualquer conta.
             */}
+            {usuario.ativo && (
+              <details>
+                <summary className="cursor-pointer text-sm text-slate-600 underline">
+                  Editar
+                </summary>
+                <div className="mt-2">
+                  <FormularioSimples
+                    acao={acaoAtualizarUsuario}
+                    ocultos={{ id: usuario.id }}
+                    prefixoId={`editar-usuario-${usuario.id}`}
+                    rotuloBotao="Salvar usuário"
+                    campos={[
+                      {
+                        nome: 'nome',
+                        rotulo: 'Nome',
+                        obrigatorio: true,
+                        valorInicial: usuario.nome,
+                      },
+                      // O seletor de papel some na própria linha. Rebaixar a
+                      // única conta de coordenação deixaria o sistema sem
+                      // ninguém capaz de abrir esta tela, e sem caminho de
+                      // volta que não fosse o banco. `atualizarUsuario` recusa
+                      // a troca; omitir o campo poupa o erro previsível — e
+                      // campo ausente do formulário não vira chave, então o
+                      // papel simplesmente não é tocado.
+                      ...(usuario.id === ctx.usuarioId
+                        ? []
+                        : [
+                            {
+                              nome: 'papel',
+                              rotulo: 'Papel',
+                              obrigatorio: true,
+                              valorInicial: usuario.papel,
+                              opcoes: OPCOES_PAPEL,
+                            },
+                          ]),
+                    ]}
+                  />
+                </div>
+              </details>
+            )}
+
             {usuario.ativo && (
               <div className="flex flex-wrap gap-2">
                 <FormularioSimples
@@ -107,6 +161,12 @@ export default async function PaginaUsuarios() {
                       : undefined
                   }
                   campos={[
+                    {
+                      nome: 'senhaAtual',
+                      rotulo: 'Sua senha atual',
+                      tipo: 'password',
+                      obrigatorio: true,
+                    },
                     { nome: 'senha', rotulo: 'Nova senha', tipo: 'password', obrigatorio: true },
                   ]}
                 />

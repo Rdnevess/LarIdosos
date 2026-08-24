@@ -104,13 +104,10 @@ export async function atualizarResponsavel(
   const atual = await exigirResponsavel(id)
 
   // Mantém a invariante de `adicionarResponsavel` (linha 52) para chamadores
-  // que passem `entrada.email === ''`. Nenhuma tela chama esta função hoje —
-  // `src/app/(app)/residentes/acoes.ts` só usa `adicionarResponsavel` — então
-  // o caminho é inalcançável na prática, não só o valor `''`. Se um dia
-  // houver edição de responsável pela tela, `dadosDoFuncionario`-style
-  // conversor com `semIndefinidos` também vai omitir a chave em branco, como
-  // em `funcionarios.service.ts`. Se algum chamador passar `''` diretamente,
-  // a normalização precisa vir ANTES do diff, senão a trilha registraria
+  // que passem `entrada.email === ''`. A tela de edição
+  // (`acaoAtualizarResponsavel`) não passa: `texto` devolve `null` para campo
+  // em branco, nunca string vazia. Sobra o chamador direto — e para ele a
+  // normalização precisa vir ANTES do diff, senão a trilha registraria
   // "E-mail: — → —".
   const gravavel = entrada.email === '' ? { ...entrada, email: null } : entrada
 

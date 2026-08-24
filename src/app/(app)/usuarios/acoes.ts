@@ -6,6 +6,7 @@ import { obterCtx } from '@/modules/auth/sessao'
 import { signOut } from '@/modules/auth/config'
 import {
   criarUsuario,
+  atualizarUsuario,
   definirSenha,
   desativarUsuario,
 } from '@/modules/auth/usuarios.service'
@@ -33,6 +34,34 @@ export async function acaoCriarUsuario(
   return resultado
 }
 
+/**
+ * Não manda `funcionarioId`, e a omissão é o que preserva o vínculo: chave
+ * ausente do `FormData` chega ao serviço como `undefined`, o Prisma a ignora e
+ * a coluna não é tocada (`src/lib/formulario.ts`). Ligar usuário a funcionário
+ * não tem tela em nenhum lugar — nem na criação —, e inventar aqui um campo de
+ * id cru seria pior que não ter.
+ */
+export async function acaoAtualizarUsuario(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    const papel = texto(dados, 'papel')
+
+    await atualizarUsuario(ctx, texto(dados, 'id'), {
+      nome: texto(dados, 'nome'),
+      // A própria linha não traz o seletor de papel — trocar o próprio papel
+      // trancaria a coordenação fora desta tela, e o serviço recusa. Sem
+      // campo, sem chave: o papel fica como está.
+      ...(papel ? { papel: papel as 'COORDENACAO' | 'SAUDE' | 'ADMINISTRATIVO' } : {}),
+    })
+  })
+
+  revalidatePath('/usuarios')
+  return resultado
+}
+
 export async function acaoDefinirSenha(
   _anterior: EstadoAcao | null,
   dados: FormData
@@ -43,7 +72,7 @@ export async function acaoDefinirSenha(
   const resultado = await executarAcao(async () => {
     const ctx = await obterCtx()
     ehPropriaConta = ctx.usuarioId === id
-    await definirSenha(ctx, id, texto(dados, 'senha'))
+    await definirSenha(ctx, id, texto(dados, 'senha'), texto(dados, 'senhaAtual'))
   })
 
   if (resultado.erro) return resultado

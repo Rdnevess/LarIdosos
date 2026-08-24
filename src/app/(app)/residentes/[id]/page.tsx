@@ -23,6 +23,9 @@ import {
 import {
   FormularioAnotacao,
   FormularioResponsavel,
+  FormularioEditarResponsavel,
+  FormularioRemoverResponsavel,
+  FormularioExcluirDocumento,
   FormularioAvaliacao,
 } from '@/components/formularios-ficha'
 import { FormularioDocumento } from '@/components/formulario-documento'
@@ -244,6 +247,37 @@ export default async function FichaResidente({
                     visitar, e é a restrição que a recepção precisa enxergar. */}
                 {!responsavel.autorizadoVisitar && ' · visitas não autorizadas'}
               </span>
+
+              {/* Mesma condição do cadastro, e pelo mesmo motivo: quem barra é
+                  `atualizarResponsavel`/`removerResponsavel`, que exigem
+                  COORDENACAO ou ADMINISTRATIVO. Esconder aqui só poupa ao papel
+                  SAUDE um erro previsível. */}
+              {podeCadastrar && (
+                <div className="mt-1 space-y-1">
+                  <details>
+                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      Editar
+                    </summary>
+                    <div className="mt-2">
+                      <FormularioEditarResponsavel
+                        responsavel={responsavel}
+                        residenteId={id}
+                      />
+                    </div>
+                  </details>
+                  <details>
+                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      Remover
+                    </summary>
+                    <div className="mt-2">
+                      <FormularioRemoverResponsavel
+                        responsavelId={responsavel.id}
+                        residenteId={id}
+                      />
+                    </div>
+                  </details>
+                </div>
+              )}
             </li>
           ))}
           {responsaveis.length === 0 && (
@@ -276,6 +310,20 @@ export default async function FichaResidente({
                 {ROTULO_TIPO_DOCUMENTO[documento.tipo]} —{' '}
                 {documento.nomeArquivoOriginal}
               </a>
+
+              <div className="mt-1">
+                <details>
+                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    Excluir
+                  </summary>
+                  <div className="mt-2">
+                    <FormularioExcluirDocumento
+                      documentoId={documento.id}
+                      residenteId={id}
+                    />
+                  </div>
+                </details>
+              </div>
             </li>
           ))}
           {documentos.length === 0 && (

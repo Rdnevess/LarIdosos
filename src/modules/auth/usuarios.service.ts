@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
-import { hashSenha } from '@/lib/senha'
+import { hashSenha, verificarSenha } from '@/lib/senha'
 import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
 import {
@@ -84,6 +84,18 @@ export async function atualizarUsuario(
   const atual = await prisma.usuario.findUnique({ where: { id } })
   if (!atual) throw new ErroNaoEncontrado('Usuário não encontrado')
 
+  // Mesma família da recusa de auto-alvo em `desativarUsuario`, e com
+  // consequência pior: a única conta de coordenação — a situação garantida
+  // logo depois da implantação — que se rebaixasse a SAUDE deixaria o sistema
+  // sem ninguém capaz de abrir `/usuarios`, e sem caminho de volta pela tela.
+  // Só o banco desfaria.
+  //
+  // A recusa é da **mudança**, não do campo: o formulário de edição manda
+  // `papel` sempre, e corrigir o próprio nome precisa continuar possível.
+  if (id === ctx.usuarioId && entrada.papel && entrada.papel !== atual.papel) {
+    throw new ErroValidacao('Não é possível trocar o próprio papel')
+  }
+
   const diff = calcularDiff(atual as unknown as Record<string, unknown>, entrada)
 
   return prisma.$transaction(async (tx) => {
@@ -104,14 +116,35 @@ export async function atualizarUsuario(
   })
 }
 
+/**
+ * `senhaAtual` é a senha de **quem troca**, não a do alvo. É o que transforma
+ * "estar com a sessão aberta" em "saber a senha", e o motivo de a conferência
+ * existir: a sessão é um JWT de 12 horas sem timeout de inatividade
+ * (`auth.config.ts`), então a tela deixada aberta na mesa da coordenação valia,
+ * até aqui, poder de trocar a senha de qualquer conta — inclusive uma do papel
+ * SAUDE, que enxerga evolução clínica.
+ *
+ * Conferir a senha do alvo não serviria: a senha inicial de uma conta recém
+ * criada aparece em texto plano na própria tela de usuários, para quem a criou.
+ *
+ * A checagem vem antes de procurar o alvo de propósito. Quem erra a própria
+ * senha recebe "Senha atual incorreta" mesmo com um id inexistente, e não
+ * descobre pela mensagem quais contas existem.
+ */
 export async function definirSenha(
   ctx: Ctx,
   id: string,
-  novaSenha: string
+  novaSenha: string,
+  senhaAtual: string
 ): Promise<void> {
   exigirPapel(ctx, 'COORDENACAO')
   if (novaSenha.length < 8) {
     throw new ErroValidacao('A senha deve ter ao menos 8 caracteres')
+  }
+
+  const autor = await prisma.usuario.findUnique({ where: { id: ctx.usuarioId } })
+  if (!autor || !(await verificarSenha(autor.senhaHash, senhaAtual))) {
+    throw new ErroValidacao('Senha atual incorreta')
   }
 
   const atual = await prisma.usuario.findUnique({ where: { id } })

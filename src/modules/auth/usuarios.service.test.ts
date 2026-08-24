@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { verificarSenha } from '@/lib/senha'
-import { criarUsuarioDeTeste, ctxDe, ctxComPapel } from '@/../tests/helpers/fabricas'
+import {
+  criarUsuarioDeTeste,
+  ctxDe,
+  ctxComPapel,
+  SENHA_DE_TESTE,
+} from '@/../tests/helpers/fabricas'
 import {
   criarUsuario,
   listarUsuarios,
@@ -103,6 +108,33 @@ describe('atualizarUsuario', () => {
     expect(log.diff).toEqual({ nome: { de: 'Nova Pessoa', para: 'Nome Corrigido' } })
   })
 
+  it('recusa trocar o proprio papel, que trancaria a coordenacao fora da tela', async () => {
+    // `desativarUsuario` ja recusa o auto-alvo, e aqui a consequencia e pior:
+    // a unica conta de coordenacao — a situacao garantida logo depois da
+    // implantacao — que se rebaixasse a SAUDE deixaria o sistema sem ninguem
+    // capaz de abrir /usuarios, e sem caminho de volta pela tela.
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    await expect(
+      atualizarUsuario(ctx, ctx.usuarioId, { papel: 'SAUDE' })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('aceita o proprio papel reenviado sem mudanca, junto do nome corrigido', async () => {
+    // O formulario de edicao manda todos os campos, sempre. Se a recusa
+    // olhasse so para a presenca do campo, corrigir o proprio nome seria
+    // impossivel — a recusa e da MUDANCA de papel, nao do campo.
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    const atualizado = await atualizarUsuario(ctx, ctx.usuarioId, {
+      nome: 'Nome Corrigido',
+      papel: 'COORDENACAO',
+    })
+
+    expect(atualizado.nome).toBe('Nome Corrigido')
+    expect(atualizado.papel).toBe('COORDENACAO')
+  })
+
   it('nega para papel não autorizado', async () => {
     const admin = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(admin, dadosValidos)
@@ -117,7 +149,7 @@ describe('atualizarUsuario', () => {
     const ctx = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(ctx, dadosValidos)
 
-    await definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+    await definirSenha(ctx, alvo.id, 'outra-senha-forte-456', SENHA_DE_TESTE)
 
     const logs = await prisma.logAuditoria.findMany({ where: { entidadeId: alvo.id } })
     for (const log of logs) {
@@ -134,7 +166,7 @@ describe('definirSenha', () => {
     const antes = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } })
 
     await new Promise((r) => setTimeout(r, 5))
-    await definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+    await definirSenha(ctx, alvo.id, 'outra-senha-forte-456', SENHA_DE_TESTE)
 
     const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } })
     expect(await verificarSenha(depois.senhaHash, 'outra-senha-forte-456')).toBe(true)
@@ -147,8 +179,37 @@ describe('definirSenha', () => {
     const ctx = await ctxComPapel('ADMINISTRATIVO')
 
     await expect(
-      definirSenha(ctx, alvo.id, 'outra-senha-forte-456')
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456', SENHA_DE_TESTE)
     ).rejects.toThrow(ErroPermissao)
+  })
+
+  it('recusa quem nao sabe a propria senha, e deixa a do alvo intacta', async () => {
+    // Uma sessao dura 12 horas sem timeout de inatividade. Sem esta
+    // conferencia, quem senta na mesa da coordenacao com a tela aberta define
+    // a senha de qualquer conta — inclusive uma do papel SAUDE, que enxerga
+    // evolucao clinica e laudo de grau de dependencia.
+    const ctx = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(ctx, dadosValidos)
+
+    await expect(
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456', 'chute-errado')
+    ).rejects.toThrow(ErroValidacao)
+
+    const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } })
+    expect(await verificarSenha(depois.senhaHash, dadosValidos.senha)).toBe(true)
+  })
+
+  it('confere a senha de quem troca, nao a do alvo', async () => {
+    // O alvo foi criado com `dadosValidos.senha`, e passa-la aqui tem de
+    // falhar: se a conferencia olhasse para a conta alvo, saber a senha
+    // inicial dela — que aparece em texto plano na tela de criacao — bastaria
+    // para troca-la.
+    const ctx = await ctxComPapel('COORDENACAO')
+    const alvo = await criarUsuario(ctx, dadosValidos)
+
+    await expect(
+      definirSenha(ctx, alvo.id, 'outra-senha-forte-456', dadosValidos.senha)
+    ).rejects.toThrow(ErroValidacao)
   })
 })
 

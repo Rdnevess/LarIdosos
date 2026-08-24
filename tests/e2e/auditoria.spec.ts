@@ -70,11 +70,14 @@ test('traduz o valor booleano da desativação de um usuário, sem vazar true/fa
   // exatamente o caso que a coluna "Alteração" vazava em inglês antes desta
   // correção.
   await page.goto('/usuarios')
-  await page.getByLabel('Nome').fill(nome)
-  await page.getByLabel('E-mail').fill(email)
-  await page.getByLabel('Papel').selectOption('ADMINISTRATIVO')
-  await page.getByLabel('Senha inicial (mínimo 8 caracteres)').fill('senha-de-teste-123')
-  await page.getByRole('button', { name: 'Criar usuário' }).click()
+  // Pelo nome da região: cada linha da lista tem um formulário de edição com
+  // os mesmos rótulos, e um `getByLabel` solto na página seria ambíguo.
+  const novoUsuario = page.getByRole('region', { name: 'Novo usuário' })
+  await novoUsuario.getByLabel('Nome').fill(nome)
+  await novoUsuario.getByLabel('E-mail').fill(email)
+  await novoUsuario.getByLabel('Papel').selectOption('ADMINISTRATIVO')
+  await novoUsuario.getByLabel('Senha inicial (mínimo 8 caracteres)').fill('senha-de-teste-123')
+  await novoUsuario.getByRole('button', { name: 'Criar usuário' }).click()
 
   const linhaUsuario = page.locator('li', { hasText: nome })
   await expect(linhaUsuario).toBeVisible()

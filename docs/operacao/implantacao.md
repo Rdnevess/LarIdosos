@@ -197,6 +197,8 @@ nem firewall bloqueando-as).
 
 Faça login com `SEED_ADMIN_EMAIL` e a senha temporária de
 `SEED_ADMIN_SENHA`, e troque a senha imediatamente pela tela do sistema.
+O formulário pede a senha atual antes da nova: aqui, a própria temporária
+do `.env.producao`.
 A senha do arquivo `.env.producao` **não pode ser considerada segura**
 — ela passou por texto plano num arquivo de configuração. Depois da
 troca, o valor de `SEED_ADMIN_SENHA` no `.env.producao` fica obsoleto: o
@@ -205,19 +207,19 @@ existe, mesmo que o container reinicie ou seja reconstruído.
 
 ## Passo 11 — Combinar o bloqueio de tela com a equipe
 
-Uma sessão dura 12 horas e não expira por inatividade. Quem tem o papel
-COORDENACAO pode definir a senha de qualquer conta pela tela de usuários,
-sem digitar a própria senha.
+Uma sessão dura 12 horas e não expira por inatividade. Um computador
+destravado na sala administrativa é, até o fim do expediente, acesso de
+coordenação: a ficha de qualquer residente, a trilha de auditoria, o
+cadastro de funcionários.
 
-Somadas, as duas coisas significam que um computador destravado na sala
-administrativa é acesso de coordenação até o fim do expediente. Combine
-com a equipe: **bloquear a tela ao sair da mesa** (tecla Windows + L).
+Trocar a senha de uma conta exige a senha de quem troca, conferida com
+Argon2 — então a tela deixada aberta não vale mais poder de assumir
+contas alheias. Vale, ainda assim, tudo o que a sessão já podia ler.
+Combine com a equipe: **bloquear a tela ao sair da mesa** (tecla Windows
++ L).
 
-A troca de senha é auditada com o nome de quem trocou, então o abuso
-deixa rastro e derruba a sessão da conta afetada — quem sofrer percebe.
-É detecção, não prevenção; a prevenção é a tela bloqueada. Exigir a
-senha atual de quem troca está registrado como o item de segurança de
-maior prioridade da próxima fase, em `docs/operacao/pendencias-fase-1.md`.
+A troca de senha é auditada com o nome de quem trocou e derruba a sessão
+da conta afetada — quem sofrer percebe.
 
 ## Atualizando o sistema
 
