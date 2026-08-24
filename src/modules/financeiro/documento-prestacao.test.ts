@@ -236,3 +236,51 @@ describe('montarDocumentoPrestacao', () => {
     await expect(montarDocumentoPrestacao(saude, prestacao.id)).rejects.toThrow(ErroPermissao)
   })
 })
+
+describe('limites da competência', () => {
+  it('inclui o lançamento do primeiro e do último dia do mês', async () => {
+    // Coluna `@db.Date`: o Prisma devolve meia-noite UTC. Um limite construído
+    // em hora local vira 03:00Z no Brasil, e o dia 1 — que está em 00:00Z —
+    // fica de fora. O mês inteiro fecha sem ele, e a prestação não bate com o
+    // extrato por um lançamento que ninguém consegue achar.
+    const { ctx, conta, origem } = await cenario()
+
+    await lancarReceita(ctx, {
+      contaBancariaId: conta.id,
+      origemReceitaId: origem.id,
+      descricao: 'Doação do dia 1',
+      valor: 100,
+      data: new Date('2026-08-01'),
+    })
+    await lancarReceita(ctx, {
+      contaBancariaId: conta.id,
+      origemReceitaId: origem.id,
+      descricao: 'Doação do dia 31',
+      valor: 200,
+      data: new Date('2026-08-31'),
+    })
+
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    const documento = await montarDocumentoPrestacao(ctx, prestacao.id)
+
+    expect(documento.receitas).toHaveLength(2)
+    expect(documento.conciliacao.totalReceitas).toBe(300)
+  })
+
+  it('não puxa o lançamento do mês seguinte', async () => {
+    const { ctx, conta, origem } = await cenario()
+
+    await lancarReceita(ctx, {
+      contaBancariaId: conta.id,
+      origemReceitaId: origem.id,
+      descricao: 'Doação de setembro',
+      valor: 500,
+      data: new Date('2026-09-01'),
+    })
+
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    const documento = await montarDocumentoPrestacao(ctx, prestacao.id)
+
+    expect(documento.receitas).toHaveLength(0)
+  })
+})

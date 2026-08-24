@@ -5,6 +5,7 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { montarDocumentoPrestacao } from './documento-prestacao'
 import { gerarXlsxPrestacao } from './xlsx-prestacao'
 import { gerarPdfPrestacao } from './pdf-prestacao'
+import { gerarCsvLancamentos } from './csv-lancamentos'
 
 /**
  * A saída do documento pronto: `.xlsx` para o órgão, PDF para o arquivo e a
@@ -16,11 +17,14 @@ import { gerarPdfPrestacao } from './pdf-prestacao'
  * que foi protocolada é o começo de qualquer conferência.
  */
 
-export type FormatoExportacao = 'xlsx' | 'pdf'
+export type FormatoExportacao = 'xlsx' | 'pdf' | 'csv'
 
 const MIME: Record<FormatoExportacao, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pdf: 'application/pdf',
+  // `charset=utf-8` junto do BOM que o CSV já carrega: os dois dizem a mesma
+  // coisa, e programas diferentes acreditam em um ou no outro.
+  csv: 'text/csv; charset=utf-8',
 }
 
 export type PrestacaoExportada = {
@@ -44,6 +48,33 @@ function pedacoSeguro(texto: string): string {
   )
 }
 
+/**
+ * O CSV é dos lançamentos da competência, e não do documento: o contador quer
+ * a movimentação linha a linha, não a capa e o ofício. Por isso ele não passa
+ * por `montarDocumentoPrestacao` — e por isso não exige a configuração da
+ * instituição, que só a capa e as assinaturas usam.
+ */
+async function gerarConteudo(
+  ctx: Ctx,
+  prestacao: { id: string; contaBancariaId: string; anoCompetencia: number; mesCompetencia: number },
+  formato: FormatoExportacao
+): Promise<Buffer> {
+  if (formato === 'csv') {
+    const { anoCompetencia: ano, mesCompetencia: mes } = prestacao
+    const csv = await gerarCsvLancamentos(ctx, {
+      contaBancariaId: prestacao.contaBancariaId,
+      de: new Date(ano, mes - 1, 1),
+      ate: new Date(ano, mes, 0, 23, 59, 59),
+    })
+    return Buffer.from(csv, 'utf8')
+  }
+
+  const documento = await montarDocumentoPrestacao(ctx, prestacao.id)
+  return formato === 'xlsx'
+    ? await gerarXlsxPrestacao(documento)
+    : await gerarPdfPrestacao(documento)
+}
+
 export async function exportarPrestacao(
   ctx: Ctx,
   prestacaoId: string,
@@ -57,9 +88,7 @@ export async function exportarPrestacao(
   })
   if (!prestacao) throw new ErroNaoEncontrado('Prestação de contas não encontrada')
 
-  const documento = await montarDocumentoPrestacao(ctx, prestacaoId)
-  const buffer =
-    formato === 'xlsx' ? await gerarXlsxPrestacao(documento) : await gerarPdfPrestacao(documento)
+  const buffer = await gerarConteudo(ctx, prestacao, formato)
 
   const conta = pedacoSeguro(prestacao.contaBancaria.numeroConta)
   const mes = String(prestacao.mesCompetencia).padStart(2, '0')

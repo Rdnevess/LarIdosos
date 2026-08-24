@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { ErroPermissao } from '@/lib/erros'
 import { ctxComPapel } from '@/../tests/helpers/fabricas'
 import { criarContaBancaria, salvarConfiguracaoInstituicao } from './instituicao.service'
+import { criarOrigemReceita } from './cadastros.service'
+import { lancarReceita } from './lancamentos.service'
 import { abrirPrestacao } from './prestacoes.service'
 import { exportarPrestacao } from './exportar'
 
@@ -54,6 +56,43 @@ describe('exportarPrestacao', () => {
     expect(nomeArquivo).toBe('prestacao-98765-4-2026-12.pdf')
     expect(mimeType).toBe('application/pdf')
     expect(buffer.subarray(0, 5).toString()).toBe('%PDF-')
+  })
+
+  it('gera o CSV da competência, para o contador', async () => {
+    // Mesma competência, terceiro formato. O contador não usa o sistema: ele
+    // recebe um arquivo e importa.
+    const { ctx, conta } = await cenario()
+    const origem = await criarOrigemReceita(ctx, { nome: 'Doação' })
+    await lancarReceita(ctx, {
+      contaBancariaId: conta.id,
+      origemReceitaId: origem.id,
+      descricao: 'Doação de agosto',
+      valor: 2000,
+      data: new Date('2026-08-05'),
+    })
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const { buffer, nomeArquivo, mimeType } = await exportarPrestacao(ctx, prestacao.id, 'csv')
+
+    expect(nomeArquivo).toBe('prestacao-98765-4-2026-08.csv')
+    expect(mimeType).toContain('text/csv')
+    expect(buffer.toString('utf8')).toContain('05/08/2026;Receita;Doação de agosto;2000,00')
+  })
+
+  it('não leva ao CSV o lançamento de outra competência', async () => {
+    const { ctx, conta } = await cenario()
+    const origem = await criarOrigemReceita(ctx, { nome: 'Doação' })
+    await lancarReceita(ctx, {
+      contaBancariaId: conta.id,
+      origemReceitaId: origem.id,
+      descricao: 'Doação de setembro',
+      valor: 999,
+      data: new Date('2026-09-05'),
+    })
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const { buffer } = await exportarPrestacao(ctx, prestacao.id, 'csv')
+    expect(buffer.toString('utf8')).not.toContain('Doação de setembro')
   })
 
   it('audita EXPORTAR, com o formato no diff', async () => {

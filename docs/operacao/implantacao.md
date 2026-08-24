@@ -205,7 +205,34 @@ troca, o valor de `SEED_ADMIN_SENHA` no `.env.producao` fica obsoleto: o
 seed é idempotente e nunca mais sobrescreve a senha de um usuário que já
 existe, mesmo que o container reinicie ou seja reconstruído.
 
-## Passo 11 — Combinar o bloqueio de tela com a equipe
+## Passo 11 — Cadastrar a instituição e as contas bancárias
+
+Antes da primeira prestação de contas, e não na véspera de entregá-la.
+
+Em **Financeiro → Cadastros**, preencha os *Dados da instituição*: razão
+social, CNPJ, endereço completo, cidade, UF, órgão destinatário e os nomes do
+presidente e do tesoureiro. **A exportação da prestação recusa sem eles** — é
+de lá que saem a capa, o ofício de encaminhamento, os rodapés de assinatura e
+a declaração de encerramento, e um documento com lacunas onde deveria haver
+razão social e CNPJ não seria aceito pelo órgão.
+
+Na mesma tela, cadastre:
+
+- as **contas bancárias**, com o saldo inicial e a data dele — cada
+  lançamento pertence a uma conta, e cada prestação cobre uma conta num mês;
+- as **origens de receita**. Crie ao menos duas: uma para doação avulsa e uma
+  marcada como *"exige informar o residente"*, para a contribuição. As duas
+  devem ter o mesmo **rótulo na prestação** (tipicamente `Doação`): é o rótulo
+  que agrupa na conciliação, e é ele que faz a contribuição de um idoso sair
+  somada às demais **sem o nome dele** no documento entregue ao órgão;
+- as **categorias de despesa** e os **fornecedores**.
+
+O saldo inicial da conta é o ponto de partida da cadeia: a prestação de cada
+mês herda o saldo da anterior já fechada, e a primeira delas herda deste
+campo. Um saldo inicial errado se propaga por todos os meses seguintes — vale
+conferi-lo contra o extrato antes de abrir a primeira prestação.
+
+## Passo 12 — Combinar o bloqueio de tela com a equipe
 
 Uma sessão dura 12 horas e não expira por inatividade. Um computador
 destravado na sala administrativa é, até o fim do expediente, acesso de

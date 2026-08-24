@@ -215,3 +215,47 @@ test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', 
   await expect(aderencia).toContainText('Administradas')
   await expect(aderencia).toContainText('0%')
 })
+
+/**
+ * A outra metade da fronteira do dinheiro.
+ *
+ * A Fase 3 pôs no sistema conta bancária, lançamento e prestação de contas, e
+ * nada disso é da enfermagem. Como no prontuário para o ADMINISTRATIVO, o que
+ * vale não é o menu — é o serviço recusar quem digita a URL.
+ */
+test('o financeiro é recusado ao perfil SAUDE, e a trilha registra', async ({
+  page,
+  browser,
+}) => {
+  await page.goto('/turno')
+  await expect(page.getByRole('link', { name: 'Financeiro' })).toHaveCount(0)
+
+  for (const rota of [
+    '/financeiro',
+    '/financeiro/cadastros',
+    '/financeiro/prestacoes',
+    '/financeiro/contribuicoes',
+  ]) {
+    await page.goto(rota)
+    await expect(
+      page.getByRole('heading', { name: /Não foi possível abrir esta tela/ })
+    ).toBeVisible()
+    // Nada de exceção interna vazando para a tela.
+    await expect(page.getByText(/ErroPermissao|Prisma|at Object/)).toHaveCount(0)
+  }
+
+  const coordenacao = await browser.newContext({
+    storageState: 'tests/e2e/.sessao.json',
+    baseURL: 'http://localhost:3000',
+  })
+  const paginaCoordenacao = await coordenacao.newPage()
+  await paginaCoordenacao.goto('/auditoria')
+  // `ContaBancaria`, e não `Lancamento`: é `listarContasBancarias` o primeiro
+  // serviço que /financeiro chama, e é ele quem recusa — a entidade registrada
+  // é a de quem barrou, não a do assunto da tela.
+  await paginaCoordenacao.getByLabel('Entidade').selectOption('ContaBancaria')
+  await paginaCoordenacao.getByRole('button', { name: 'Filtrar' }).click()
+  await expect(paginaCoordenacao.getByText('Acesso negado').first()).toBeVisible()
+
+  await coordenacao.close()
+})

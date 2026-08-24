@@ -77,6 +77,19 @@ describe('gerarXlsxPrestacao', () => {
     expect(celulaDaPrimeiraData(folha).value).toBeInstanceOf(Date)
   })
 
+  it('grava o dia certo, e não o anterior', async () => {
+    // Coluna `@db.Date`: o Prisma devolve meia-noite UTC, e ler com getters
+    // locais num fuso atrás de Greenwich devolve o dia anterior. Foi assim que
+    // o CSV saiu com 09/08 para um lançamento de 10/08.
+    const documento = documentoDeTeste({
+      despesas: [despesaDeTeste({ data: new Date('2026-08-15T00:00:00Z') })],
+    })
+    const wb = await reabrir(await gerarXlsxPrestacao(documento))
+    const celula = celulaDaPrimeiraData(wb.getWorksheet('3-Despesas')!)
+
+    expect((celula.value as Date).toISOString().slice(0, 10)).toBe('2026-08-15')
+  })
+
   it('cresce além das 22 linhas do modelo quando o mês tem mais lançamentos', async () => {
     // O teto já foi atingido: hoje a equipe insere linhas e reajusta fórmulas
     // à mão.

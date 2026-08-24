@@ -138,7 +138,8 @@ inexistente, e não descobre pela mensagem quais contas existem.
 
 **O que não muda:** a sessão continua valendo 12 horas sem timeout, e tudo o
 que ela já lia continua exposto numa tela deixada aberta. O bloqueio de tela
-segue sendo instrução de implantação (Passo 11), agora com o texto certo — ele
+segue sendo instrução de implantação (Passo 12 desde a Fase 3, que inseriu o
+cadastro da instituição antes dele), agora com o texto certo — ele
 afirmava que a coordenação trocava senha sem digitar a própria.
 
 ## 4. Quatro serviços sem caminho de interface — resolvido

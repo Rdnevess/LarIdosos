@@ -3,7 +3,7 @@ import { obterCtx } from '@/modules/auth/sessao'
 import { exportarPrestacao, type FormatoExportacao } from '@/modules/financeiro/exportar'
 import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 
-const FORMATOS: FormatoExportacao[] = ['xlsx', 'pdf']
+const FORMATOS: FormatoExportacao[] = ['xlsx', 'pdf', 'csv']
 
 /**
  * O download da prestação pronta.

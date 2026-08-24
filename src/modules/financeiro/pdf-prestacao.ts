@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit'
+import { formatarData } from '@/lib/ptbr'
 import type { DocumentoPrestacao } from './documento-prestacao'
 
 /**
@@ -24,12 +25,6 @@ const LARGURA_UTIL = 595.28 - MARGEM * 2
 
 function moeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function dataCurta(data: Date): string {
-  const dia = String(data.getDate()).padStart(2, '0')
-  const mes = String(data.getMonth() + 1).padStart(2, '0')
-  return `${dia}/${mes}/${data.getFullYear()}`
 }
 
 function titulo(doc: Doc, texto: string): void {
@@ -188,7 +183,7 @@ function paginaDespesas(doc: Doc, documento: DocumentoPrestacao): void {
       despesa.credor,
       despesa.documento,
       despesa.formaPagamento,
-      dataCurta(despesa.data),
+      formatarData(despesa.data),
       moeda(despesa.valor),
     ]),
     { rotulo: 'Total', valor: moeda(documento.conciliacao.totalDespesas) }
@@ -217,7 +212,7 @@ function paginaReceitas(doc: Doc, documento: DocumentoPrestacao): void {
       String(receita.item),
       receita.origem,
       receita.documento,
-      dataCurta(receita.data),
+      formatarData(receita.data),
       moeda(receita.valor),
     ]),
     { rotulo: 'Total', valor: moeda(documento.conciliacao.totalReceitas) }
@@ -238,7 +233,7 @@ function paginaConciliacao(doc: Doc, documento: DocumentoPrestacao): void {
     .font('Helvetica')
     .fontSize(10)
     .text(
-      `Período de ${dataCurta(dados.periodo.de)} a ${dataCurta(dados.periodo.ate)}`,
+      `Período de ${formatarData(dados.periodo.de)} a ${formatarData(dados.periodo.ate)}`,
       { align: 'center' }
     )
   doc.moveDown(1)

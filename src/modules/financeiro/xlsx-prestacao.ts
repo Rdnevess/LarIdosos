@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs'
 import { LAYOUT, type NomeFolha } from './layout-prestacao'
+import { formatarData } from '@/lib/ptbr'
 import type { DocumentoPrestacao } from './documento-prestacao'
 
 /**
@@ -25,12 +26,6 @@ const DATA = 'dd/mm/yyyy'
 /** O texto que o modelo traz numa célula — usado como rótulo, nunca como dado. */
 function rotulo(folha: NomeFolha, celula: string): string {
   return LAYOUT[folha].rotulos[celula] ?? ''
-}
-
-function dataCurta(data: Date): string {
-  const dia = String(data.getDate()).padStart(2, '0')
-  const mes = String(data.getMonth() + 1).padStart(2, '0')
-  return `${dia}/${mes}/${data.getFullYear()}`
 }
 
 function aplicarLarguras(folha: ExcelJS.Worksheet, nome: NomeFolha): void {
@@ -227,7 +222,7 @@ function montarConciliacao(wb: ExcelJS.Workbook, documento: DocumentoPrestacao):
     '5-Conciliação',
     {
       A1: documento.capa.razaoSocial,
-      A7: `Período de ${dataCurta(dados.periodo.de)} a ${dataCurta(dados.periodo.ate)}`,
+      A7: `Período de ${formatarData(dados.periodo.de)} a ${formatarData(dados.periodo.ate)}`,
       A10: dados.banco,
       E10: dados.agencia,
       I10: dados.conta,

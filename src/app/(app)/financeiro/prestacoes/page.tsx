@@ -207,6 +207,15 @@ export default async function PaginaPrestacoes({
                   >
                     Baixar PDF
                   </Link>
+                  {/* O CSV é para o contador: ele não usa o sistema, recebe um
+                      arquivo e importa. */}
+                  <Link
+                    href={`/api/prestacoes/${prestacao.id}/csv`}
+                    className="underline"
+                    prefetch={false}
+                  >
+                    Baixar CSV para o contador
+                  </Link>
                 </p>
               )}
 

@@ -12,6 +12,26 @@ tempo.
 Cobre também o **controle de medicação**: esquema medicamentoso, mapa do
 turno, registro dose a dose e relatório de aderência.
 
+E o **financeiro**: contas bancárias, lançamentos de receita e despesa,
+contribuição do residente e a **prestação de contas mensal no formato que o
+órgão conveniador exige** — gerada pelo sistema, em `.xlsx` e em PDF, sem
+ninguém copiar número de planilha em planilha.
+
+**O `.xlsx` é o que vai ao órgão; o PDF serve ao arquivo interno e à
+assinatura física.** Os dois saem do mesmo documento em memória, onde os
+totais são calculados uma única vez — é o que impede os dois de divergirem no
+dia em que alguém corrigir um cálculo em só um deles. A planilha sai com
+**valores, nunca fórmulas**: as fórmulas do modelo são a parte frágil (soma de
+faixa fixa, agrupamento por texto literal, um `XLOOKUP` que já aponta para
+`#REF!`), e uma planilha entregue com fórmula pode recalcular errado na máquina
+de quem a abrir. Há ainda um **CSV para o contador**, com ponto e vírgula e
+BOM, porque o escritório dele importa arquivo e não usa o sistema.
+
+Fechar a prestação **congela** os lançamentos realizados da competência, e é o
+que impede um lançamento posterior de mudar, em silêncio, um documento já
+protocolado. Reabrir exige motivo, e o motivo sai impresso nas observações do
+documento regerado.
+
 O prontuário vive em rota própria (`/residentes/[id]/prontuario`), fora do
 alcance do papel ADMINISTRATIVO. A área `/pendencias` atravessa todos os
 residentes e mostra o que está em aberto: exame solicitado e esquecido é o
@@ -184,7 +204,8 @@ que nenhum teste atravessa é uma fronteira que ninguém sabe se existe.
 
 ```
 src/app/(app)/      telas autenticadas; `acoes.ts` são as Server Actions
-src/app/api/        entrega de documento anexado, rotas do NextAuth
+src/app/api/        entrega de documento anexado, download da prestação,
+                    rotas do NextAuth
 src/components/     formulários e campos compartilhados
 src/lib/            contexto, erros, senha, conversão de FormData, pt-BR
 src/modules/        regras de negócio, uma pasta por área
@@ -213,6 +234,9 @@ plataforma serverless. Os documentos anexados ficam num volume
   e os problemas comuns.
 - **`docs/operacao/backup.md`** — backup criptografado, envio para
   armazenamento remoto, alerta de falha e o procedimento de restauração.
+- **`docs/operacao/pendencias-fase-*.md`** — o que ficou em aberto ao fechar
+  cada fase, com o estado de cada item e onde ele se resolve. Nenhum impede o
+  uso; estão escritos para não dependerem da memória de ninguém.
 
 **Não considere o sistema pronto para uso real antes de configurar e
 testar o backup.**
