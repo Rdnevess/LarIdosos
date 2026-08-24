@@ -6,6 +6,7 @@ import { obterCtx } from '@/modules/auth/sessao'
 import { obterResidente } from '@/modules/residents/residentes.service'
 import { obterGrauVigente } from '@/modules/residents/dependencia.service'
 import { obterCabecalhoClinico } from '@/modules/health/cabecalho.service'
+import { obterUltimoSinalVital } from '@/modules/health/sinais-vitais.service'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { CabecalhoClinico } from '@/components/cabecalho-clinico'
 import {
@@ -43,9 +44,10 @@ export default async function PaginaProntuario({
     throw erro
   }
 
-  const [grau, dados] = await Promise.all([
+  const [grau, dados, ultimoSinalVital] = await Promise.all([
     obterGrauVigente(ctx, id),
     obterCabecalhoClinico(ctx, id),
+    obterUltimoSinalVital(ctx, id),
   ])
 
   // Prontuário é dado pessoal sensível (LGPD, art. 11), e esta tela mostra
@@ -83,7 +85,7 @@ export default async function PaginaProntuario({
           vazia tem frase só no cabeçalho — repeti-la na seção seria a mesma
           sentença duas vezes na mesma tela, e a seção vazia já se explica
           sozinha, com o formulário logo ali. */}
-      <CabecalhoClinico grau={grau} dados={dados} ultimoSinalVital={null} />
+      <CabecalhoClinico grau={grau} dados={dados} ultimoSinalVital={ultimoSinalVital} />
 
       <details className="rounded border bg-white p-4">
         <summary className="cursor-pointer font-medium text-slate-800">
