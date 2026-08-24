@@ -43,11 +43,10 @@ export async function GET(
     // aqui entregaria essa mesma existência de volta, num código de status. Quem
     // não pode ver não distingue "não existe" de "não é para você".
     //
-    // Atenção: a tentativa negada NÃO gera registro em `LogAuditoria` —
-    // `obterDocumentoParaDownload` lança antes de auditar, e o mesmo vale para
-    // todo serviço que chama `exigirPapel`. Registrar tentativa indevida é
-    // desejável e está pendente como decisão transversal (exige novo valor no
-    // enum `AcaoAuditoria`); não presuma que existe esse rastro hoje.
+    // A tentativa negada FICA registrada: desde a pendência 3 da Fase 1,
+    // `exigirPapel` dispara `ACESSO_NEGADO` antes de lançar. O registro é
+    // amostrado numa janela deslizante de 60s (1ª, 2ª, 4ª, 8ª tentativa), para
+    // uma varredura não afogar a trilha.
     if (erro instanceof ErroPermissao || erro instanceof ErroNaoEncontrado) {
       return NextResponse.json({ erro: 'Documento não encontrado' }, { status: 404 })
     }
