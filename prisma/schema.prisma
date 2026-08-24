@@ -409,7 +409,6 @@ model AnotacaoSaude {
   ocorridoEm              DateTime
   editavelAte             DateTime
   retificaAnotacaoSaudeId String?
-  autorId                 String?
   criadoEm                DateTime               @default(now())
   atualizadoEm            DateTime               @updatedAt
   criadoPorId             String?

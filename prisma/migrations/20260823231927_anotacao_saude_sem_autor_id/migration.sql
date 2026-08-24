@@ -1,0 +1,14 @@
+-- `autorId` era redundante com `criadoPorId`.
+--
+-- `Anotacao`, a irmã da ficha cadastral, usa `criadoPorId` como autor, e a
+-- regra R3 (só o autor edita, por 15 minutos) já lê esse campo lá. Dois campos
+-- com o mesmo significado divergem no dia em que alguém preencher um e
+-- esquecer o outro — e aqui o campo é o que decide quem pode corrigir o
+-- registro.
+--
+-- `AvaliacaoDependencia` mantém `avaliadorId` separado de `criadoPorId` porque
+-- ali os dois são de fato pessoas diferentes: quem avaliou e quem digitou. Numa
+-- anotação, são a mesma pessoa.
+--
+-- A tabela nasceu vazia nesta mesma branch; não há dado a preservar.
+ALTER TABLE "anotacoes_saude" DROP COLUMN "autorId";
