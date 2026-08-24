@@ -3,6 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { executarAcao, type EstadoAcao } from '@/lib/acoes'
 import { texto, data, numero } from '@/lib/formulario'
+// A divisão do dia mora em `@/lib/turno` desde a Fase 2B: as anotações de
+// saúde e a tela do turno precisam da mesma resposta para "em que turno isso
+// aconteceu?". O turno continua sendo só o palpite inicial aqui — o
+// formulário o deixa editável.
+import { turnoDaHora } from '@/lib/turno'
 import { obterCtx } from '@/modules/auth/sessao'
 import {
   registrarAlergia,
@@ -141,19 +146,6 @@ export async function acaoDesativarRestricaoAlimentar(
 
   revalidatePath(caminho(residenteId))
   return resultado
-}
-
-/**
- * O turno é derivado da hora quando o formulário não o traz, e o critério
- * precisa estar explícito: manhã 6h–13h59, tarde 14h–21h59, noite 22h–5h59.
- * Não é a divisão de escala do Lar — é a que a equipe usa ao dizer "no turno
- * da noite ela…". Continua editável no formulário; isto é só o palpite.
- */
-function turnoDaHora(momento: Date): 'MANHA' | 'TARDE' | 'NOITE' {
-  const hora = momento.getHours()
-  if (hora >= 6 && hora < 14) return 'MANHA'
-  if (hora >= 14 && hora < 22) return 'TARDE'
-  return 'NOITE'
 }
 
 /**
