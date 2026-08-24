@@ -1,0 +1,12 @@
+-- Tentativa de acesso negada passa a ser evento de auditoria.
+--
+-- A trilha registrava o que aconteceu, nunca o que foi tentado. Para dado de
+-- saúde sob a LGPD (art. 11), saber que alguém tentou ler repetidamente e não
+-- conseguiu é o sinal que interessa — mais que o acesso bem-sucedido.
+--
+-- Escrita à mão, e não gerada por `prisma migrate dev`: os comentários da
+-- migration `20260820213908_documento_funcionario_fk` foram editados depois de
+-- ela ter sido aplicada, então o `migrate dev` pede um reset do banco de
+-- desenvolvimento antes de gerar qualquer migration nova. `migrate deploy`
+-- aplica esta aqui sem reset e sem perder dado.
+ALTER TYPE "AcaoAuditoria" ADD VALUE 'ACESSO_NEGADO';

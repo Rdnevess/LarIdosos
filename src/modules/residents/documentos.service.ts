@@ -100,6 +100,7 @@ export async function anexarDocumento(ctx: Ctx, dados: DadosAnexo): Promise<Docu
   const entrada = validar(anexoSchema, dados)
   exigirPapel(
     ctx,
+    'Documento',
     ...papeisQuePodemVer({
       tipo: entrada.tipo,
       funcionarioId: entrada.funcionarioId ?? null,
@@ -196,7 +197,7 @@ export async function listarDocumentos(
   ctx: Ctx,
   alvo: { residenteId?: string; funcionarioId?: string }
 ): Promise<Documento[]> {
-  exigirPapel(ctx, ...TODOS)
+  exigirPapel(ctx, 'Documento', ...TODOS)
 
   // Sem isso, `alvo` vazio produziria `where: { ativo: true }` — o Prisma ignora
   // chaves `undefined` — e a função varreria todos os documentos de todos os
@@ -224,7 +225,7 @@ export async function excluirDocumento(ctx: Ctx, id: string): Promise<void> {
     throw new ErroNaoEncontrado('Documento não encontrado')
   }
 
-  exigirPapel(ctx, ...papeisQuePodemVer(documento))
+  exigirPapel(ctx, 'Documento', ...papeisQuePodemVer(documento))
 
   await prisma.$transaction(async (tx) => {
     await tx.documento.update({ where: { id }, data: { ativo: false } })

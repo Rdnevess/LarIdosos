@@ -48,7 +48,7 @@ export async function criarAnotacao(
   ctx: Ctx,
   dados: DadosNovaAnotacao
 ): Promise<Anotacao> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Anotacao', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   const entrada = validar(novaAnotacaoSchema, dados)
 
   return prisma.$transaction(async (tx) => {
@@ -83,7 +83,7 @@ export async function listarAnotacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<Anotacao[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Anotacao', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const anotacoes = await prisma.anotacao.findMany({
     where: { residenteId },
@@ -104,7 +104,7 @@ export async function editarAnotacao(
   id: string,
   texto: string
 ): Promise<Anotacao> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Anotacao', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   const atual = await exigirAnotacao(id)
 
   if (atual.criadoPorId !== ctx.usuarioId) {
@@ -141,7 +141,7 @@ export async function retificarAnotacao(
   id: string,
   dados: DadosRetificacao
 ): Promise<Anotacao> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Anotacao', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   const entrada = validar(retificacaoSchema, dados)
   const original = await exigirAnotacao(id)
 

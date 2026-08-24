@@ -24,7 +24,7 @@ export async function registrarAvaliacao(
   ctx: Ctx,
   dados: DadosAvaliacao
 ): Promise<AvaliacaoDependencia> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE')
+  exigirPapel(ctx, 'AvaliacaoDependencia', 'COORDENACAO', 'SAUDE')
   const entrada = validar(avaliacaoSchema, dados)
 
   const residente = await prisma.residente.findUnique({
@@ -61,7 +61,7 @@ export async function obterGrauVigente(
   residenteId: string,
   emData: Date = new Date()
 ): Promise<GrauDependencia | null> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'AvaliacaoDependencia', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const avaliacao = await prisma.avaliacaoDependencia.findFirst({
     where: { residenteId, dataAvaliacao: { lte: emData } },
@@ -80,7 +80,7 @@ export async function listarAvaliacoes(
   ctx: Ctx,
   residenteId: string
 ): Promise<AvaliacaoDependencia[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'AvaliacaoDependencia', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const avaliacoes = await prisma.avaliacaoDependencia.findMany({
     where: { residenteId },

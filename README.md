@@ -11,6 +11,11 @@ física: registros saem de cena por desligamento ou por `ativo = false`, e
 toda escrita deixa rastro na trilha de auditoria dentro da mesma
 transação que a gravou.
 
+A trilha registra também o que **não** aconteceu: tentativa de acesso
+negada por papel entra como `ACESSO_NEGADO`, com a contagem de tentativas
+— é o sinal que a LGPD (art. 11) torna relevante para dado de saúde, e o
+único que não vem de uma escrita bem-sucedida.
+
 **Pilha:** Next.js 15 (App Router, Server Actions), React 19, Prisma,
 PostgreSQL 18, NextAuth v5 com credenciais e Argon2, Tailwind CSS 4.
 
@@ -83,6 +88,16 @@ desenvolvimento apaga o que estiver lá.
 npm run db:migrate   # aplica as migrations no banco de desenvolvimento
 npm run db:seed      # cria o usuário de coordenação
 ```
+
+> **Não edite uma migration já aplicada**, nem para corrigir um comentário.
+> O Prisma guarda o checksum do arquivo, e `migrate dev` passa a exigir um
+> reset do banco de desenvolvimento antes de gerar qualquer migration nova.
+> Já aconteceu uma vez neste repositório
+> (`20260820213908_documento_funcionario_fk`, no commit 7486196), e o
+> contorno foi escrever a migration seguinte à mão e aplicá-la com
+> `prisma migrate deploy`, que não confere checksum de migration já
+> aplicada. Comentário errado numa migration se corrige na próxima, ou não
+> se corrige.
 
 O seed lê `SEED_ADMIN_EMAIL` e `SEED_ADMIN_SENHA` do ambiente, caindo em
 `coordenacao@lar.local` / `trocar-esta-senha-123` quando não estão

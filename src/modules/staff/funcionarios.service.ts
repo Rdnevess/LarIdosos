@@ -23,7 +23,7 @@ export async function criarFuncionario(
   ctx: Ctx,
   dados: DadosNovoFuncionario
 ): Promise<Funcionario> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(novoFuncionarioSchema, dados)
 
   const existente = await prisma.funcionario.findUnique({ where: { cpf: entrada.cpf } })
@@ -52,7 +52,7 @@ export async function criarFuncionario(
  * minimização possível, quem abre a ficha vê o dado sensível inteiro.
  */
 export async function obterFuncionario(ctx: Ctx, id: string): Promise<Funcionario> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const funcionario = await exigirFuncionario(id)
 
   await registrarAuditoria(prisma, ctx, {
@@ -88,7 +88,7 @@ export async function listarFuncionarios(
   ctx: Ctx,
   filtro: { busca?: string; apenasAtivos?: boolean } = {}
 ): Promise<FuncionarioResumo[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
 
   const where: Prisma.FuncionarioWhereInput = {}
   if (filtro.apenasAtivos) where.ativo = true
@@ -111,7 +111,7 @@ export async function atualizarFuncionario(
   id: string,
   dados: DadosAtualizacaoFuncionario
 ): Promise<Funcionario> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(atualizacaoFuncionarioSchema, dados)
   const atual = await exigirFuncionario(id)
 
@@ -150,7 +150,7 @@ export async function desligarFuncionario(
   id: string,
   dados: DadosDesligamentoFuncionario
 ): Promise<Funcionario> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(desligamentoFuncionarioSchema, dados)
   const atual = await exigirFuncionario(id)
 
@@ -193,7 +193,7 @@ export async function listarConselhosVencendo(
   ctx: Ctx,
   ateDias: number
 ): Promise<ConselhoVencendo[]> {
-  exigirPapel(ctx, 'COORDENACAO', 'ADMINISTRATIVO')
+  exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
 
   const limite = new Date(Date.now() + ateDias * 86_400_000)
 

@@ -4,7 +4,7 @@ Registro do que ficou em aberto ao fechar o núcleo cadastral. Nenhum item
 impede o uso do sistema; todos foram decididos com o dono do projeto e estão
 aqui para não dependerem da memória de ninguém.
 
-Os itens **3, 4, 6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
+Os itens **2, 3, 4, 6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
 sumirem dele: cada um deles reverte uma decisão que estava escrita e defendida
 como deliberada, e apagar o registro apagaria junto o motivo de ela ter mudado.
 Quem encontrar a decisão antiga citada em comentário, relatório de tarefa ou
@@ -13,7 +13,7 @@ revisão precisa achar aqui o que aconteceu depois.
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
-| 2. Acesso negado não é auditado | aberto | Fase 2, com a tela de auditoria |
+| 2. Acesso negado não era auditado | resolvido | 23/08/2026 |
 | 3. Trocar senha não exigia a senha de quem troca | resolvido | 23/08/2026 |
 | 4. Quatro serviços sem tela | resolvido | 23/08/2026 |
 | 5. `XLOOKUP` quebrado da planilha | aberto | Fase 3, por eliminação |
@@ -41,24 +41,59 @@ executar o procedimento inteiro de `docs/operacao/backup.md` no VPS, contra o
 banco vazio recém-criado. É o momento mais barato: não há dado a perder. Depois
 preencher a linha da tabela com a data, quem executou e o tempo que levou.
 
-## 2. Nenhum serviço registra tentativa de acesso negada
+## 2. Tentativa de acesso negada não era registrada — resolvido
 
-**Situação:** `exigirPapel` lança `ErroPermissao` e a trilha de auditoria não
-recebe nada. A auditoria registra o que **aconteceu**, não o que foi
-**tentado**.
+**Resolvido em 23/08/2026.** O encaminhamento anterior mandava decidir, na Fase
+2, entre linha de `LogAuditoria` com ação própria e log estruturado separado com
+alerta por volume. Venceu a primeira, por um precedente que o registro não
+citava: `LOGIN_FALHA` já existia no enum e já era gravada com `prisma` fora de
+transação (`src/modules/auth/config.ts`). O projeto já tinha decidido que
+tentativa falha é evento de auditoria; faltava aplicar a mesma regra ao resto.
 
-**Por que isso importa:** é a diferença entre saber que um dado foi lido e saber
-que alguém tentou lê-lo repetidamente e não conseguiu. Para dado de saúde sob a
-LGPD (art. 11), o segundo é o sinal que interessa.
+Contra a segunda opção pesou o que existe aqui: não há coletor de log nem
+alerta neste sistema, os logs do Docker são limitados em tamanho e rotacionam, e
+a tela de consulta da trilha já está pronta com filtro por entidade, usuário e
+período. Um log estruturado ninguém leria.
 
-**Por que não foi feito agora:** auditar negação dentro de `exigirPapel` exige
-uma escrita fora da transação da operação (que não existe, porque a operação
-não começou), e uma decisão sobre limite de volume — um script hostil geraria
-milhares de linhas. É trabalho de projeto, não de correção.
+**Os dois impedimentos que estavam registrados:**
 
-**Encaminhamento:** decidir na Fase 2, junto com a tela de consulta da
-auditoria, se a negação vira linha de `LogAuditoria` com ação própria ou log
-estruturado separado com alerta por volume.
+*"Exige escrita fora da transação da operação, que não existe porque a operação
+não começou."* — Não era impedimento: `LOGIN_FALHA` já fazia exatamente isso.
+`registrarAuditoria` aceita o cliente Prisma comum, e não só um `tx`.
+
+*"Um script hostil geraria milhares de linhas."* — Este era real, e a solução é
+o coração da correção: **não se grava uma linha por tentativa.** Grava-se na 1ª,
+2ª, 4ª, 8ª tentativa de uma janela de 60 segundos que desliza a cada tentativa,
+com a contagem dentro da linha. Dez mil tentativas cabem em catorze linhas, e a
+magnitude — que é o sinal — continua legível. O preço assumido: entre duas
+linhas, o número exato de tentativas não está na trilha, só o intervalo em que
+caiu.
+
+**Onde ficou:** dentro de `exigirPapel`. É o único ponto que vê toda negação —
+Server Action, rota de API e página renderizada no servidor. Auditar nas
+fronteiras cobriria as duas primeiras e deixaria de fora a terceira, que é
+justamente o caso de alguém digitando na URL uma tela que o papel não alcança.
+
+**Duas decisões de desenho que valem registro:**
+
+`exigirPapel` **continua síncrona**, e o registro é disparado sem `await`.
+Torná-la assíncrona exigiria um `await` em trinta e um pontos de chamada, e um
+`await` esquecido não quebraria o build — apenas deixaria de barrar o acesso.
+Falha na escrita da trilha vai para o log do servidor e não derruba a tela.
+
+`exigirPapel` **ganhou um segundo parâmetro**, a entidade, tipada como
+`EntidadeAuditada` em vez de `string`. Sem ela toda negação ficaria
+indistinguível na tela, e "tentou abrir a ficha clínica" pesa diferente de
+"tentou abrir a lista de usuários". A tipagem não é preciosismo: um `Papel` não
+é atribuível a `EntidadeAuditada`, então quem esquecer o argumento novo quebra o
+build em vez de trocar, em silêncio, quais papéis a operação aceita. De quebra,
+`ROTULO_ENTIDADE` na tela de consulta virou `Record<EntidadeAuditada, string>` —
+entidade nova sem rótulo agora não compila, que era exatamente o que o
+comentário daquele mapa lamentava não ser possível.
+
+**O que não é coberto:** negação que não passa por `exigirPapel`. A tela de
+desligamento, por exemplo, esconde o formulário do papel SAUDE antes de chamar
+serviço nenhum — não há tentativa a registrar, porque não houve tentativa.
 
 ## 3. Trocar a senha exigia só a sessão aberta — resolvido
 
