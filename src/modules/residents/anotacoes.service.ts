@@ -9,9 +9,7 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 export const JANELA_EDICAO_MINUTOS = 15
 
 const categoriaSchema = z.enum([
-  'COMPORTAMENTO',
   'VISITA_FAMILIA',
-  'OCORRENCIA',
   'SOCIAL',
   'JURIDICO',
   'OUTRO',

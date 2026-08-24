@@ -39,9 +39,7 @@ import {
 // `??` adiante deixa o valor cru aparecer se surgir um enum novo — melhor um
 // rótulo feio que um campo vazio na ficha.
 const ROTULO_CATEGORIA: Record<string, string> = {
-  COMPORTAMENTO: 'Comportamento',
   VISITA_FAMILIA: 'Visita da família',
-  OCORRENCIA: 'Ocorrência',
   SOCIAL: 'Social',
   JURIDICO: 'Jurídico',
   OUTRO: 'Outro',

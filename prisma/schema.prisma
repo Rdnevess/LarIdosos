@@ -236,10 +236,13 @@ model Documento {
   @@map("documentos")
 }
 
+// Estritamente nao-clinica: COMPORTAMENTO e OCORRENCIA sairam daqui na Fase
+// 2A e passaram a existir so em CategoriaAnotacaoSaude, como COMPORTAMENTO e
+// INTERCORRENCIA. Sem isso o prontuario ficaria com metade da historia —
+// "ocorrencia" e "intercorrencia" sao a mesma palavra para quem escreve as
+// tres da manha.
 enum CategoriaAnotacao {
-  COMPORTAMENTO
   VISITA_FAMILIA
-  OCORRENCIA
   SOCIAL
   JURIDICO
   OUTRO

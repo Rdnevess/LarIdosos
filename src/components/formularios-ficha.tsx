@@ -23,9 +23,7 @@ export function FormularioAnotacao({ residenteId }: { residenteId: string }) {
           rotulo: 'Categoria',
           obrigatorio: true,
           opcoes: [
-            { valor: 'COMPORTAMENTO', rotulo: 'Comportamento' },
             { valor: 'VISITA_FAMILIA', rotulo: 'Visita da família' },
-            { valor: 'OCORRENCIA', rotulo: 'Ocorrência' },
             { valor: 'SOCIAL', rotulo: 'Social' },
             { valor: 'JURIDICO', rotulo: 'Jurídico' },
             { valor: 'OUTRO', rotulo: 'Outro' },

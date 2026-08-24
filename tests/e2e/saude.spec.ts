@@ -120,7 +120,9 @@ test('o papel SAUDE registra anotação, que é a escrita que lhe cabe', async (
   await abrirFicha(page)
 
   const texto = `Aferição de pressão sem alteração ${Date.now()}.`
-  await page.getByLabel('Categoria').selectOption('OCORRENCIA')
+  // A ficha cadastral so oferece categoria nao-clinica desde a Fase 2A; o
+  // clinico do papel SAUDE vive no prontuario.
+  await page.getByLabel('Categoria').selectOption('SOCIAL')
   await page.getByLabel('Anotação').fill(texto)
   await page.getByRole('button', { name: 'Registrar anotação' }).click()
 
