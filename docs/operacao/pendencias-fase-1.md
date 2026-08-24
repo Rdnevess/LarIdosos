@@ -181,16 +181,38 @@ auditoria. Cada um foi visto falhando contra o código anterior antes de passar.
 `estado.sucesso`, e a gravação agora de fato acontece. A mensagem deixou de
 mentir por consequência, sem precisar mudar.
 
-## 8. "Registro em conselho" aparece ao anexar documento de residente
+## 8. "Registro em conselho" na ficha do residente — resolvido
 
-`papeisQuePodemVer` classifica `CONSELHO_PROFISSIONAL` como visível a todos os
-papéis quando não há `funcionarioId` — então o seletor da ficha do residente
-oferece o tipo, que só faz sentido para funcionário.
+**Resolvido em 23/08/2026**, pelas duas saídas que o registro anterior apontava,
+que se mostraram complementares e não alternativas: classificação própria na
+política e alvo obrigatório na entrada.
 
-Não foi corrigido escondendo o tipo na tela de propósito: seria a segunda lista de
-política, exatamente o que a Fase 1 eliminou ao fazer a tela consultar
-`papeisQuePodemVer` em vez de repetir a regra. O lugar de resolver é a política —
-dar ao tipo um alvo obrigatório, ou uma classificação própria.
+**O que era:** `papeisQuePodemVer` classificava `CONSELHO_PROFISSIONAL` como
+visível a todos os papéis quando não havia `funcionarioId`, e o seletor da ficha
+do residente — que deriva dessa política — oferecia o tipo. Registro em conselho
+é o vínculo do profissional com o órgão de classe; não existe para quem mora
+aqui.
+
+**O que resolveu:** sem `funcionarioId`, a política devolve lista vazia — ninguém
+vê. `tiposQuePodeAnexar` continua derivando dela, então o tipo sai do seletor sem
+que a tela ganhe exceção própria, que era a armadilha registrada aqui: a segunda
+lista de política que a Fase 1 eliminou. A ordem das checagens preserva o caso
+legítimo — o registro em conselho **de um funcionário** continua sendo documento
+de pessoal, visível a COORDENACAO e ADMINISTRATIVO. O teste que já existia,
+"concorda com `papeisQuePodemVer` para todo tipo e todo papel", é o que garante
+que a tela não volte a divergir.
+
+Como a tela não é o que autoriza, `anexoSchema` ganhou a recusa correspondente:
+`CONSELHO_PROFISSIONAL` exige `funcionarioId`, e um POST montado à mão recebe
+"Registro em conselho pertence ao cadastro do funcionário". Sem isso a
+combinação entraria no banco escondida de todo mundo — inclusive de quem
+tentasse excluí-la pela tela.
+
+**Dado existente:** nenhum. Conferido no banco de desenvolvimento (zero
+documentos `CONSELHO_PROFISSIONAL` vinculados a residente) e a produção ainda não
+foi implantada. Se um dia aparecer um, ele some da listagem e do download — é a
+contrapartida assumida de a política tratar a combinação como inexistente, e o
+caminho para lidar com ele é o banco, não a tela.
 
 ## 9. A suíte E2E roda contra o banco de desenvolvimento e acumula registros
 
