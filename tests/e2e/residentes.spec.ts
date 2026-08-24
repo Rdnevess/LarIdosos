@@ -121,6 +121,37 @@ test('recusa CPF de responsável inválido sem gravar', async ({ page }) => {
   ).toContainText('Nenhum responsável cadastrado.')
 })
 
+test('corrige o telefone de um responsável e remove quem deixou de sê-lo', async ({ page }) => {
+  // Os dois caminhos que faltavam se agravavam mutuamente: sem editar e sem
+  // remover, um telefone desatualizado ficava permanente na ficha — e é o
+  // telefone do responsável que alguém procura numa urgência.
+  const nome = `Marta Ficha ${Date.now()}`
+  await cadastrarResidente(page, nome)
+
+  await page.locator('summary').filter({ hasText: 'Responsáveis' }).click()
+  await page.getByLabel('Nome').fill('Ana Souza')
+  await page.getByLabel('Parentesco').fill('Filha')
+  await page.getByLabel('Telefone principal').fill('11988887777')
+  await page.getByRole('button', { name: 'Adicionar responsável' }).click()
+
+  const secao = page.getByRole('group').filter({ hasText: 'Responsáveis (' })
+  await expect(secao).toContainText('11988887777')
+
+  const item = secao.locator('li', { hasText: 'Ana Souza' })
+  await item.locator('summary').filter({ hasText: 'Editar' }).click()
+  await item.getByLabel('Telefone principal').fill('11955554444')
+  await item.getByRole('button', { name: 'Salvar responsável' }).click()
+
+  await expect(secao).toContainText('11955554444')
+  await expect(secao).not.toContainText('11988887777')
+
+  await item.locator('summary').filter({ hasText: 'Remover' }).click()
+  await item.getByRole('button', { name: 'Remover responsável' }).click()
+
+  await expect(secao).toContainText('Nenhum responsável cadastrado.')
+  await expect(secao.getByText('Responsáveis (0)')).toBeVisible()
+})
+
 test('a raiz do sistema leva à lista de residentes', async ({ page }) => {
   await page.goto('/')
 
@@ -176,6 +207,22 @@ test('anexa um documento na ficha e o entrega pelo endpoint autenticado', async 
   expect(resposta.status()).toBe(200)
   expect(resposta.headers()['content-type']).toBe('application/pdf')
   expect(await resposta.text()).toContain('conteúdo de teste')
+
+  // Excluir era o caminho que faltava: documento anexado por engano só saía
+  // pelo banco. A exclusão é lógica — o arquivo e o registro continuam lá,
+  // fora da listagem —, e quem pode ver o documento pode excluí-lo, porque a
+  // mesma política governa as duas coisas.
+  const item = secaoDocumentos.locator('li', { hasText: 'rg.pdf' })
+  await item.locator('summary').filter({ hasText: 'Excluir' }).click()
+  await item.getByRole('button', { name: 'Excluir documento' }).click()
+
+  await expect(secaoDocumentos).toContainText('Nenhum documento anexado.')
+  await expect(secaoDocumentos.getByText('Documentos (0)')).toBeVisible()
+
+  // O endpoint deixa de entregar o conteúdo: `obterDocumentoParaDownload`
+  // recusa documento inativo, e não é a listagem que protege o arquivo.
+  const respostaDepois = await page.request.get(href!)
+  expect(respostaDepois.status()).toBe(404)
 })
 
 test('marca contato de emergência e ele aparece no cabeçalho da ficha', async ({ page }) => {

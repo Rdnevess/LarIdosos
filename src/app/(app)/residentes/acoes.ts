@@ -12,14 +12,18 @@ import {
   desligarResidente,
 } from '@/modules/residents/residentes.service'
 import { dadosDoResidente } from './conversores'
-import { adicionarResponsavel } from '@/modules/residents/responsaveis.service'
+import {
+  adicionarResponsavel,
+  atualizarResponsavel,
+  removerResponsavel,
+} from '@/modules/residents/responsaveis.service'
 import {
   criarAnotacao,
   editarAnotacao,
   retificarAnotacao,
 } from '@/modules/residents/anotacoes.service'
 import { registrarAvaliacao } from '@/modules/residents/dependencia.service'
-import { anexarDocumento } from '@/modules/residents/documentos.service'
+import { anexarDocumento, excluirDocumento } from '@/modules/residents/documentos.service'
 
 export async function acaoCriarResidente(
   _anterior: EstadoAcao | null,
@@ -102,6 +106,57 @@ export async function acaoAdicionarResponsavel(
       ehContatoEmergencia: booleano(dados, 'ehContatoEmergencia'),
       autorizadoVisitar: booleano(dados, 'autorizadoVisitar'),
     })
+  })
+
+  revalidatePath(`/residentes/${residenteId}`)
+  return resultado
+}
+
+/**
+ * O formulário de edição oferece todos os campos do responsável, e é isso que
+ * autoriza apagá-los: campo oferecido e deixado em branco chega como `null` e
+ * limpa a coluna (ver `texto`, em `src/lib/formulario.ts`). Corrigir um
+ * telefone secundário para vazio passa a ser possível pela tela.
+ */
+export async function acaoAtualizarResponsavel(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await atualizarResponsavel(ctx, String(dados.get('id')), {
+      nome: texto(dados, 'nome')!,
+      parentesco: texto(dados, 'parentesco')!,
+      cpf: texto(dados, 'cpf'),
+      telefonePrincipal: texto(dados, 'telefonePrincipal')!,
+      telefoneSecundario: texto(dados, 'telefoneSecundario'),
+      email: texto(dados, 'email'),
+      ehResponsavelLegal: booleano(dados, 'ehResponsavelLegal'),
+      ehContatoEmergencia: booleano(dados, 'ehContatoEmergencia'),
+      autorizadoVisitar: booleano(dados, 'autorizadoVisitar'),
+    })
+  })
+
+  revalidatePath(`/residentes/${residenteId}`)
+  return resultado
+}
+
+/**
+ * Remoção é desativação: `removerResponsavel` grava `ativo: false` e audita o
+ * estado anterior. O registro continua no banco — quem foi responsável de um
+ * residente é parte da história dele, e a trilha precisa poder mostrá-la.
+ */
+export async function acaoRemoverResponsavel(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await removerResponsavel(ctx, String(dados.get('id')))
   })
 
   revalidatePath(`/residentes/${residenteId}`)
@@ -218,6 +273,31 @@ export async function acaoAnexarDocumento(
       conteudo: Buffer.from(await arquivo.arrayBuffer()),
       residenteId,
     })
+  })
+
+  revalidatePath(`/residentes/${residenteId}`)
+  return resultado
+}
+
+/**
+ * Exclusão lógica: `excluirDocumento` grava `ativo: false`, e o arquivo
+ * continua no disco. A tela nunca apaga bytes — um documento removido por
+ * engano ainda pode ser recuperado pelo banco, e a trilha de auditoria registra
+ * quem removeu.
+ *
+ * Quem pode ver o documento pode excluí-lo: o serviço chama `exigirPapel` com
+ * o mesmo `papeisQuePodemVer` que filtra a listagem. Por isso a ficha oferece o
+ * botão em todo documento que ela mostra, sem condição própria.
+ */
+export async function acaoExcluirDocumento(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await excluirDocumento(ctx, String(dados.get('id')))
   })
 
   revalidatePath(`/residentes/${residenteId}`)

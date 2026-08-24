@@ -4,7 +4,7 @@ Registro do que ficou em aberto ao fechar o núcleo cadastral. Nenhum item
 impede o uso do sistema; todos foram decididos com o dono do projeto e estão
 aqui para não dependerem da memória de ninguém.
 
-Os itens **3, 6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
+Os itens **3, 4, 6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
 sumirem dele: cada um deles reverte uma decisão que estava escrita e defendida
 como deliberada, e apagar o registro apagaria junto o motivo de ela ter mudado.
 Quem encontrar a decisão antiga citada em comentário, relatório de tarefa ou
@@ -15,7 +15,7 @@ revisão precisa achar aqui o que aconteceu depois.
 | 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
 | 2. Acesso negado não é auditado | aberto | Fase 2, com a tela de auditoria |
 | 3. Trocar senha não exigia a senha de quem troca | resolvido | 23/08/2026 |
-| 4. Quatro serviços sem tela | aberto | Fase 2 |
+| 4. Quatro serviços sem tela | resolvido | 23/08/2026 |
 | 5. `XLOOKUP` quebrado da planilha | aberto | Fase 3, por eliminação |
 | 6. Seções da ficha que se fecham | resolvido | artefato de desenvolvimento, nada a corrigir |
 | 7. Apagar campo opcional não apagava | resolvido | 23/08/2026 |
@@ -91,25 +91,48 @@ que ela já lia continua exposto numa tela deixada aberta. O bloqueio de tela
 segue sendo instrução de implantação (Passo 11), agora com o texto certo — ele
 afirmava que a coordenação trocava senha sem digitar a própria.
 
-## 4. Quatro serviços permanecem sem caminho de interface
+## 4. Quatro serviços sem caminho de interface — resolvido
 
-Implementados, testados e sem tela — decisão explícita do dono do projeto de
-manter fora da Fase 1, porque a spec não os exige. O inventário foi conferido
-percorrendo cada função exportada dos serviços e procurando referência em
-`src/app` e `src/components`:
+**Resolvido em 23/08/2026.** Os quatro ganharam tela, e nenhum serviço exportado
+segue sem caminho a partir de `src/app` — exceto `registrarAuditoria`, que nunca
+foi órfão: é infraestrutura chamada de dentro dos serviços, dentro da transação.
 
-| Serviço | Onde | O que falta | Consequência hoje |
-|---|---|---|---|
-| `atualizarUsuario` | `auth/usuarios.service.ts` | formulário de edição de usuário | **o papel de um usuário não pode ser corrigido**; papel errado no cadastro só se resolve desativando e recriando a conta |
-| `excluirDocumento` | `residents/documentos.service.ts` | botão de excluir na lista da ficha | documento anexado por engano só sai pelo banco |
-| `atualizarResponsavel` | `residents/responsaveis.service.ts` | formulário de edição | telefone novo do responsável exige remover e recadastrar — o que a tela também não faz |
-| `removerResponsavel` | `residents/responsaveis.service.ts` | ação de remover na lista | responsável que deixou de sê-lo continua listado |
+| Serviço | Onde ficou | O que resolve |
+|---|---|---|
+| `atualizarResponsavel` | ficha do residente, "Editar" por responsável | telefone novo deixa de exigir remover e recadastrar |
+| `removerResponsavel` | ficha do residente, "Remover" por responsável | quem deixou de ser responsável sai da ficha |
+| `excluirDocumento` | ficha do residente, "Excluir" por documento | documento anexado por engano sai sem passar pelo banco |
+| `atualizarUsuario` | tela de usuários, "Editar" por linha | papel errado no cadastro se corrige sem desativar e recriar a conta |
 
-Os dois de responsável se agravam mutuamente: sem editar **e** sem remover, um
-telefone desatualizado fica permanente. Vale tratá-los juntos, e primeiro.
+Os dois de responsável se agravavam mutuamente — sem editar **e** sem remover, um
+telefone desatualizado ficava permanente — e por isso foram tratados juntos e
+primeiro.
 
-`registrarAuditoria` também não aparece em `src/app`, e não é órfão: é
-infraestrutura chamada de dentro dos serviços, dentro da transação.
+**Três decisões que a tela obrigou a tomar:**
+
+**A edição de responsável oferece todos os campos, inclusive os opcionais em
+branco.** É o que a torna também a tela que *apaga* um telefone secundário que
+deixou de existir: campo oferecido e deixado vazio chega como `null` e limpa a
+coluna (pendência 7). Sem aquela correção, esta tela prometeria uma limpeza que
+não aconteceria.
+
+**Excluir documento não ganhou condição de papel própria.** `excluirDocumento`
+autoriza com o mesmo `papeisQuePodemVer` que filtra a listagem, então todo
+documento que a ficha mostra é um que aquele papel pode excluir. Repetir a regra
+na tela seria a segunda lista de política que a pendência 8 acabou de eliminar.
+
+**Trocar o próprio papel passou a ser recusado pelo serviço.** A tela criou um
+risco que não existia: a única conta de coordenação — a situação garantida logo
+depois da implantação — que se rebaixasse a SAUDE deixaria o sistema sem ninguém
+capaz de abrir `/usuarios`, sem caminho de volta que não fosse o banco.
+`atualizarUsuario` recusa a **mudança** de papel na própria conta (não o campo,
+que o formulário manda sempre), e a tela omite o seletor na própria linha. É a
+mesma família da recusa de auto-alvo que `desativarUsuario` já tinha.
+
+**O que continua sem tela, e de propósito:** ligar usuário a funcionário
+(`funcionarioId`). Não existe em lugar nenhum — nem na criação —, e um campo de
+id cru seria pior que a ausência. A chave some do `FormData`, o Prisma não toca
+na coluna, e o vínculo de quem já tem um é preservado a cada edição.
 
 ## 5. O `XLOOKUP` quebrado do modelo de prestação de contas
 

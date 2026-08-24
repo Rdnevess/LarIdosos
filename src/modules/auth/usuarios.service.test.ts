@@ -108,6 +108,33 @@ describe('atualizarUsuario', () => {
     expect(log.diff).toEqual({ nome: { de: 'Nova Pessoa', para: 'Nome Corrigido' } })
   })
 
+  it('recusa trocar o proprio papel, que trancaria a coordenacao fora da tela', async () => {
+    // `desativarUsuario` ja recusa o auto-alvo, e aqui a consequencia e pior:
+    // a unica conta de coordenacao — a situacao garantida logo depois da
+    // implantacao — que se rebaixasse a SAUDE deixaria o sistema sem ninguem
+    // capaz de abrir /usuarios, e sem caminho de volta pela tela.
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    await expect(
+      atualizarUsuario(ctx, ctx.usuarioId, { papel: 'SAUDE' })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('aceita o proprio papel reenviado sem mudanca, junto do nome corrigido', async () => {
+    // O formulario de edicao manda todos os campos, sempre. Se a recusa
+    // olhasse so para a presenca do campo, corrigir o proprio nome seria
+    // impossivel — a recusa e da MUDANCA de papel, nao do campo.
+    const ctx = await ctxComPapel('COORDENACAO')
+
+    const atualizado = await atualizarUsuario(ctx, ctx.usuarioId, {
+      nome: 'Nome Corrigido',
+      papel: 'COORDENACAO',
+    })
+
+    expect(atualizado.nome).toBe('Nome Corrigido')
+    expect(atualizado.papel).toBe('COORDENACAO')
+  })
+
   it('nega para papel não autorizado', async () => {
     const admin = await ctxComPapel('COORDENACAO')
     const alvo = await criarUsuario(admin, dadosValidos)

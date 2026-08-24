@@ -84,6 +84,18 @@ export async function atualizarUsuario(
   const atual = await prisma.usuario.findUnique({ where: { id } })
   if (!atual) throw new ErroNaoEncontrado('Usuário não encontrado')
 
+  // Mesma família da recusa de auto-alvo em `desativarUsuario`, e com
+  // consequência pior: a única conta de coordenação — a situação garantida
+  // logo depois da implantação — que se rebaixasse a SAUDE deixaria o sistema
+  // sem ninguém capaz de abrir `/usuarios`, e sem caminho de volta pela tela.
+  // Só o banco desfaria.
+  //
+  // A recusa é da **mudança**, não do campo: o formulário de edição manda
+  // `papel` sempre, e corrigir o próprio nome precisa continuar possível.
+  if (id === ctx.usuarioId && entrada.papel && entrada.papel !== atual.papel) {
+    throw new ErroValidacao('Não é possível trocar o próprio papel')
+  }
+
   const diff = calcularDiff(atual as unknown as Record<string, unknown>, entrada)
 
   return prisma.$transaction(async (tx) => {
