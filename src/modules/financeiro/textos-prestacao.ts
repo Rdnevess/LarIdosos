@@ -47,18 +47,17 @@ Respeitosamente,`
  * **"Conte Corrente" virou "Conta Corrente".** Erro de digitação do modelo,
  * sem mudança de sentido.
  *
- * **"à disposição dos condôminos" ficou como está**, e é estranho: condômino é
- * dono de apartamento, não órgão conveniador — o texto provavelmente veio de
- * outro modelo. Não foi corrigido porque é a redação que o órgão já recebeu, e
- * mudá-la é decisão da instituição, não do sistema. Está registrado nas
- * pendências da fase.
+ * **"à disposição dos condôminos" virou "à disposição do órgão conveniador".**
+ * Condômino é dono de apartamento; o texto veio de outro modelo, por cópia. A
+ * correção ficou pendente até 24/08/2026 porque mudar a redação de um documento
+ * oficial é decisão da instituição, não do sistema — e a instituição decidiu.
  */
 export function montarDeclaracao(dados: {
   numeroConta: string
   mesPorExtenso: string
   ano: number
 }): string {
-  return `           Declaramos para os devidos fins de direito que os Documentos Contábeis referentes à Prestação de Contas da Conta Corrente ${dados.numeroConta}, referente ao mês de ${dados.mesPorExtenso} de ${dados.ano}, encontram-se guardados, arquivados em boa ordem e conservação, identificados e à disposição dos condôminos.`
+  return `           Declaramos para os devidos fins de direito que os Documentos Contábeis referentes à Prestação de Contas da Conta Corrente ${dados.numeroConta}, referente ao mês de ${dados.mesPorExtenso} de ${dados.ano}, encontram-se guardados, arquivados em boa ordem e conservação, identificados e à disposição do órgão conveniador.`
 }
 
 /**
