@@ -26,6 +26,11 @@ import { registrarSinalVital } from '@/modules/health/sinais-vitais.service'
 import { registrarExame, atualizarExame } from '@/modules/health/exames.service'
 import { registrarConsulta, atualizarConsulta } from '@/modules/health/consultas.service'
 import { registrarVacina } from '@/modules/health/vacinas.service'
+import {
+  prescrever,
+  suspenderMedicacao,
+  prescreverSubstituta,
+} from '@/modules/health/medicacoes.service'
 
 /**
  * Server Actions do prontuário. Ficam aqui, e não junto das da ficha
@@ -351,6 +356,97 @@ export async function acaoRegistrarVacina(
       lote: texto(dados, 'lote'),
       localAplicacao: texto(dados, 'localAplicacao'),
     })
+  })
+
+  revalidatePath(caminho(residenteId))
+  return resultado
+}
+
+type ViaMedicacao =
+  | 'ORAL' | 'SUBLINGUAL' | 'IM' | 'EV' | 'SC'
+  | 'TOPICA' | 'INALATORIA' | 'OFTALMICA' | 'OTOLOGICA' | 'RETAL'
+
+/**
+ * O formulário recebe os horários como texto separado por vírgula — é o que a
+ * equipe escreve ao ler a receita ("08:00, 20:00"). A lista tipada começa
+ * aqui, e o schema do serviço recusa qualquer item fora de `HH:mm`.
+ */
+function listaDeHorarios(dados: FormData): string[] {
+  return (texto(dados, 'horarios') ?? '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter((h) => h !== '')
+}
+
+function dadosDaMedicacao(dados: FormData, residenteId: string) {
+  return {
+    residenteId,
+    farmaco: texto(dados, 'farmaco')!,
+    concentracao: texto(dados, 'concentracao'),
+    formaFarmaceutica: texto(dados, 'formaFarmaceutica'),
+    dose: texto(dados, 'dose')!,
+    via: texto(dados, 'via') as ViaMedicacao,
+    tipo: texto(dados, 'tipo') as 'HORARIO_FIXO' | 'SE_NECESSARIO',
+    horarios: listaDeHorarios(dados),
+    diasSemana: [] as number[],
+    instrucoes: texto(dados, 'instrucoes'),
+    prescritorNome: texto(dados, 'prescritorNome'),
+    // A receita costuma ser anterior ao momento em que alguém a digita, e a
+    // vigência é o que decide quais doses existem: sem este campo, uma receita
+    // do café da manhã cadastrada às 10h perderia a dose das 08:00 de hoje.
+    // Em branco, vale a partir de agora.
+    dataInicio: momentoDoFormulario(dados, 'dataInicio'),
+  }
+}
+
+export async function acaoPrescrever(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await prescrever(ctx, dadosDaMedicacao(dados, residenteId))
+  })
+
+  revalidatePath(caminho(residenteId))
+  return resultado
+}
+
+export async function acaoSuspenderMedicacao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await suspenderMedicacao(ctx, String(dados.get('id')), texto(dados, 'motivo') ?? '')
+  })
+
+  revalidatePath(caminho(residenteId))
+  return resultado
+}
+
+/**
+ * O segundo passo dos dois que a R5 exige, e o único caminho que grava o elo
+ * `substituiMedicacaoId`. Uma prescrição criada pelo formulário comum não o
+ * recebe, porque não é substituição de nada.
+ */
+export async function acaoPrescreverSubstituta(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const residenteId = String(dados.get('residenteId'))
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await prescreverSubstituta(
+      ctx,
+      String(dados.get('idAnterior')),
+      dadosDaMedicacao(dados, residenteId)
+    )
   })
 
   revalidatePath(caminho(residenteId))

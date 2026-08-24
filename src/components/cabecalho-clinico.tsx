@@ -1,4 +1,4 @@
-import type { GrauDependencia, SinalVital } from '@prisma/client'
+import type { GrauDependencia, Medicacao, SinalVital } from '@prisma/client'
 import type { CabecalhoClinico as Dados } from '@/modules/health/cabecalho.service'
 import { formatarData, formatarDataHora } from '@/lib/ptbr'
 
@@ -11,8 +11,9 @@ import { formatarData, formatarDataHora } from '@/lib/ptbr'
  * em branco na tela clínica se lê como "não tem", e a diferença entre "não
  * tem" e "ninguém registrou ainda" é grande.
  *
- * O bloco de medicações ativas que a §3 da spec prevê **não existe aqui** —
- * chega com a Fase 2B. O grid abaixo recebe mais um item sem rearranjo.
+ * O bloco de medicações ativas chegou com a Fase 2B, no espaço que a 2A
+ * deixou reservado — e o grid recebeu o sexto item sem rearranjo, como estava
+ * previsto.
  */
 
 const ROTULO_TIPO_ALERGIA: Record<string, string> = {
@@ -65,10 +66,12 @@ export function CabecalhoClinico({
   grau,
   dados,
   ultimoSinalVital,
+  medicacoesAtivas,
 }: {
   grau: GrauDependencia | null
   dados: Dados
   ultimoSinalVital: SinalVital | null
+  medicacoesAtivas: Medicacao[]
 }) {
   return (
     <section
@@ -134,6 +137,26 @@ export function CabecalhoClinico({
           {dados.restricoes.map((restricao) => (
             <li key={restricao.id} className="text-sm text-slate-800">
               {restricao.descricao}
+            </li>
+          ))}
+        </ul>
+      </Bloco>
+
+      <Bloco
+        titulo="Medicações ativas"
+        vazio="Nenhuma medicação ativa."
+        temConteudo={medicacoesAtivas.length > 0}
+      >
+        <ul className="space-y-1">
+          {medicacoesAtivas.map((medicacao) => (
+            <li key={medicacao.id} className="text-sm text-slate-800">
+              {medicacao.farmaco}{' '}
+              <span className="text-slate-500">
+                {medicacao.dose}
+                {medicacao.horarios.length > 0
+                  ? ` · ${medicacao.horarios.join(', ')}`
+                  : ' · se necessário'}
+              </span>
             </li>
           ))}
         </ul>

@@ -13,9 +13,17 @@ import { listarSinaisVitais } from '@/modules/health/sinais-vitais.service'
 import { listarExames } from '@/modules/health/exames.service'
 import { listarConsultas } from '@/modules/health/consultas.service'
 import { listarVacinas } from '@/modules/health/vacinas.service'
+import { listarMedicacoes, listarMedicacoesAtivas } from '@/modules/health/medicacoes.service'
+import { calcularAderencia } from '@/modules/health/aderencia'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { CabecalhoClinico } from '@/components/cabecalho-clinico'
 import { LinhaDoTempo } from '@/components/linha-do-tempo'
+import {
+  FormularioPrescrever,
+  FormularioSuspender,
+  FormularioSubstituir,
+} from '@/components/formularios-medicacao'
+import { RelatorioAderencia } from '@/components/aderencia'
 import {
   FormularioAlergia,
   FormularioCondicaoCronica,
@@ -128,6 +136,9 @@ export default async function PaginaProntuario({
     exames,
     consultas,
     vacinas,
+    medicacoes,
+    medicacoesAtivas,
+    aderencia,
   ] = await Promise.all([
     obterGrauVigente(ctx, id),
     obterCabecalhoClinico(ctx, id),
@@ -140,6 +151,12 @@ export default async function PaginaProntuario({
     listarExames(ctx, id),
     listarConsultas(ctx, id),
     listarVacinas(ctx, id),
+    listarMedicacoes(ctx, id),
+    listarMedicacoesAtivas(ctx, id),
+    calcularAderencia(ctx, id, {
+      de: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      ate: new Date(),
+    }),
   ])
 
   // Quais anotações já foram retificadas depois — o aviso que impede alguém
@@ -183,11 +200,16 @@ export default async function PaginaProntuario({
           vazia tem frase só no cabeçalho — repeti-la na seção seria a mesma
           sentença duas vezes na mesma tela, e a seção vazia já se explica
           sozinha, com o formulário logo ali. */}
-      <CabecalhoClinico grau={grau} dados={dados} ultimoSinalVital={ultimoSinalVital} />
+      <CabecalhoClinico
+        grau={grau}
+        dados={dados}
+        ultimoSinalVital={ultimoSinalVital}
+        medicacoesAtivas={medicacoesAtivas}
+      />
 
       {/* Os três botões grandes da §9: um toque para o caso comum. O quarto
           que a spec prevê — medicação — chega com a Fase 2B. */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <details className="rounded border bg-white">
           <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
             Evolução
@@ -222,6 +244,15 @@ export default async function PaginaProntuario({
             />
           </div>
         </details>
+        {/* O quarto botão que o design prevê. É um link, e não um formulário:
+            registrar dose acontece na tela do turno, onde estão as doses
+            previstas de todo mundo. */}
+        <Link
+          href="/turno"
+          className="flex items-center justify-center rounded border bg-white px-2 py-4 text-center font-medium text-slate-800"
+        >
+          Medicação
+        </Link>
       </div>
 
       <LinhaDoTempo eventos={eventos} tipoSelecionado={tipo} residenteId={id} />
@@ -451,6 +482,56 @@ export default async function PaginaProntuario({
         </ul>
         <div className="mt-4 border-t pt-4">
           <FormularioVacina residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Medicações ({medicacoes.length})
+        </summary>
+        <ul className="mt-3 space-y-3">
+          {medicacoes.map((medicacao) => (
+            <li key={medicacao.id} className="text-sm">
+              <span className="font-medium text-slate-800">{medicacao.farmaco}</span>{' '}
+              <span className="text-slate-500">
+                {medicacao.concentracao ? `${medicacao.concentracao} · ` : ''}
+                {medicacao.dose} · {medicacao.via.toLowerCase()}
+                {medicacao.horarios.length > 0
+                  ? ` · ${medicacao.horarios.join(', ')}`
+                  : ' · se necessário'}
+              </span>
+              {medicacao.instrucoes && (
+                <span className="block text-slate-600">{medicacao.instrucoes}</span>
+              )}
+              {medicacao.ativa ? (
+                <FormularioSuspender medicacaoId={medicacao.id} residenteId={id} />
+              ) : (
+                <>
+                  <span className="block text-slate-500">
+                    Suspensa em {formatarData(medicacao.dataFim ?? medicacao.atualizadoEm)}
+                    {medicacao.motivoSuspensao ? ` — ${medicacao.motivoSuspensao}` : ''}
+                  </span>
+                  {/* Oferecida em destaque logo depois da suspensão: é este o
+                      caminho que grava o elo com a anterior, e é o que fecha a
+                      lacuna de a medicação ficar sem cobertura entre os dois
+                      passos. */}
+                  <FormularioSubstituir anterior={medicacao} residenteId={id} />
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioPrescrever residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Aderência (últimos 30 dias)
+        </summary>
+        <div className="mt-3">
+          <RelatorioAderencia aderencia={aderencia} />
         </div>
       </details>
     </section>

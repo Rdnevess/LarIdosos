@@ -7,6 +7,8 @@ import { signOut } from '@/modules/auth/config'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
 const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
+  // Primeiro da lista: e a tela mais usada do sistema pela equipe de cuidado.
+  { href: '/turno', rotulo: 'Turno', papeis: ['COORDENACAO', 'SAUDE'] },
   { href: '/residentes', rotulo: 'Residentes', papeis: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
   // Antes de "Funcionários" de propósito: é tela de rotina diária, e as de
   // rotina ficam no topo.
