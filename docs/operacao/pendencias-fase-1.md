@@ -12,7 +12,7 @@ revisão precisa achar aqui o que aconteceu depois.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
+| 1. Restauração do backup nunca executada | aberto (parcialmente verificado) | na implantação, no VPS |
 | 2. Acesso negado não era auditado | resolvido | 23/08/2026 |
 | 3. Trocar senha não exigia a senha de quem troca | resolvido | 23/08/2026 |
 | 4. Quatro serviços sem tela | resolvido | 23/08/2026 |
@@ -40,6 +40,21 @@ primeira restauração real.
 executar o procedimento inteiro de `docs/operacao/backup.md` no VPS, contra o
 banco vazio recém-criado. É o momento mais barato: não há dado a perder. Depois
 preencher a linha da tabela com a data, quem executou e o tempo que levou.
+
+**Parcialmente verificado em 23/08/2026, fora da VPS.** O que não depende de
+Docker foi exercitado contra o Postgres 18 local e passou: a sintaxe dos dois
+scripts, o parser `ler_env` nas cinco variações que ele promete tolerar, a
+trava de `DESTINO_BACKUP`, o marcador de dump completo que o `backup.sh` exige,
+o ciclo `gzip`→`gpg`→`gpg -d`→`gunzip -t` com as flags exatas, e — o mais
+importante — `--clean --if-exists` com `ON_ERROR_STOP=1` restaurando **sobre um
+banco já povoado**, que é a hipótese em que o passo [4/6] de `restaurar.sh` se
+apoia e que ninguém havia executado. A tabela em `docs/operacao/backup.md`
+detalha cada item.
+
+Isso reduz o risco de a primeira execução real falhar por um erro bobo. **Não
+substitui o teste**: nada que dependa de Docker foi tocado, e os documentos
+anexados — metade do que o backup protege — não foram exercitados em nenhum
+momento. O item continua aberto.
 
 ## 2. Tentativa de acesso negada não era registrada — resolvido
 
