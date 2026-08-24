@@ -40,6 +40,15 @@ export type EntidadeAuditada =
   // Fase 2B — medicação.
   | 'Medicacao'
   | 'AdministracaoMedicacao'
+  // Fase 3 — financeiro.
+  | 'ConfiguracaoInstituicao'
+  | 'ContaBancaria'
+  | 'OrigemReceita'
+  | 'CategoriaDespesa'
+  | 'Fornecedor'
+  | 'Lancamento'
+  | 'PrestacaoContas'
+  | 'ContribuicaoResidente'
 
 /**
  * O ator de um evento de auditoria. `Ctx` (usuário autenticado e autorizado)

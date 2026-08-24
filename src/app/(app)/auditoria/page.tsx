@@ -47,6 +47,14 @@ const ROTULO_ENTIDADE: Record<EntidadeAuditada, string> = {
   Vacina: 'Vacina',
   Medicacao: 'Medicação',
   AdministracaoMedicacao: 'Administração de medicação',
+  ConfiguracaoInstituicao: 'Dados da instituição',
+  ContaBancaria: 'Conta bancária',
+  OrigemReceita: 'Origem de receita',
+  CategoriaDespesa: 'Categoria de despesa',
+  Fornecedor: 'Fornecedor',
+  Lancamento: 'Lançamento',
+  PrestacaoContas: 'Prestação de contas',
+  ContribuicaoResidente: 'Contribuição do residente',
 }
 
 // O banco guarda `String`, então o valor que chega aqui pode ser de uma

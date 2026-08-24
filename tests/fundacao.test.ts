@@ -52,6 +52,28 @@ describe('fundação', () => {
     expect(unicas.length).toBeGreaterThan(0)
   })
 
+  it('tem as tabelas do financeiro, com a prestação única por conta e competência', async () => {
+    const tabelas = await prisma.$queryRaw<{ table_name: string }[]>`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'configuracao_instituicao', 'contas_bancarias', 'origens_receita',
+          'categorias_despesa', 'fornecedores', 'lancamentos',
+          'prestacoes_contas', 'contribuicoes_residente'
+        )
+    `
+    expect(tabelas).toHaveLength(8)
+
+    // Uma prestação por conta e por mês: é o que impede duas prestações
+    // concorrentes do mesmo período, cada uma com um saldo diferente.
+    const unicas = await prisma.$queryRaw<{ indexname: string }[]>`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'prestacoes_contas'
+        AND indexdef LIKE '%UNIQUE%contaBancariaId%anoCompetencia%mesCompetencia%'
+    `
+    expect(unicas.length).toBeGreaterThan(0)
+  })
+
   it('limpa o banco entre os testes', async () => {
     const total = await prisma.usuario.count()
     expect(total).toBe(0)
