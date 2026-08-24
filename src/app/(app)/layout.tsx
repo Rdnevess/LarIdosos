@@ -8,6 +8,9 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
 const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
   { href: '/residentes', rotulo: 'Residentes', papeis: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+  // Antes de "Funcionários" de propósito: é tela de rotina diária, e as de
+  // rotina ficam no topo.
+  { href: '/pendencias', rotulo: 'Pendências', papeis: ['COORDENACAO', 'SAUDE'] },
   { href: '/funcionarios', rotulo: 'Funcionários', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
   { href: '/usuarios', rotulo: 'Usuários', papeis: ['COORDENACAO'] },
   { href: '/auditoria', rotulo: 'Auditoria', papeis: ['COORDENACAO'] },

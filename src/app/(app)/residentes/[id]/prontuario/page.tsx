@@ -8,6 +8,11 @@ import { obterGrauVigente } from '@/modules/residents/dependencia.service'
 import { obterCabecalhoClinico } from '@/modules/health/cabecalho.service'
 import { obterUltimoSinalVital } from '@/modules/health/sinais-vitais.service'
 import { montarLinhaDoTempo, type TipoEvento } from '@/modules/health/linha-do-tempo'
+import { listarAnotacoesSaude } from '@/modules/health/anotacoes-saude.service'
+import { listarSinaisVitais } from '@/modules/health/sinais-vitais.service'
+import { listarExames } from '@/modules/health/exames.service'
+import { listarConsultas } from '@/modules/health/consultas.service'
+import { listarVacinas } from '@/modules/health/vacinas.service'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { CabecalhoClinico } from '@/components/cabecalho-clinico'
 import { LinhaDoTempo } from '@/components/linha-do-tempo'
@@ -16,8 +21,72 @@ import {
   FormularioCondicaoCronica,
   FormularioRestricaoAlimentar,
   FormularioDesativar,
+  FormularioAnotacaoSaude,
+  FormularioEditarAnotacaoSaude,
+  FormularioRetificarAnotacaoSaude,
+  FormularioSinalVital,
+  FormularioExame,
+  FormularioAtualizarExame,
+  FormularioConsulta,
+  FormularioAtualizarConsulta,
+  FormularioVacina,
 } from '@/components/formularios-prontuario'
-import { formatarData } from '@/lib/ptbr'
+import { formatarData, formatarDataHora } from '@/lib/ptbr'
+
+// RÃ³tulos em pt-BR dos enums do prontuÃ¡rio. A tela nunca mostra o valor cru:
+// "INTERCORRENCIA" Ã© identificador de cÃ³digo, e quem lÃª a ficha Ã© a equipe.
+const ROTULO_CATEGORIA_SAUDE: Record<string, string> = {
+  EVOLUCAO: 'EvoluÃ§Ã£o',
+  INTERCORRENCIA: 'IntercorrÃªncia',
+  ALIMENTACAO: 'AlimentaÃ§Ã£o',
+  SONO: 'Sono',
+  HIGIENE: 'Higiene',
+  COMPORTAMENTO: 'Comportamento',
+  QUEDA: 'Queda',
+}
+
+const ROTULO_TURNO: Record<string, string> = {
+  MANHA: 'manhÃ£',
+  TARDE: 'tarde',
+  NOITE: 'noite',
+}
+
+const ROTULO_STATUS_EXAME: Record<string, string> = {
+  SOLICITADO: 'solicitado',
+  AGENDADO: 'agendado',
+  REALIZADO: 'realizado, aguardando resultado',
+  RESULTADO_RECEBIDO: 'resultado recebido',
+  CANCELADO: 'cancelado',
+}
+
+const ROTULO_STATUS_CONSULTA: Record<string, string> = {
+  AGENDADA: 'agendada',
+  REALIZADA: 'realizada',
+  CANCELADA: 'cancelada',
+}
+
+function resumirSinalVital(sinal: {
+  pressaoSistolica: number | null
+  pressaoDiastolica: number | null
+  frequenciaCardiaca: number | null
+  temperatura: unknown
+  saturacaoO2: number | null
+  glicemia: number | null
+  peso: unknown
+}): string {
+  const partes: string[] = []
+  if (sinal.pressaoSistolica && sinal.pressaoDiastolica) {
+    partes.push(`PA ${sinal.pressaoSistolica}Ã${sinal.pressaoDiastolica}`)
+  }
+  if (sinal.frequenciaCardiaca) partes.push(`FC ${sinal.frequenciaCardiaca}`)
+  if (sinal.temperatura) {
+    partes.push(`${Number(sinal.temperatura).toFixed(1).replace('.', ',')} Â°C`)
+  }
+  if (sinal.saturacaoO2) partes.push(`SpOâ ${sinal.saturacaoO2}%`)
+  if (sinal.glicemia) partes.push(`Glicemia ${sinal.glicemia}`)
+  if (sinal.peso) partes.push(`${Number(sinal.peso).toFixed(1).replace('.', ',')} kg`)
+  return partes.join(' Â· ')
+}
 
 /**
  * O prontuário mora numa rota própria, e não em mais seis seções da ficha,
@@ -49,14 +118,35 @@ export default async function PaginaProntuario({
     throw erro
   }
 
-  const [grau, dados, ultimoSinalVital, eventos] = await Promise.all([
+  const [
+    grau,
+    dados,
+    ultimoSinalVital,
+    eventos,
+    anotacoes,
+    sinais,
+    exames,
+    consultas,
+    vacinas,
+  ] = await Promise.all([
     obterGrauVigente(ctx, id),
     obterCabecalhoClinico(ctx, id),
     obterUltimoSinalVital(ctx, id),
     // Tipo desconhecido na URL cai em "todos", e não em erro: query string é
     // coisa que se edita à mão e que sobrevive a um link antigo colado.
     montarLinhaDoTempo(ctx, id, tipo ? { tipos: [tipo as TipoEvento] } : {}),
+    listarAnotacoesSaude(ctx, id),
+    listarSinaisVitais(ctx, id),
+    listarExames(ctx, id),
+    listarConsultas(ctx, id),
+    listarVacinas(ctx, id),
   ])
+
+  // Quais anotações já foram retificadas depois — o aviso que impede alguém
+  // de agir sobre a versão superada sem perceber que existe uma correção.
+  const retificadas = new Set(
+    anotacoes.map((a) => a.retificaAnotacaoSaudeId).filter((v): v is string => v !== null)
+  )
 
   // Prontuário é dado pessoal sensível (LGPD, art. 11), e esta tela mostra
   // conteúdo clínico, não metadado — a dispensa que vale para
@@ -94,6 +184,45 @@ export default async function PaginaProntuario({
           sentença duas vezes na mesma tela, e a seção vazia já se explica
           sozinha, com o formulário logo ali. */}
       <CabecalhoClinico grau={grau} dados={dados} ultimoSinalVital={ultimoSinalVital} />
+
+      {/* Os três botões grandes da §9: um toque para o caso comum. O quarto
+          que a spec prevê — medicação — chega com a Fase 2B. */}
+      <div className="grid grid-cols-3 gap-2">
+        <details className="rounded border bg-white">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+            Evolução
+          </summary>
+          <div className="border-t p-4">
+            <FormularioAnotacaoSaude
+              residenteId={id}
+              categoriaFixa="EVOLUCAO"
+              prefixoId="botao-evolucao"
+              rotuloBotao="Registrar evolução"
+            />
+          </div>
+        </details>
+        <details className="rounded border bg-white">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+            Sinais vitais
+          </summary>
+          <div className="border-t p-4">
+            <FormularioSinalVital residenteId={id} />
+          </div>
+        </details>
+        <details className="rounded border bg-white">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+            Intercorrência
+          </summary>
+          <div className="border-t p-4">
+            <FormularioAnotacaoSaude
+              residenteId={id}
+              categoriaFixa="INTERCORRENCIA"
+              prefixoId="botao-intercorrencia"
+              rotuloBotao="Registrar intercorrência"
+            />
+          </div>
+        </details>
+      </div>
 
       <LinhaDoTempo eventos={eventos} tipoSelecionado={tipo} residenteId={id} />
 
@@ -165,6 +294,163 @@ export default async function PaginaProntuario({
         </ul>
         <div className="mt-4 border-t pt-4">
           <FormularioRestricaoAlimentar residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Anotações de saúde ({anotacoes.length})
+        </summary>
+        <ul className="mt-3 space-y-3">
+          {anotacoes.map((anotacao) => (
+            <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3 text-sm">
+              <p className="text-slate-500">
+                {formatarDataHora(anotacao.ocorridoEm)} ·{' '}
+                {ROTULO_CATEGORIA_SAUDE[anotacao.categoria]} · turno da{' '}
+                {ROTULO_TURNO[anotacao.turno]}
+                {anotacao.retificaAnotacaoSaudeId && ' · retificação'}
+                {retificadas.has(anotacao.id) && ' · retificada depois'}
+              </p>
+              <p className="text-slate-800">{anotacao.texto}</p>
+              {anotacao.conduta && (
+                <p className="text-slate-600">Conduta: {anotacao.conduta}</p>
+              )}
+              <div className="mt-1 space-y-1">
+                {anotacao.criadoPorId === ctx.usuarioId &&
+                  anotacao.editavelAte > new Date() && (
+                    <details>
+                      <summary className="cursor-pointer text-sm text-slate-600 underline">
+                        Editar
+                      </summary>
+                      <div className="mt-2">
+                        <FormularioEditarAnotacaoSaude
+                          anotacaoId={anotacao.id}
+                          residenteId={id}
+                          textoAtual={anotacao.texto}
+                        />
+                      </div>
+                    </details>
+                  )}
+                <details>
+                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    Retificar
+                  </summary>
+                  <div className="mt-2">
+                    <FormularioRetificarAnotacaoSaude
+                      anotacaoId={anotacao.id}
+                      residenteId={id}
+                    />
+                  </div>
+                </details>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioAnotacaoSaude
+            residenteId={id}
+            prefixoId="nova-anotacao-saude"
+            rotuloBotao="Registrar anotação"
+          />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Sinais vitais ({sinais.length})
+        </summary>
+        <ul className="mt-3 space-y-2">
+          {sinais.map((sinal) => (
+            <li key={sinal.id} className="text-sm">
+              <span className="text-slate-500">{formatarDataHora(sinal.aferidoEm)}</span>{' '}
+              <span className="text-slate-800">{resumirSinalVital(sinal)}</span>
+              {sinal.observacao && (
+                <span className="block text-slate-600">{sinal.observacao}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioSinalVital residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Exames ({exames.length})
+        </summary>
+        <ul className="mt-3 space-y-2">
+          {exames.map((exame) => (
+            <li key={exame.id} className="text-sm">
+              <span className="font-medium text-slate-800">{exame.tipo}</span>{' '}
+              <span className="text-slate-500">
+                — {ROTULO_STATUS_EXAME[exame.status]}
+                {exame.dataSolicitacao
+                  ? ` · solicitado em ${formatarData(exame.dataSolicitacao)}`
+                  : ''}
+              </span>
+              {exame.resumoResultado && (
+                <span className="block text-slate-600">{exame.resumoResultado}</span>
+              )}
+              <FormularioAtualizarExame
+                exameId={exame.id}
+                residenteId={id}
+                statusAtual={exame.status}
+              />
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioExame residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Consultas ({consultas.length})
+        </summary>
+        <ul className="mt-3 space-y-2">
+          {consultas.map((consulta) => (
+            <li key={consulta.id} className="text-sm">
+              <span className="font-medium text-slate-800">{consulta.especialidade}</span>{' '}
+              <span className="text-slate-500">
+                — {ROTULO_STATUS_CONSULTA[consulta.status]} ·{' '}
+                {formatarDataHora(consulta.dataHora)}
+                {consulta.local ? ` · ${consulta.local}` : ''}
+              </span>
+              {consulta.conduta && (
+                <span className="block text-slate-600">Conduta: {consulta.conduta}</span>
+              )}
+              <FormularioAtualizarConsulta
+                consultaId={consulta.id}
+                residenteId={id}
+                statusAtual={consulta.status}
+              />
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioConsulta residenteId={id} />
+        </div>
+      </details>
+
+      <details className="rounded border bg-white p-4">
+        <summary className="cursor-pointer font-medium text-slate-800">
+          Vacinas ({vacinas.length})
+        </summary>
+        <ul className="mt-3 space-y-2">
+          {vacinas.map((vacina) => (
+            <li key={vacina.id} className="text-sm">
+              <span className="font-medium text-slate-800">{vacina.imunizante}</span>{' '}
+              <span className="text-slate-500">
+                — {vacina.dose} · {formatarData(vacina.dataAplicacao)}
+                {vacina.lote ? ` · lote ${vacina.lote}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <FormularioVacina residenteId={id} />
         </div>
       </details>
     </section>
