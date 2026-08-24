@@ -15,7 +15,7 @@ const avaliacaoSchema = z.object({
       message: 'A data da avaliação não pode estar no futuro',
     }),
   avaliadorNome: z.string().trim().min(3, 'Informe quem realizou a avaliação'),
-  justificativa: z.string().trim().optional(),
+  justificativa: z.string().trim().nullish(),
 })
 
 export type DadosAvaliacao = z.infer<typeof avaliacaoSchema>

@@ -46,9 +46,11 @@ function traduzirTipo(tipo: string): string {
 export const mapaErroZodPtBr: ZodErrorMap = (issue, ctx) => {
   switch (issue.code) {
     case ZodIssueCode.invalid_type:
-      // Campo ausente do payload (o caso mais comum de requisição forjada,
-      // já que o HTML `required` não cobre isso — só cobre input vazio).
-      if (issue.received === 'undefined') {
+      // Campo ausente do payload (`undefined`) ou apagado pelo usuário num
+      // campo que não aceita vazio (`null`, vindo de `texto` em
+      // `src/lib/formulario.ts`). Nos dois casos o que falta é o valor, e
+      // "Esperado texto, recebido nulo" não diria isso a ninguém.
+      if (issue.received === 'undefined' || issue.received === 'null') {
         return { message: 'Campo obrigatório' }
       }
       return {

@@ -2,25 +2,53 @@ import { describe, it, expect } from 'vitest'
 import { calcularDiff } from '@/modules/audit/auditoria.service'
 import { dadosDoFuncionario } from './conversores'
 
+const CAMPOS = [
+  'nomeCompleto', 'cpf', 'rg', 'cargo', 'vinculo', 'dataAdmissao',
+  'telefone', 'email', 'conselhoSigla', 'conselhoNumero', 'conselhoUf',
+  'conselhoValidade',
+]
+
 /**
  * Monta o `FormData` como o navegador o envia: todo campo do formulário
  * presente, os não preenchidos com string vazia.
  */
 function formularioDeFuncionario(preenchidos: Record<string, string> = {}): FormData {
   const dados = new FormData()
-  const campos = [
-    'nomeCompleto', 'cpf', 'rg', 'cargo', 'vinculo', 'dataAdmissao',
-    'telefone', 'email', 'conselhoSigla', 'conselhoNumero', 'conselhoUf',
-    'conselhoValidade',
-  ]
-  for (const campo of campos) dados.set(campo, preenchidos[campo] ?? '')
+  for (const campo of CAMPOS) dados.set(campo, preenchidos[campo] ?? '')
+  return dados
+}
+
+/**
+ * O oposto do anterior: existem no `FormData` só os campos listados — o que
+ * uma tela parcial envia.
+ */
+function formularioParcial(preenchidos: Record<string, string>): FormData {
+  const dados = new FormData()
+  for (const [campo, valor] of Object.entries(preenchidos)) dados.set(campo, valor)
   return dados
 }
 
 describe('dadosDoFuncionario', () => {
-  it('omite as chaves dos campos deixados em branco', () => {
+  it('manda null no campo que a tela ofereceu e a pessoa deixou em branco', () => {
     const convertido = dadosDoFuncionario(
       formularioDeFuncionario({
+        nomeCompleto: 'Ana Souza',
+        cpf: '11144477735',
+        cargo: 'Técnica de enfermagem',
+        vinculo: 'CLT',
+        dataAdmissao: '2025-02-01',
+      })
+    )
+
+    // Vale para a data como para o texto: apagar a validade do conselho é
+    // gravar `null`, não deixar a anterior no lugar.
+    expect(convertido.email).toBeNull()
+    expect(convertido.conselhoValidade).toBeNull()
+  })
+
+  it('omite as chaves dos campos que o formulário nem ofereceu', () => {
+    const convertido = dadosDoFuncionario(
+      formularioParcial({
         nomeCompleto: 'Ana Souza',
         cpf: '11144477735',
         cargo: 'Técnica de enfermagem',

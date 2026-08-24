@@ -14,25 +14,30 @@ const responsavelSchema = z.object({
   cpf: z
     .string()
     .trim()
-    .optional()
-    .transform((valor) => (valor ? somenteDigitos(valor) : undefined))
-    .refine((valor) => valor === undefined || validarCpf(valor), {
+    .nullish()
+    // Ver a nota do mesmo transform em `residentes.schema.ts`.
+    .transform((valor) => {
+      if (valor == null) return valor
+      const digitos = somenteDigitos(valor)
+      return digitos === '' ? null : digitos
+    })
+    .refine((valor) => valor == null || validarCpf(valor), {
       message: 'CPF inválido',
     }),
   telefonePrincipal: z.string().trim().min(8, 'Informe um telefone de contato'),
-  telefoneSecundario: z.string().trim().optional(),
-  email: z.string().trim().email('E-mail inválido').optional().or(z.literal('')),
-  logradouro: z.string().trim().optional(),
-  numero: z.string().trim().optional(),
-  complemento: z.string().trim().optional(),
-  bairro: z.string().trim().optional(),
-  cidade: z.string().trim().optional(),
-  uf: z.string().trim().length(2, 'UF deve ter 2 letras').toUpperCase().optional(),
-  cep: z.string().trim().optional(),
+  telefoneSecundario: z.string().trim().nullish(),
+  email: z.string().trim().email('E-mail inválido').nullish().or(z.literal('')),
+  logradouro: z.string().trim().nullish(),
+  numero: z.string().trim().nullish(),
+  complemento: z.string().trim().nullish(),
+  bairro: z.string().trim().nullish(),
+  cidade: z.string().trim().nullish(),
+  uf: z.string().trim().length(2, 'UF deve ter 2 letras').toUpperCase().nullish(),
+  cep: z.string().trim().nullish(),
   ehResponsavelLegal: z.boolean().default(false),
   ehContatoEmergencia: z.boolean().default(false),
   autorizadoVisitar: z.boolean().default(true),
-  observacao: z.string().trim().optional(),
+  observacao: z.string().trim().nullish(),
 })
 
 const atualizacaoSchema = responsavelSchema.partial().omit({ residenteId: true })

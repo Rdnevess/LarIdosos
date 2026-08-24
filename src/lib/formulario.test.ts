@@ -12,14 +12,17 @@ describe('texto', () => {
     expect(texto(formulario({ nome: '  Maria Silva  ' }), 'nome')).toBe('Maria Silva')
   })
 
-  it('devolve undefined para campo em branco', () => {
-    // A tela envia string vazia para todo campo não preenchido; o serviço
-    // precisa receber "não informado", não `''`.
-    expect(texto(formulario({ nome: '' }), 'nome')).toBeUndefined()
-    expect(texto(formulario({ nome: '   ' }), 'nome')).toBeUndefined()
+  it('devolve null para campo presente e vazio — o usuário apagou o conteúdo', () => {
+    // Presente no formulário e em branco só pode significar uma coisa: a
+    // pessoa apagou o que havia. `null` grava null; `undefined` deixaria o
+    // valor antigo no banco e a tela mentiria dizendo "Registro salvo.".
+    expect(texto(formulario({ nome: '' }), 'nome')).toBeNull()
+    expect(texto(formulario({ nome: '   ' }), 'nome')).toBeNull()
   })
 
   it('devolve undefined para campo ausente do formulário', () => {
+    // Ausente é diferente de vazio: o formulário nem oferece o campo, então
+    // não há intenção nenhuma sobre ele e a chave precisa ser omitida.
     expect(texto(formulario({}), 'nome')).toBeUndefined()
   })
 })
@@ -35,8 +38,9 @@ describe('data', () => {
     expect(convertida?.getDate()).toBe(12)
   })
 
-  it('devolve undefined para campo de data em branco', () => {
-    expect(data(formulario({ nascimento: '' }), 'nascimento')).toBeUndefined()
+  it('devolve null para data presente e vazia, e undefined para ausente', () => {
+    expect(data(formulario({ nascimento: '' }), 'nascimento')).toBeNull()
+    expect(data(formulario({}), 'nascimento')).toBeUndefined()
   })
 })
 
@@ -45,8 +49,11 @@ describe('numero', () => {
     expect(numero(formulario({ valor: '1412.50' }), 'valor')).toBe(1412.5)
   })
 
-  it('devolve undefined para campo em branco', () => {
-    expect(numero(formulario({ valor: '' }), 'valor')).toBeUndefined()
+  it('devolve null para número presente e vazio, e undefined para ausente', () => {
+    // `Number('')` é 0: sem tratar antes, apagar o valor do benefício
+    // gravaria zero, que é um valor com significado próprio.
+    expect(numero(formulario({ valor: '' }), 'valor')).toBeNull()
+    expect(numero(formulario({}), 'valor')).toBeUndefined()
   })
 
   it('devolve NaN para texto não numérico, em vez de descartar o campo', () => {

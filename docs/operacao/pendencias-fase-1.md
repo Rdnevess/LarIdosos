@@ -131,23 +131,55 @@ a suíte crescer — subir o servidor de produção nesta investigação já rev
 classe de problema que o modo de desenvolvimento não mostra (o `AUTH_TRUST_HOST`
 que o `docker-compose.yml` define e o desenvolvimento dispensa).
 
-## 7. Apagar um campo opcional devolve "Registro salvo." e não apaga nada
+## 7. Apagar um campo opcional não apagava nada — resolvido
 
-**Situação:** a Fase 1 fechou os conversores omitindo a chave quando o campo vem
-vazio, para que a trilha de auditoria parasse de registrar alterações que não
-aconteceram. O efeito colateral, aceito e documentado no código: o Prisma ignora
-chave ausente, então **limpar um campo opcional pela tela é impossível**.
+**Resolvido em 23/08/2026.** Fica registrado porque a decisão contrária estava
+escrita em comentário de código e defendida como deliberada; quem a encontrar
+citada em outro lugar precisa saber que foi revertida de propósito.
 
-**Cenário concreto:** a coordenação apaga "Religião" da ficha e salva. A tela
-responde "Registro salvo.", o banco não muda, e a trilha não registra nada. Na
-próxima vez que abrir a ficha, o valor antigo está lá.
+**O que era:** os conversores de `FormData` omitiam a chave do campo vazio, para
+que a trilha de auditoria parasse de registrar alterações que não aconteceram. O
+Prisma ignora chave ausente, então limpar um campo opcional pela tela era
+impossível: a coordenação apagava "Religião", salvava, a tela respondia
+"Registro salvo.", o banco não mudava e a trilha ficava tão silenciosa quanto
+ele. O problema não era a limitação — era a tela afirmar o contrário do que
+acontecia.
 
-O problema não é a limitação — é a tela **afirmar o contrário do que aconteceu**.
-É assim que a equipe vai descobrir: achando que apagou.
+**O que resolveu:** o `FormData` distingue, por `has()`, três estados que a Fase
+1 tratava como dois. Era essa distinção que faltava, não a sentinela inventada
+que se temia:
 
-**Encaminhamento:** resolver junto, na Fase 2, a sentinela de "limpar campo" e a
-mensagem de confirmação. Enquanto não houver sentinela, a confirmação não deveria
-prometer gravação que não houve.
+| estado do campo | vira | efeito no banco |
+|---|---|---|
+| ausente do formulário | `undefined` | `semIndefinidos` omite a chave; a coluna não é tocada |
+| presente e vazio | `null` | grava `null` — a pessoa apagou |
+| preenchido | o valor aparado | grava o valor |
+
+Oferecer um campo na tela passa a ser o que autoriza apagá-lo. O medo registrado
+na decisão anterior — "gravaria `null` em qualquer campo deixado em branco por
+engano" — não se materializa: quem monta o formulário escolhe quais campos
+oferece, e campo que a tela não mostra continua intocável.
+
+**O que mudou:** `texto`, `data` e `numero` (`src/lib/formulario.ts`) devolvem os
+três estados, e `semIndefinidos` preserva `null` enquanto continua removendo
+`undefined`. Todo campo opcional dos schemas trocou `.optional()` por
+`.nullish()` — conferido campo a campo contra `prisma/schema.prisma`: cada um dos
+que agora aceitam `null` corresponde a uma coluna anulável. E `mapaErroZodPtBr`
+passou a traduzir `received: 'null'` como "Campo obrigatório", porque apagar um
+campo que não pode ficar vazio é erro de preenchimento, não "esperado texto,
+recebido nulo".
+
+**O que garante que continua funcionando:** `formulario.test.ts` cobre os três
+estados nos três conversores; os dois `conversores.test.ts` cobrem a fronteira
+que interessa (campo oferecido e em branco vira `null`; campo que a tela nem
+mostrou some) e o diff que a limpeza gera; e
+`residentes.service.test.ts` fecha a ponta do banco — `atualizarResidente`
+recebendo `null` esvazia a coluna e registra `{ de: 'Católica', para: null }` na
+auditoria. Cada um foi visto falhando contra o código anterior antes de passar.
+
+**Sobre a confirmação da tela:** "Registro salvo." só aparece com
+`estado.sucesso`, e a gravação agora de fato acontece. A mensagem deixou de
+mentir por consequência, sem precisar mudar.
 
 ## 8. "Registro em conselho" aparece ao anexar documento de residente
 

@@ -4,9 +4,17 @@ import { validarCpf, somenteDigitos } from '@/lib/ptbr'
 const cpfOpcional = z
   .string()
   .trim()
-  .optional()
-  .transform((valor) => (valor ? somenteDigitos(valor) : undefined))
-  .refine((valor) => valor === undefined || validarCpf(valor), {
+  .nullish()
+  // `== null` cobre ausente (`undefined`) e limpo (`null`) preservando qual
+  // era: o primeiro some em `semIndefinidos`, o segundo grava `null`. Sem
+  // isto o transform devolveria `undefined` nos dois casos e apagar o CPF
+  // pela tela não teria efeito nenhum.
+  .transform((valor) => {
+    if (valor == null) return valor
+    const digitos = somenteDigitos(valor)
+    return digitos === '' ? null : digitos
+  })
+  .refine((valor) => valor == null || validarCpf(valor), {
     message: 'CPF inválido',
   })
 
@@ -15,28 +23,28 @@ const dataNoPassado = (mensagem: string) =>
 
 export const novoResidenteSchema = z.object({
   nomeCompleto: z.string().trim().min(3, 'Informe o nome completo'),
-  nomeSocial: z.string().trim().optional(),
+  nomeSocial: z.string().trim().nullish(),
   dataNascimento: dataNoPassado('A data de nascimento não pode estar no futuro'),
   sexo: z.enum(['FEMININO', 'MASCULINO', 'OUTRO']),
-  estadoCivil: z.string().trim().optional(),
-  naturalidade: z.string().trim().optional(),
+  estadoCivil: z.string().trim().nullish(),
+  naturalidade: z.string().trim().nullish(),
   nacionalidade: z.string().trim().default('Brasileira'),
-  religiao: z.string().trim().optional(),
-  escolaridade: z.string().trim().optional(),
+  religiao: z.string().trim().nullish(),
+  escolaridade: z.string().trim().nullish(),
   cpf: cpfOpcional,
-  rg: z.string().trim().optional(),
-  orgaoEmissorRg: z.string().trim().optional(),
-  cns: z.string().trim().optional(),
+  rg: z.string().trim().nullish(),
+  orgaoEmissorRg: z.string().trim().nullish(),
+  cns: z.string().trim().nullish(),
   dataAdmissao: dataNoPassado('A data de admissão não pode estar no futuro'),
-  origemAdmissao: z.string().trim().optional(),
-  motivoAdmissao: z.string().trim().optional(),
-  quarto: z.string().trim().optional(),
-  leito: z.string().trim().optional(),
-  planoSaude: z.string().trim().optional(),
-  numeroPlanoSaude: z.string().trim().optional(),
-  beneficioTipo: z.enum(['APOSENTADORIA', 'BPC', 'PENSAO', 'NENHUM']).optional(),
-  beneficioNumero: z.string().trim().optional(),
-  beneficioValor: z.number().nonnegative().optional(),
+  origemAdmissao: z.string().trim().nullish(),
+  motivoAdmissao: z.string().trim().nullish(),
+  quarto: z.string().trim().nullish(),
+  leito: z.string().trim().nullish(),
+  planoSaude: z.string().trim().nullish(),
+  numeroPlanoSaude: z.string().trim().nullish(),
+  beneficioTipo: z.enum(['APOSENTADORIA', 'BPC', 'PENSAO', 'NENHUM']).nullish(),
+  beneficioNumero: z.string().trim().nullish(),
+  beneficioValor: z.number().nonnegative().nullish(),
 })
 
 export const atualizacaoResidenteSchema = novoResidenteSchema.partial()
@@ -51,7 +59,7 @@ export const desligamentoSchema = z.object({
   }),
   dataSaida: z.date(),
   motivoSaida: z.string().trim().min(3, 'Informe o motivo da saída'),
-  observacaoSaida: z.string().trim().optional(),
+  observacaoSaida: z.string().trim().nullish(),
 })
 
 export type DadosNovoResidente = z.input<typeof novoResidenteSchema>

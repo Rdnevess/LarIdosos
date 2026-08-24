@@ -63,7 +63,7 @@ const anexoSchema = z
       'TERMO_RESPONSABILIDADE', 'TERMO_LGPD', 'FOTO', 'EXAME',
       'COMPROVANTE_FISCAL', 'CONSELHO_PROFISSIONAL', 'OUTRO',
     ]),
-    descricao: z.string().trim().optional(),
+    descricao: z.string().trim().nullish(),
     nomeArquivoOriginal: z.string().trim().min(1, 'Informe o nome do arquivo'),
     mimeType: z.string().trim().min(1),
     conteudo: z.instanceof(Buffer),
