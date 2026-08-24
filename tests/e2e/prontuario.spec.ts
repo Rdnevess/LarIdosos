@@ -32,12 +32,15 @@ test('registra alergia grave e ela aparece destacada no cabeçalho', async ({ pa
   await cadastrarResidente(page, nome)
   await page.getByRole('link', { name: 'Prontuário' }).click()
 
-  await page.locator('summary').filter({ hasText: 'Alergias' }).click()
-  await page.getByLabel('Agente').fill('Dipirona')
-  await page.getByLabel('Tipo').selectOption('MEDICAMENTO')
-  await page.getByLabel('Gravidade').selectOption('GRAVE')
-  await page.getByLabel('Reação').fill('Edema de glote')
-  await page.getByRole('button', { name: 'Registrar alergia' }).click()
+  // Escopado à seção: o filtro da linha do tempo também tem um campo cujo
+  // rótulo começa com "Tipo", e `getByLabel` casa por trecho.
+  const secao = page.locator('details').filter({ hasText: 'Alergias' })
+  await secao.locator('summary').click()
+  await secao.getByLabel('Agente').fill('Dipirona')
+  await secao.getByLabel('Tipo').selectOption('MEDICAMENTO')
+  await secao.getByLabel('Gravidade').selectOption('GRAVE')
+  await secao.getByLabel('Reação').fill('Edema de glote')
+  await secao.getByRole('button', { name: 'Registrar alergia' }).click()
 
   const cabecalho = page.getByRole('region', { name: 'Cabeçalho clínico' })
   await expect(cabecalho).toContainText('Dipirona')

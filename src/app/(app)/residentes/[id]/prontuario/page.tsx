@@ -7,8 +7,10 @@ import { obterResidente } from '@/modules/residents/residentes.service'
 import { obterGrauVigente } from '@/modules/residents/dependencia.service'
 import { obterCabecalhoClinico } from '@/modules/health/cabecalho.service'
 import { obterUltimoSinalVital } from '@/modules/health/sinais-vitais.service'
+import { montarLinhaDoTempo, type TipoEvento } from '@/modules/health/linha-do-tempo'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { CabecalhoClinico } from '@/components/cabecalho-clinico'
+import { LinhaDoTempo } from '@/components/linha-do-tempo'
 import {
   FormularioAlergia,
   FormularioCondicaoCronica,
@@ -30,10 +32,13 @@ import { formatarData } from '@/lib/ptbr'
  */
 export default async function PaginaProntuario({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ tipo?: string }>
 }) {
   const { id } = await params
+  const { tipo } = await searchParams
   const ctx = await obterCtx()
 
   let residente
@@ -44,10 +49,13 @@ export default async function PaginaProntuario({
     throw erro
   }
 
-  const [grau, dados, ultimoSinalVital] = await Promise.all([
+  const [grau, dados, ultimoSinalVital, eventos] = await Promise.all([
     obterGrauVigente(ctx, id),
     obterCabecalhoClinico(ctx, id),
     obterUltimoSinalVital(ctx, id),
+    // Tipo desconhecido na URL cai em "todos", e não em erro: query string é
+    // coisa que se edita à mão e que sobrevive a um link antigo colado.
+    montarLinhaDoTempo(ctx, id, tipo ? { tipos: [tipo as TipoEvento] } : {}),
   ])
 
   // Prontuário é dado pessoal sensível (LGPD, art. 11), e esta tela mostra
@@ -86,6 +94,8 @@ export default async function PaginaProntuario({
           sentença duas vezes na mesma tela, e a seção vazia já se explica
           sozinha, com o formulário logo ali. */}
       <CabecalhoClinico grau={grau} dados={dados} ultimoSinalVital={ultimoSinalVital} />
+
+      <LinhaDoTempo eventos={eventos} tipoSelecionado={tipo} residenteId={id} />
 
       <details className="rounded border bg-white p-4">
         <summary className="cursor-pointer font-medium text-slate-800">
