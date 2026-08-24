@@ -4,6 +4,24 @@ Registro do que ficou em aberto ao fechar o núcleo cadastral. Nenhum item
 impede o uso do sistema; todos foram decididos com o dono do projeto e estão
 aqui para não dependerem da memória de ninguém.
 
+Os itens **6, 7 e 8 já foram resolvidos** e continuam neste documento em vez de
+sumirem dele: cada um deles reverte uma decisão que estava escrita e defendida
+como deliberada, e apagar o registro apagaria junto o motivo de ela ter mudado.
+Quem encontrar a decisão antiga citada em comentário, relatório de tarefa ou
+revisão precisa achar aqui o que aconteceu depois.
+
+| # | Estado | Onde se resolve |
+|---|---|---|
+| 1. Restauração do backup nunca executada | aberto | na implantação, no VPS |
+| 2. Acesso negado não é auditado | aberto | Fase 2, com a tela de auditoria |
+| 3. Trocar senha não exige a senha de quem troca | aberto | Fase 2 — prioridade de segurança |
+| 4. Quatro serviços sem tela | aberto | Fase 2 |
+| 5. `XLOOKUP` quebrado da planilha | aberto | Fase 3, por eliminação |
+| 6. Seções da ficha que se fecham | resolvido | artefato de desenvolvimento, nada a corrigir |
+| 7. Apagar campo opcional não apagava | resolvido | 23/08/2026 |
+| 8. "Registro em conselho" na ficha do residente | resolvido | 23/08/2026 |
+| 9. E2E contra o banco de desenvolvimento | aberto | aceito; nunca use esse banco como origem de dump |
+
 ## 1. O teste de restauração do backup nunca foi executado
 
 **Situação:** `docs/operacao/backup.md` traz o procedimento de restauração e a
