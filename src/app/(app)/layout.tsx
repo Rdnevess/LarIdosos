@@ -14,6 +14,7 @@ const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
   // rotina ficam no topo.
   { href: '/pendencias', rotulo: 'Pendências', papeis: ['COORDENACAO', 'SAUDE'] },
   { href: '/funcionarios', rotulo: 'Funcionários', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
+  { href: '/financeiro', rotulo: 'Financeiro', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
   { href: '/usuarios', rotulo: 'Usuários', papeis: ['COORDENACAO'] },
   { href: '/auditoria', rotulo: 'Auditoria', papeis: ['COORDENACAO'] },
 ]
