@@ -127,6 +127,8 @@ model Residente {
   exames                Exame[]
   consultas             Consulta[]
   vacinas               Vacina[]
+  medicacoes            Medicacao[]
+  administracoes        AdministracaoMedicacao[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -504,4 +506,100 @@ model Vacina {
 
   @@index([residenteId, dataAplicacao])
   @@map("vacinas")
+}
+
+// ─── Medicação (Fase 2B) ─────────────────────────────────────────────────────
+
+enum ViaMedicacao {
+  ORAL
+  SUBLINGUAL
+  IM
+  EV
+  SC
+  TOPICA
+  INALATORIA
+  OFTALMICA
+  OTOLOGICA
+  RETAL
+}
+
+enum TipoMedicacao {
+  HORARIO_FIXO
+  SE_NECESSARIO
+}
+
+enum StatusAdministracao {
+  ADMINISTRADA
+  RECUSADA
+  NAO_ADMINISTRADA
+}
+
+enum MotivoNaoAdministracao {
+  IDOSO_HOSPITALIZADO
+  IDOSO_AUSENTE
+  MEDICAMENTO_EM_FALTA
+  SUSPENSA_MEDICO
+  RECUSA_IDOSO
+  OUTRO
+}
+
+model Medicacao {
+  id                   String        @id @default(cuid())
+  residenteId          String
+  residente            Residente     @relation(fields: [residenteId], references: [id])
+  farmaco              String
+  concentracao         String?
+  formaFarmaceutica    String?
+  dose                 String
+  via                  ViaMedicacao
+  tipo                 TipoMedicacao
+  // Listas nativas do Postgres, nao texto separado por virgula: a derivacao
+  // itera sobre elas, e um parser de string seria um lugar a mais para errar.
+  horarios             String[]
+  diasSemana           Int[]
+  instrucoes           String?
+  prescritorNome       String?
+  prescritorConselho   String?
+  // DateTime, e nao Date: com precisao de dia, uma prescricao suspensa as 10h
+  // ainda derivaria a dose das 14h, e o relatorio a acusaria como "sem
+  // registro" — uma dose que o medico mandou nao dar.
+  dataInicio           DateTime
+  dataFim              DateTime?
+  ativa                Boolean       @default(true)
+  motivoSuspensao      String?
+  substituiMedicacaoId String?
+  criadoEm             DateTime      @default(now())
+  atualizadoEm         DateTime      @updatedAt
+  criadoPorId          String?
+
+  administracoes AdministracaoMedicacao[]
+
+  @@index([residenteId, ativa])
+  @@index([substituiMedicacaoId])
+  @@map("medicacoes")
+}
+
+model AdministracaoMedicacao {
+  id              String                  @id @default(cuid())
+  medicacaoId     String
+  medicacao       Medicacao               @relation(fields: [medicacaoId], references: [id])
+  residenteId     String
+  residente       Residente               @relation(fields: [residenteId], references: [id])
+  // A INSTANCIA da dose (24/08 as 08:00), nao o horario do esquema. Nulo para
+  // SE_NECESSARIO — e o Postgres trata nulos como distintos na restricao
+  // unica, que e o que permite registrar "se necessario" quantas vezes for.
+  horarioPrevisto DateTime?
+  registradoEm    DateTime                @default(now())
+  status          StatusAdministracao
+  motivo          MotivoNaoAdministracao?
+  observacao      String?
+  criadoEm        DateTime                @default(now())
+  criadoPorId     String?
+
+  // A R4: impede dupla marcacao da mesma dose quando duas pessoas abrem a
+  // tela do turno ao mesmo tempo.
+  @@unique([medicacaoId, horarioPrevisto])
+  @@index([residenteId, horarioPrevisto])
+  @@index([horarioPrevisto])
+  @@map("administracoes_medicacao")
 }

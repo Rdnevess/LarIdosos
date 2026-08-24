@@ -170,3 +170,48 @@ test('a enfermeira registra o turno inteiro e ve tudo na linha do tempo', async 
   await expect(filtrada).toContainText('PA 130×80')
   await expect(filtrada).not.toContainText(`Aceitou o café da manhã ${marca}.`)
 })
+
+test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', async ({
+  page,
+}) => {
+  // O caminho inteiro que a Fase 2B existe para abrir: derivacao, registro e
+  // relatorio, sem passar pela coordenacao.
+  await abrirFicha(page)
+  await page.getByRole('link', { name: 'Prontuário' }).click()
+
+  const farmaco = `Losartana ${Date.now()}`
+  const agora = new Date()
+  const hora = agora.getHours()
+  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
+  const doisDigitos = (n: number) => String(n).padStart(2, '0')
+  const horario = `${doisDigitos(hora > piso ? hora - 1 : hora)}:00`
+  const inicio = new Date(agora)
+  if (piso === 22 && hora < 6) inicio.setDate(inicio.getDate() - 1)
+  inicio.setHours(piso, 0, 0, 0)
+  const vigencia =
+    `${inicio.getFullYear()}-${doisDigitos(inicio.getMonth() + 1)}-` +
+    `${doisDigitos(inicio.getDate())}T${doisDigitos(inicio.getHours())}:00`
+
+  const secao = page.locator('details').filter({ hasText: 'Medicações' })
+  await secao.locator('summary').first().click()
+  await secao.getByLabel('Fármaco').fill(farmaco)
+  await secao.getByLabel('Dose').fill('1 comprimido')
+  await secao.getByLabel('Via').selectOption('ORAL')
+  await secao.getByLabel('Tipo').selectOption('HORARIO_FIXO')
+  await secao.getByLabel('Horários').fill(horario)
+  await secao.getByLabel('Vigente a partir de').fill(vigencia)
+  await secao.getByRole('button', { name: 'Prescrever' }).click()
+
+  await page.goto('/turno')
+  const linha = page.locator('li', { hasText: farmaco })
+  await expect(linha).toBeVisible()
+  await linha.getByRole('button', { name: 'Administrada' }).click()
+  await expect(page.locator('li', { hasText: farmaco })).toContainText('Administrada')
+
+  // E o relatorio conta a dose administrada, sem nenhuma sem registro.
+  await linha.getByRole('link').first().click()
+  const aderencia = page.locator('details').filter({ hasText: 'Aderência' })
+  await aderencia.locator('summary').first().click()
+  await expect(aderencia).toContainText('Administradas')
+  await expect(aderencia).toContainText('0%')
+})

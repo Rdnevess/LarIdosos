@@ -1,0 +1,102 @@
+import { test, expect, type Page } from '@playwright/test'
+
+/**
+ * Um horário dentro da janela em curso, para a dose aparecer sem navegação.
+ * Sem isto o teste dependeria de a suíte rodar num turno específico — e
+ * falharia sozinho às 22h.
+ */
+function horarioDoTurnoCorrente(): string {
+  const agora = new Date()
+  const hora = agora.getHours()
+  // Uma hora antes da atual, dentro do mesmo turno: manhã 6–14, tarde 14–22,
+  // noite 22–6. A borda de baixo de cada turno é o piso.
+  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
+  const escolhida = hora > piso ? hora - 1 : hora
+  return `${String(escolhida).padStart(2, '0')}:00`
+}
+
+/** O começo da janela em curso, no formato que o `datetime-local` aceita. */
+function inicioDoTurnoCorrente(): string {
+  const agora = new Date()
+  const hora = agora.getHours()
+  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
+  const inicio = new Date(agora)
+  if (piso === 22 && hora < 6) inicio.setDate(inicio.getDate() - 1)
+  inicio.setHours(piso, 0, 0, 0)
+
+  const doisDigitos = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${inicio.getFullYear()}-${doisDigitos(inicio.getMonth() + 1)}-` +
+    `${doisDigitos(inicio.getDate())}T${doisDigitos(inicio.getHours())}:00`
+  )
+}
+
+async function cadastrarEAbrirProntuario(page: Page, nome: string): Promise<void> {
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1937-03-03')
+  await page.getByLabel('Sexo').selectOption('FEMININO')
+  await page.getByLabel('Data de admissão').fill('2026-01-03')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+  await page.getByRole('link', { name: 'Prontuário' }).click()
+  await expect(page.getByRole('heading', { name: /Prontuário/ })).toBeVisible()
+}
+
+test('a tela do turno lista a dose e a marca como administrada em um toque', async ({
+  page,
+}) => {
+  const nome = `Idosa Turno ${Date.now()}`
+  const farmaco = `Losartana ${Date.now()}`
+  await cadastrarEAbrirProntuario(page, nome)
+
+  const secao = page.locator('details').filter({ hasText: 'Medicações' })
+  await secao.locator('summary').first().click()
+  await secao.getByLabel('Fármaco').fill(farmaco)
+  await secao.getByLabel('Dose').fill('1 comprimido')
+  await secao.getByLabel('Via').selectOption('ORAL')
+  await secao.getByLabel('Tipo').selectOption('HORARIO_FIXO')
+  await secao.getByLabel('Horários').fill(horarioDoTurnoCorrente())
+  // A vigência começa no início do turno: sem isso, uma prescrição criada
+  // agora não derivaria a dose de uma hora atrás — o que é o comportamento
+  // certo do produto, e tornaria este teste dependente da hora do relógio.
+  await secao.getByLabel('Vigente a partir de').fill(inicioDoTurnoCorrente())
+  await secao.getByRole('button', { name: 'Prescrever' }).click()
+
+  await page.goto('/turno')
+  const linha = page.locator('li', { hasText: farmaco })
+  await expect(linha).toContainText(nome)
+
+  // O "um toque" do turno corrente: sem formulário no caminho.
+  await linha.getByRole('button', { name: 'Administrada' }).click()
+  await expect(page.locator('li', { hasText: farmaco })).toContainText('Administrada')
+})
+
+test('a medicação suspensa sai da tela do turno', async ({ page }) => {
+  // A vigência é quem manda: suspensa agora, a dose seguinte deixa de ser
+  // derivada — e a anterior, já registrada, continua no histórico.
+  const nome = `Idosa Suspensa ${Date.now()}`
+  const farmaco = `Enalapril ${Date.now()}`
+  await cadastrarEAbrirProntuario(page, nome)
+
+  const secao = page.locator('details').filter({ hasText: 'Medicações' })
+  await secao.locator('summary').first().click()
+  await secao.getByLabel('Fármaco').fill(farmaco)
+  await secao.getByLabel('Dose').fill('1 comprimido')
+  await secao.getByLabel('Via').selectOption('ORAL')
+  await secao.getByLabel('Tipo').selectOption('HORARIO_FIXO')
+  await secao.getByLabel('Horários').fill('23:59')
+  await secao.getByRole('button', { name: 'Prescrever' }).click()
+
+  // Escopado à seção: o cabeçalho clínico também lista a medicação ativa, e
+  // um `li` solto na página pegaria os dois.
+  const item = secao.locator('li', { hasText: farmaco })
+  await item.locator('summary').filter({ hasText: 'Suspender' }).click()
+  await item.getByLabel('Motivo da suspensão').fill('Suspensa pelo médico')
+  await item.getByRole('button', { name: 'Suspender medicação' }).click()
+
+  await expect(secao.locator('li', { hasText: farmaco })).toContainText('Suspensa')
+
+  // E some do cabeçalho, que só lista as ativas.
+  const cabecalho = page.getByRole('region', { name: 'Cabeçalho clínico' })
+  await expect(cabecalho).not.toContainText(farmaco)
+})

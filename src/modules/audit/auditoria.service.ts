@@ -37,6 +37,9 @@ export type EntidadeAuditada =
   | 'Exame'
   | 'Consulta'
   | 'Vacina'
+  // Fase 2B — medicação.
+  | 'Medicacao'
+  | 'AdministracaoMedicacao'
 
 /**
  * O ator de um evento de auditoria. `Ctx` (usuário autenticado e autorizado)

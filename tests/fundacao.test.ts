@@ -34,6 +34,24 @@ describe('fundação', () => {
     expect(tabelas).toHaveLength(8)
   })
 
+  it('tem as tabelas de medicação, com a restrição que impede dupla marcação', async () => {
+    const tabelas = await prisma.$queryRaw<{ table_name: string }[]>`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('medicacoes', 'administracoes_medicacao')
+    `
+    expect(tabelas).toHaveLength(2)
+
+    // A R4 em forma de constraint: é ela que impede duas pessoas com a tela
+    // do turno aberta de marcarem a mesma dose duas vezes.
+    const unicas = await prisma.$queryRaw<{ indexname: string }[]>`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'administracoes_medicacao'
+        AND indexdef LIKE '%UNIQUE%medicacaoId%horarioPrevisto%'
+    `
+    expect(unicas.length).toBeGreaterThan(0)
+  })
+
   it('limpa o banco entre os testes', async () => {
     const total = await prisma.usuario.count()
     expect(total).toBe(0)
