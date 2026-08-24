@@ -17,7 +17,7 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'autenticado',
-      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts/,
+      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts|administrativo\.spec\.ts/,
       dependencies: ['setup'],
       use: { storageState: 'tests/e2e/.sessao.json' },
     },
@@ -29,6 +29,15 @@ export default defineConfig({
       testMatch: /saude\.spec\.ts/,
       dependencies: ['setup'],
       use: { storageState: 'tests/e2e/.sessao-saude.json' },
+    },
+    // Terceiro perfil. O prontuário inteiro é recusado a este papel, e a
+    // recusa só vale alguma coisa se alguém a exercitar pela URL — que é por
+    // onde ela seria furada.
+    {
+      name: 'administrativo',
+      testMatch: /administrativo\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { storageState: 'tests/e2e/.sessao-administrativo.json' },
     },
     { name: 'anonimo', testMatch: /login\.spec\.ts/ },
   ],

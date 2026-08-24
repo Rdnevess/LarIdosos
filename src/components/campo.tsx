@@ -1,7 +1,10 @@
 export type PropsCampo = {
   nome: string
   rotulo: string
-  tipo?: 'text' | 'date' | 'number' | 'email' | 'checkbox' | 'password'
+  // `datetime-local` entrou com o prontuário: anotação e sinal vital precisam
+  // da hora, não só do dia — é o que permite registrar às 6h o que aconteceu
+  // às 3h sem que a linha do tempo minta sobre a madrugada.
+  tipo?: 'text' | 'date' | 'datetime-local' | 'number' | 'email' | 'checkbox' | 'password'
   obrigatorio?: boolean
   opcoes?: { valor: string; rotulo: string }[]
   valorInicial?: string

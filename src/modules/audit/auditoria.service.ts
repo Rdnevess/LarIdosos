@@ -28,6 +28,15 @@ export type EntidadeAuditada =
   // A própria trilha. Só aparece em `ACESSO_NEGADO`: consultar a auditoria não
   // se audita — seria uma linha a cada abertura da tela, sobre a própria tela.
   | 'LogAuditoria'
+  // Fase 2A — prontuário.
+  | 'CondicaoCronica'
+  | 'Alergia'
+  | 'RestricaoAlimentar'
+  | 'AnotacaoSaude'
+  | 'SinalVital'
+  | 'Exame'
+  | 'Consulta'
+  | 'Vacina'
 
 /**
  * O ator de um evento de auditoria. `Ctx` (usuário autenticado e autorizado)

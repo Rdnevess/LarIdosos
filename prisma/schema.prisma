@@ -119,6 +119,14 @@ model Residente {
   responsaveis          Responsavel[]
   documentos            Documento[]
   anotacoes             Anotacao[]
+  condicoesCronicas     CondicaoCronica[]
+  alergias              Alergia[]
+  restricoesAlimentares RestricaoAlimentar[]
+  anotacoesSaude        AnotacaoSaude[]
+  sinaisVitais          SinalVital[]
+  exames                Exame[]
+  consultas             Consulta[]
+  vacinas               Vacina[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -217,15 +225,24 @@ model Documento {
   criadoEm             DateTime      @default(now())
   criadoPorId          String?
 
+  // O laudo de um exame e o encaminhamento de uma consulta sao documentos
+  // como qualquer outro: a politica de visibilidade que ja existe vale para
+  // eles sem regra propria.
+  exames    Exame[]
+  consultas Consulta[]
+
   @@index([residenteId, ativo])
   @@index([funcionarioId, ativo])
   @@map("documentos")
 }
 
+// Estritamente nao-clinica: COMPORTAMENTO e OCORRENCIA sairam daqui na Fase
+// 2A e passaram a existir so em CategoriaAnotacaoSaude, como COMPORTAMENTO e
+// INTERCORRENCIA. Sem isso o prontuario ficaria com metade da historia —
+// "ocorrencia" e "intercorrencia" sao a mesma palavra para quem escreve as
+// tres da manha.
 enum CategoriaAnotacao {
-  COMPORTAMENTO
   VISITA_FAMILIA
-  OCORRENCIA
   SOCIAL
   JURIDICO
   OUTRO
@@ -257,34 +274,234 @@ enum VinculoFuncionario {
 }
 
 model Funcionario {
-  id                  String             @id @default(cuid())
-  nomeCompleto        String
-  cpf                 String             @unique
-  rg                  String?
-  cargo               String
-  vinculo             VinculoFuncionario
-  dataAdmissao        DateTime           @db.Date
-  dataDesligamento    DateTime?          @db.Date
-  motivoDesligamento  String?
-  telefone            String?
-  email               String?
-  logradouro          String?
-  numero              String?
-  bairro              String?
-  cidade              String?
-  uf                  String?            @db.Char(2)
-  cep                 String?
-  conselhoSigla       String?
-  conselhoNumero      String?
-  conselhoUf          String?            @db.Char(2)
-  conselhoValidade    DateTime?          @db.Date
-  ativo               Boolean            @default(true)
-  criadoEm            DateTime           @default(now())
-  atualizadoEm        DateTime           @updatedAt
-  criadoPorId         String?
+  id                 String             @id @default(cuid())
+  nomeCompleto       String
+  cpf                String             @unique
+  rg                 String?
+  cargo              String
+  vinculo            VinculoFuncionario
+  dataAdmissao       DateTime           @db.Date
+  dataDesligamento   DateTime?          @db.Date
+  motivoDesligamento String?
+  telefone           String?
+  email              String?
+  logradouro         String?
+  numero             String?
+  bairro             String?
+  cidade             String?
+  uf                 String?            @db.Char(2)
+  cep                String?
+  conselhoSigla      String?
+  conselhoNumero     String?
+  conselhoUf         String?            @db.Char(2)
+  conselhoValidade   DateTime?          @db.Date
+  ativo              Boolean            @default(true)
+  criadoEm           DateTime           @default(now())
+  atualizadoEm       DateTime           @updatedAt
+  criadoPorId        String?
 
-  documentos          Documento[]
+  documentos Documento[]
 
   @@index([ativo, nomeCompleto])
   @@map("funcionarios")
+}
+
+// ─── Prontuário (Fase 2A) ────────────────────────────────────────────────────
+
+enum TipoAlergia {
+  MEDICAMENTO
+  ALIMENTO
+  OUTRO
+}
+
+enum Gravidade {
+  LEVE
+  MODERADA
+  GRAVE
+}
+
+enum CategoriaAnotacaoSaude {
+  EVOLUCAO
+  INTERCORRENCIA
+  ALIMENTACAO
+  SONO
+  HIGIENE
+  COMPORTAMENTO
+  QUEDA
+}
+
+enum Turno {
+  MANHA
+  TARDE
+  NOITE
+}
+
+enum StatusExame {
+  SOLICITADO
+  AGENDADO
+  REALIZADO
+  RESULTADO_RECEBIDO
+  CANCELADO
+}
+
+enum StatusConsulta {
+  AGENDADA
+  REALIZADA
+  CANCELADA
+}
+
+model CondicaoCronica {
+  id              String    @id @default(cuid())
+  residenteId     String
+  residente       Residente @relation(fields: [residenteId], references: [id])
+  descricao       String
+  cid10           String?
+  dataDiagnostico DateTime? @db.Date
+  ativa           Boolean   @default(true)
+  criadoEm        DateTime  @default(now())
+  atualizadoEm    DateTime  @updatedAt
+  criadoPorId     String?
+
+  @@index([residenteId, ativa])
+  @@map("condicoes_cronicas")
+}
+
+model Alergia {
+  id           String      @id @default(cuid())
+  residenteId  String
+  residente    Residente   @relation(fields: [residenteId], references: [id])
+  agente       String
+  tipo         TipoAlergia
+  gravidade    Gravidade
+  reacao       String?
+  ativa        Boolean     @default(true)
+  criadoEm     DateTime    @default(now())
+  atualizadoEm DateTime    @updatedAt
+  criadoPorId  String?
+
+  @@index([residenteId, ativa])
+  @@map("alergias")
+}
+
+model RestricaoAlimentar {
+  id           String    @id @default(cuid())
+  residenteId  String
+  residente    Residente @relation(fields: [residenteId], references: [id])
+  descricao    String
+  ativa        Boolean   @default(true)
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  criadoPorId  String?
+
+  @@index([residenteId, ativa])
+  @@map("restricoes_alimentares")
+}
+
+model AnotacaoSaude {
+  id                      String                 @id @default(cuid())
+  residenteId             String
+  residente               Residente              @relation(fields: [residenteId], references: [id])
+  categoria               CategoriaAnotacaoSaude
+  turno                   Turno
+  texto                   String
+  gravidade               Gravidade?
+  conduta                 String?
+  ocorridoEm              DateTime
+  editavelAte             DateTime
+  retificaAnotacaoSaudeId String?
+  criadoEm                DateTime               @default(now())
+  atualizadoEm            DateTime               @updatedAt
+  criadoPorId             String?
+
+  @@index([residenteId, ocorridoEm])
+  @@index([retificaAnotacaoSaudeId])
+  @@map("anotacoes_saude")
+}
+
+model SinalVital {
+  id                     String    @id @default(cuid())
+  residenteId            String
+  residente              Residente @relation(fields: [residenteId], references: [id])
+  aferidoEm              DateTime
+  pressaoSistolica       Int?
+  pressaoDiastolica      Int?
+  frequenciaCardiaca     Int?
+  frequenciaRespiratoria Int?
+  temperatura            Decimal?  @db.Decimal(4, 1)
+  saturacaoO2            Int?
+  glicemia               Int?
+  peso                   Decimal?  @db.Decimal(5, 2)
+  observacao             String?
+  criadoEm               DateTime  @default(now())
+  atualizadoEm           DateTime  @updatedAt
+  criadoPorId            String?
+
+  @@index([residenteId, aferidoEm])
+  @@map("sinais_vitais")
+}
+
+model Exame {
+  id              String      @id @default(cuid())
+  residenteId     String
+  residente       Residente   @relation(fields: [residenteId], references: [id])
+  tipo            String
+  dataSolicitacao DateTime?   @db.Date
+  dataRealizacao  DateTime?   @db.Date
+  dataResultado   DateTime?   @db.Date
+  solicitanteNome String?
+  laboratorio     String?
+  status          StatusExame @default(SOLICITADO)
+  resumoResultado String?
+  documentoId     String?
+  documento       Documento?  @relation(fields: [documentoId], references: [id])
+  criadoEm        DateTime    @default(now())
+  atualizadoEm    DateTime    @updatedAt
+  criadoPorId     String?
+
+  // Sustenta a area de pendencias, que varre TODOS os residentes.
+  @@index([status, dataSolicitacao])
+  // Sustenta a linha do tempo, que consulta por residente.
+  @@index([residenteId, dataSolicitacao])
+  @@map("exames")
+}
+
+model Consulta {
+  id             String         @id @default(cuid())
+  residenteId    String
+  residente      Residente      @relation(fields: [residenteId], references: [id])
+  dataHora       DateTime
+  especialidade  String
+  profissional   String?
+  local          String?
+  motivo         String?
+  conduta        String?
+  encaminhamento String?
+  dataRetorno    DateTime?      @db.Date
+  status         StatusConsulta @default(AGENDADA)
+  documentoId    String?
+  documento      Documento?     @relation(fields: [documentoId], references: [id])
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime       @updatedAt
+  criadoPorId    String?
+
+  @@index([status, dataHora])
+  @@index([residenteId, dataHora])
+  @@map("consultas")
+}
+
+model Vacina {
+  id             String    @id @default(cuid())
+  residenteId    String
+  residente      Residente @relation(fields: [residenteId], references: [id])
+  imunizante     String
+  dose           String
+  dataAplicacao  DateTime  @db.Date
+  lote           String?
+  localAplicacao String?
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+  criadoPorId    String?
+
+  @@index([residenteId, dataAplicacao])
+  @@map("vacinas")
 }

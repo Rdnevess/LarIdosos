@@ -120,10 +120,53 @@ test('o papel SAUDE registra anotação, que é a escrita que lhe cabe', async (
   await abrirFicha(page)
 
   const texto = `Aferição de pressão sem alteração ${Date.now()}.`
-  await page.getByLabel('Categoria').selectOption('OCORRENCIA')
+  // A ficha cadastral so oferece categoria nao-clinica desde a Fase 2A; o
+  // clinico do papel SAUDE vive no prontuario.
+  await page.getByLabel('Categoria').selectOption('SOCIAL')
   await page.getByLabel('Anotação').fill(texto)
   await page.getByRole('button', { name: 'Registrar anotação' }).click()
 
   const secaoAnotacoes = page.getByRole('group').filter({ hasText: 'Anotações (' })
   await expect(secaoAnotacoes).toContainText(texto)
+})
+
+test('a enfermeira registra o turno inteiro e ve tudo na linha do tempo', async ({ page }) => {
+  // O caminho que a Fase 2A existe para abrir: a equipe de cuidado registrando
+  // pelo prontuário, sem passar pela coordenação. Se registrar der trabalho,
+  // ninguém registra, e o sistema vira um caderno digital vazio.
+  await abrirFicha(page)
+  await page.getByRole('link', { name: 'Prontuário' }).click()
+  await expect(page.getByRole('heading', { name: /Prontuário/ })).toBeVisible()
+
+  const marca = Date.now()
+
+  // Botão grande: evolução em um campo só.
+  const botaoEvolucao = page.locator('details').filter({ hasText: 'Evolução' }).first()
+  await botaoEvolucao.locator('summary').first().click()
+  await botaoEvolucao.getByLabel('Anotação').fill(`Aceitou o café da manhã ${marca}.`)
+  await botaoEvolucao.getByRole('button', { name: 'Registrar evolução' }).click()
+
+  // Botão grande: sinais vitais, aferição parcial.
+  const botaoSinais = page.locator('details').filter({ hasText: 'Sinais vitais' }).first()
+  await botaoSinais.locator('summary').first().click()
+  await botaoSinais.getByLabel('Pressão sistólica').fill('130')
+  await botaoSinais.getByLabel('Pressão diastólica').fill('80')
+  await botaoSinais.getByRole('button', { name: 'Registrar sinais vitais' }).click()
+
+  // A confirmação fica dentro do `<details>`, que a revalidação do servidor
+  // fecha — o registro aconteceu, mas a mensagem sai da árvore acessível. O
+  // que importa é o resultado, e é nele que este teste espera.
+
+  const linha = page.getByRole('region').filter({ hasText: 'Linha do tempo' })
+  await expect(linha).toContainText(`Aceitou o café da manhã ${marca}.`)
+  await expect(linha).toContainText('PA 130×80')
+
+  // O filtro deixa só um tipo, e é formulário de servidor: sobrevive ao
+  // recarregamento e a um link copiado.
+  await linha.getByLabel('Tipo de evento').selectOption('SINAL_VITAL')
+  await linha.getByRole('button', { name: 'Filtrar' }).click()
+
+  const filtrada = page.getByRole('region').filter({ hasText: 'Linha do tempo' })
+  await expect(filtrada).toContainText('PA 130×80')
+  await expect(filtrada).not.toContainText(`Aceitou o café da manhã ${marca}.`)
 })

@@ -15,6 +15,14 @@ export const EMAIL_SAUDE = 'enfermagem.e2e@lar.local'
 export const SENHA_SAUDE = 'senha-de-teste-saude-123'
 
 /**
+ * Terceiro perfil, criado na Fase 2A pelo mesmo motivo que criou o segundo: o
+ * prontuário inteiro é recusado a este papel, e uma fronteira que nenhum teste
+ * atravessa é uma fronteira que ninguém sabe se existe.
+ */
+export const EMAIL_ADMINISTRATIVO = 'administrativo.e2e@lar.local'
+export const SENHA_ADMINISTRATIVO = 'senha-de-teste-admin-123'
+
+/**
  * Residente fixo que o perfil SAUDE usa. Precisa vir pronto do
  * `global-setup`: SAUDE não pode cadastrar residente (`criarResidente` exige
  * COORDENACAO ou ADMINISTRATIVO), então o próprio teste não teria como criar

@@ -131,11 +131,26 @@ describe('listarAnotacoes', () => {
     expect(log.residenteId).toBe(residente.id)
   })
 
+  it('recusa categoria clínica na anotação geral', async () => {
+    // Clínico tem um lugar só, e é `AnotacaoSaude`. Sem esta recusa, um
+    // comportamento agitado poderia ser registrado nos dois lugares, e o
+    // prontuário ficaria com metade da história.
+    const { residente, ctx } = await anotacaoBase()
+
+    await expect(
+      criarAnotacao(ctx, {
+        residenteId: residente.id,
+        categoria: 'OCORRENCIA' as never,
+        texto: 'Tentativa de registrar clínico na anotação geral.',
+      })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
   it('devolve da mais recente para a mais antiga', async () => {
     const { residente, ctx } = await anotacaoBase()
     await criarAnotacao(ctx, {
       residenteId: residente.id,
-      categoria: 'OCORRENCIA',
+      categoria: 'VISITA_FAMILIA',
       texto: 'Segunda anotação registrada.',
     })
 

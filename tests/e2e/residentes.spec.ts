@@ -68,15 +68,15 @@ test('registra anotação, responsável e avaliação na ficha', async ({ page }
   await expect(linhaGrau).toContainText('não avaliado')
 
   // Anotação — a seção já vem aberta, é o que a equipe mais usa.
-  await page.getByLabel('Categoria').selectOption('OCORRENCIA')
-  await page.getByLabel('Anotação').fill('Queda sem lesão no banho.')
+  await page.getByLabel('Categoria').selectOption('VISITA_FAMILIA')
+  await page.getByLabel('Anotação').fill('Filha visitou na tarde de domingo.')
   await page.getByRole('button', { name: 'Registrar anotação' }).click()
 
   const secaoAnotacoes = page.getByRole('group').filter({ hasText: 'Anotações (' })
-  await expect(secaoAnotacoes).toContainText('Queda sem lesão no banho.')
-  // Rótulo em pt-BR, não o valor cru do enum ("OCORRENCIA").
-  await expect(secaoAnotacoes).toContainText('Ocorrência')
-  await expect(secaoAnotacoes).not.toContainText('OCORRENCIA')
+  await expect(secaoAnotacoes).toContainText('Filha visitou na tarde de domingo.')
+  // Rótulo em pt-BR, não o valor cru do enum ("VISITA_FAMILIA").
+  await expect(secaoAnotacoes).toContainText('Visita da família')
+  await expect(secaoAnotacoes).not.toContainText('VISITA_FAMILIA')
   await expect(secaoAnotacoes.getByText('Anotações (1)')).toBeVisible()
 
   // Responsáveis — seção fechada por padrão.
@@ -328,7 +328,7 @@ test('corrige uma anotacao na janela e retifica depois, pela ficha', async ({ pa
   const nome = `Idoso Anotacao ${Date.now()}`
   await cadastrarResidente(page, nome)
 
-  await page.getByLabel('Categoria').selectOption('OCORRENCIA')
+  await page.getByLabel('Categoria').selectOption('SOCIAL')
   await page.getByLabel('Anotação').fill('Recusou o almoco.')
   await page.getByRole('button', { name: 'Registrar anotação' }).click()
 

@@ -2,9 +2,17 @@
 
 Sistema de gestão para uma ILPI (Instituição de Longa Permanência para
 Idosos) de pequeno porte — cerca de 30 residentes, equipe pequena, uma
-única VPS. Cobre o núcleo cadastral: residentes, responsáveis, grau de
+única VPS. Cobre o núcleo cadastral — residentes, responsáveis, grau de
 dependência, anotações de acompanhamento, documentos anexados,
-funcionários e a trilha de auditoria que a fiscalização sanitária cobra.
+funcionários e a trilha de auditoria que a fiscalização sanitária cobra — e
+o **prontuário**: cabeçalho clínico, anotações de saúde por turno, sinais
+vitais, exames com controle de pendências, consultas, vacinas e linha do
+tempo.
+
+O prontuário vive em rota própria (`/residentes/[id]/prontuario`), fora do
+alcance do papel ADMINISTRATIVO. A área `/pendencias` atravessa todos os
+residentes e mostra o que está em aberto: exame solicitado e esquecido é o
+problema real numa ILPI, e ninguém o percebe abrindo trinta fichas uma a uma.
 
 A interface é inteiramente em português do Brasil. Nenhuma exclusão é
 física: registros saem de cena por desligamento ou por `ativo = false`, e
@@ -131,14 +139,18 @@ dentro delas rodam contra um Postgres real.
 Sobre `npm run test:e2e`: a suíte usa o **banco de desenvolvimento**, não
 o de teste, e não o limpa. Ela cria os próprios registros com nomes
 carimbados pelo relógio para não colidir entre execuções. O `globalSetup`
-(`tests/e2e/global-setup.ts`) garante os dois usuários-semente (papéis
-COORDENACAO e SAUDE) e um residente fixo para o perfil SAUDE agir sobre
-ele, já que esse papel não pode cadastrar residente. O login em si é o
-projeto `setup` (`tests/e2e/auth.setup.ts`), que roda antes dos demais por
-`dependencies` no `playwright.config.ts`: autentica nos dois papéis e
-guarda cada sessão em disco (`.sessao.json`, `.sessao-saude.json`), para
-os projetos `autenticado` e `saude` reaproveitarem sem logar de novo a
-cada teste.
+(`tests/e2e/global-setup.ts`) garante os três usuários-semente (papéis
+COORDENACAO, SAUDE e ADMINISTRATIVO) e um residente fixo para o perfil
+SAUDE agir sobre ele, já que esse papel não pode cadastrar residente. O
+login em si é o projeto `setup` (`tests/e2e/auth.setup.ts`), que roda antes
+dos demais por `dependencies` no `playwright.config.ts`: autentica nos três
+papéis e guarda cada sessão em disco (`.sessao.json`, `.sessao-saude.json`,
+`.sessao-administrativo.json`), para os projetos `autenticado`, `saude` e
+`administrativo` reaproveitarem sem logar de novo a cada teste.
+
+O terceiro perfil nasceu com a Fase 2A e pelo mesmo motivo que criou o
+segundo: o prontuário inteiro é recusado ao ADMINISTRATIVO, e uma fronteira
+que nenhum teste atravessa é uma fronteira que ninguém sabe se existe.
 
 `npm run typecheck` antes de cada commit.
 
