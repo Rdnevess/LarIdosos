@@ -2,11 +2,10 @@ import { z } from 'zod'
 import type { Anotacao } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
-import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
+import { ErroNaoEncontrado } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
+import { prazoDeEdicao, exigirJanelaAberta } from '@/lib/janela-edicao'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
-
-export const JANELA_EDICAO_MINUTOS = 15
 
 const categoriaSchema = z.enum([
   'VISITA_FAMILIA',
@@ -53,7 +52,7 @@ export async function criarAnotacao(
     const criada = await tx.anotacao.create({
       data: {
         ...entrada,
-        editavelAte: new Date(Date.now() + JANELA_EDICAO_MINUTOS * 60_000),
+        editavelAte: prazoDeEdicao(),
         criadoPorId: ctx.usuarioId,
       },
     })
@@ -105,14 +104,10 @@ export async function editarAnotacao(
   exigirPapel(ctx, 'Anotacao', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
   const atual = await exigirAnotacao(id)
 
-  if (atual.criadoPorId !== ctx.usuarioId) {
-    throw new ErroPermissao('Só o autor pode editar a própria anotação')
-  }
-  if (atual.editavelAte.getTime() < Date.now()) {
-    throw new ErroValidacao(
-      `A janela de ${JANELA_EDICAO_MINUTOS} minutos para edição expirou. Registre uma retificação.`
-    )
-  }
+  // A regra R3 mora em `src/lib/janela-edicao.ts`, compartilhada com
+  // `AnotacaoSaude`: duas cópias dela divergiriam, e é regra que a
+  // fiscalização lê.
+  exigirJanelaAberta(atual.editavelAte, atual.criadoPorId, ctx)
 
   const novoTexto = validar(z.string().trim().min(3, 'Escreva o conteúdo da anotação'), texto)
 
@@ -149,7 +144,7 @@ export async function retificarAnotacao(
         residenteId: original.residenteId,
         categoria: entrada.categoria ?? original.categoria,
         texto: entrada.texto,
-        editavelAte: new Date(Date.now() + JANELA_EDICAO_MINUTOS * 60_000),
+        editavelAte: prazoDeEdicao(),
         retificaAnotacaoId: original.id,
         criadoPorId: ctx.usuarioId,
       },

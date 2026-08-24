@@ -1,5 +1,5 @@
 import { FormularioSimples } from './formulario-simples'
-import { JANELA_EDICAO_MINUTOS } from '@/modules/residents/anotacoes.service'
+import { JANELA_EDICAO_MINUTOS } from '@/lib/janela-edicao'
 import { acaoEditarAnotacao, acaoRetificarAnotacao } from '@/app/(app)/residentes/acoes'
 
 /**
