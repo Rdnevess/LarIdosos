@@ -13,6 +13,10 @@ import { test, expect, type Page } from '@playwright/test'
 const marca = Date.now()
 const CONTA = `9${String(marca).slice(-5)}-4`
 const ORIGEM = `Doação ${marca}`
+// Duas origens, como na realidade: a doação avulsa e a contribuição do
+// residente. As duas saem na prestação com o mesmo rótulo "Doação"; só a
+// segunda exige informar de quem é.
+const ORIGEM_CONTRIB = `Contribuição de residente ${marca}`
 const CATEGORIA = `Energia ${marca}`
 const FORNECEDOR = `Energisa ${marca}`
 // A descrição também leva a marca: sem ela, a segunda rodada acha duas
@@ -70,6 +74,12 @@ test('cadastra a instituição, a conta e os auxiliares', async ({ page }) => {
   await origens.getByLabel('Rótulo na prestação').fill('Doação')
   await origens.getByRole('button', { name: 'Cadastrar origem' }).click()
   await expect(page.getByText(ORIGEM).first()).toBeVisible()
+
+  await origens.getByLabel(/^Nome/).fill(ORIGEM_CONTRIB)
+  await origens.getByLabel('Rótulo na prestação').fill('Doação')
+  await origens.getByLabel('Exige informar o residente').check()
+  await origens.getByRole('button', { name: 'Cadastrar origem' }).click()
+  await expect(page.getByText(ORIGEM_CONTRIB).first()).toBeVisible()
 
   const categorias = await abrirSecao(page, 'Categorias de despesa')
   await categorias.getByLabel(/^Nome/).fill(CATEGORIA)
@@ -182,4 +192,35 @@ test('reabrir exige motivo, e o motivo sai no documento regerado', async ({ page
   // `exact`: sem ele, "Aberta" casa também o "Reaberta:" da linha do motivo.
   await expect(reaberta.getByText('Aberta', { exact: true })).toBeVisible()
   await expect(reaberta.getByText(/chegou atrasada/)).toBeVisible()
+})
+
+test('define a contribuição na ficha e a lança pela proposta do mês', async ({ page }) => {
+  const nome = `Idosa Contribuinte ${marca}`
+
+  await page.goto('/residentes/novo')
+  await page.getByLabel('Nome completo').fill(nome)
+  await page.getByLabel('Data de nascimento').fill('1940-04-04')
+  await page.getByLabel('Sexo').selectOption('FEMININO')
+  await page.getByLabel('Data de admissão').fill('2026-01-10')
+  await page.getByRole('button', { name: 'Cadastrar residente' }).click()
+  await expect(page.getByRole('heading', { name: nome })).toBeVisible()
+
+  const contribuicao = page
+    .locator('details')
+    .filter({ hasText: 'Contribuição' })
+    .first()
+  await contribuicao.locator('summary').click()
+  await contribuicao.getByLabel('Percentual do benefício (%)').fill('70')
+  await contribuicao.getByLabel('Valor do benefício').fill('1412')
+  await contribuicao.getByLabel('Vigente a partir de').fill('2026-01-10')
+  await contribuicao.getByRole('button', { name: 'Definir contribuição' }).click()
+  await expect(page.getByText('70% de R$ 1.412,00')).toBeVisible()
+
+  // 70% de 1412 = 988,40. O sistema propõe; quem lança é gente.
+  await page.goto('/financeiro/contribuicoes?ano=2026&mes=8')
+  const linha = page.getByRole('listitem').filter({ hasText: nome })
+  await expect(linha.getByText('R$ 988,40')).toBeVisible()
+
+  await linha.getByRole('button', { name: 'Lançar contribuição' }).click()
+  await expect(linha.getByText('Já lançado')).toBeVisible()
 })

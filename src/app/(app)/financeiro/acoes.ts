@@ -328,3 +328,30 @@ export async function acaoDefinirContribuicao(
   revalidatePath('/financeiro/contribuicoes')
   return resultado
 }
+
+/**
+ * Cria o lançamento de uma contribuição a partir da proposta do mês.
+ *
+ * A proposta calcula e mostra; este botão é o "sim" de quem conferiu. Lançar
+ * automático inventaria dinheiro que pode não ter chegado.
+ */
+export async function acaoLancarContribuicao(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await lancarReceita(ctx, {
+      contaBancariaId: exigirTexto(dados, 'contaBancariaId'),
+      origemReceitaId: exigirTexto(dados, 'origemReceitaId'),
+      residenteId: exigirTexto(dados, 'residenteId'),
+      descricao: exigirTexto(dados, 'descricao'),
+      valor: exigirNumero(dados, 'valor'),
+      data: exigirData(dados, 'data'),
+    })
+  })
+
+  revalidatePath('/financeiro/contribuicoes')
+  revalidatePath('/financeiro')
+  return resultado
+}

@@ -15,6 +15,7 @@ import {
   acaoFecharPrestacao,
   acaoReabrirPrestacao,
   acaoDefinirContribuicao,
+  acaoLancarContribuicao,
 } from '@/app/(app)/financeiro/acoes'
 
 /**
@@ -401,6 +402,47 @@ export function FormularioContribuicao({ residenteId }: { residenteId: string })
         { nome: 'vigenciaInicio', rotulo: 'Vigente a partir de', tipo: 'date', obrigatorio: true },
         { nome: 'observacao', rotulo: 'Observação' },
       ]}
+    />
+  )
+}
+
+export function FormularioLancarContribuicao({
+  residenteId,
+  residenteNome,
+  valor,
+  contaBancariaId,
+  origemReceitaId,
+  ano,
+  mes,
+}: {
+  residenteId: string
+  residenteNome: string
+  valor: number
+  contaBancariaId: string
+  origemReceitaId: string
+  ano: number
+  mes: number
+}) {
+  // Dia 1 da competência: é o mês que define a contribuição, e não o dia em
+  // que alguém abriu a tela. Sem isso, lançar em setembro a contribuição de
+  // agosto a jogaria para fora da competência.
+  const data = `${ano}-${String(mes).padStart(2, '0')}-01`
+
+  return (
+    <FormularioSimples
+      acao={acaoLancarContribuicao}
+      ocultos={{
+        residenteId,
+        contaBancariaId,
+        origemReceitaId,
+        valor: String(valor),
+        data,
+        descricao: `Contribuição de ${residenteNome} — ${String(mes).padStart(2, '0')}/${ano}`,
+      }}
+      prefixoId={`contrib-${residenteId}`}
+      colunas={1}
+      rotuloBotao="Lançar contribuição"
+      campos={[]}
     />
   )
 }

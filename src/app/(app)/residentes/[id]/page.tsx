@@ -13,10 +13,13 @@ import {
   obterGrauVigente,
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
+import { obterContribuicaoVigente } from '@/modules/financeiro/contribuicoes.service'
+import { FormularioContribuicao } from '@/components/formularios-financeiro'
 import {
   formatarData,
   formatarDataHora,
   formatarCpf,
+  formatarMoeda,
   ROTULO_STATUS_RESIDENTE,
   ROTULO_TIPO_DOCUMENTO,
 } from '@/lib/ptbr'
@@ -72,6 +75,15 @@ export default async function FichaResidente({
     listarAnotacoes(ctx, id),
     listarAvaliacoes(ctx, id),
   ])
+
+  // Fora do `Promise.all`: `obterContribuicaoVigente` exige COORDENACAO ou
+  // ADMINISTRATIVO, e chamá-lo junto faria a ficha inteira quebrar para o
+  // papel SAUDE — que tem todo direito de abrir a ficha, só não a
+  // contribuição.
+  const contribuicao =
+    ctx.papel === 'COORDENACAO' || ctx.papel === 'ADMINISTRATIVO'
+      ? await obterContribuicaoVigente(ctx, id)
+      : null
 
   const emergencia = responsaveis.filter((r) => r.ehContatoEmergencia)
 
@@ -302,6 +314,43 @@ export default async function FichaResidente({
           </div>
         )}
       </details>
+
+      {/* Só para quem cuida do dinheiro. O papel SAUDE não vê a seção, e
+          `definirContribuicao` o recusa de qualquer forma — esconder é
+          conveniência, quem barra é o serviço. */}
+      {(ctx.papel === 'COORDENACAO' || ctx.papel === 'ADMINISTRATIVO') && (
+        <details className="rounded border bg-white p-4">
+          <summary className="cursor-pointer font-medium text-slate-800">
+            Contribuição
+          </summary>
+          <div className="mt-3 space-y-3">
+            {contribuicao ? (
+              <p className="text-sm text-slate-700">
+                <span className="font-medium">
+                  {Number(contribuicao.percentual)}% de{' '}
+                  {formatarMoeda(Number(contribuicao.valorBaseBeneficio))}
+                </span>
+                <span className="block text-slate-500">
+                  {formatarMoeda(
+                    Math.round(
+                      Number(contribuicao.percentual) *
+                        Number(contribuicao.valorBaseBeneficio)
+                    ) / 100
+                  )}{' '}
+                  por mês, vigente desde {formatarData(contribuicao.vigenciaInicio)}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Nenhuma contribuição definida para este residente.
+              </p>
+            )}
+            <div className="border-t pt-3">
+              <FormularioContribuicao residenteId={id} />
+            </div>
+          </div>
+        </details>
+      )}
 
       <details className="rounded border bg-white p-4">
         <summary className="cursor-pointer font-medium text-slate-800">
