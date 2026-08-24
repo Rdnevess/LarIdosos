@@ -415,6 +415,31 @@ não arrisca dado real nenhum.
 |---|---|---|---|---|---|
 | _PENDENTE_ | — | — | — | — | Este teste não foi executado ainda. A Tarefa 18 escreveu, revisou e corrigiu os scripts e esta documentação em três rodadas de correção, mas **não pôde rodar o teste real** — a máquina onde os scripts foram escritos não tem Docker. Preencha esta linha (data real, no formato AAAA-MM-DD, e resultado observado) na primeira vez que alguém rodar o procedimento acima na VPS de produção. Só depois disso o sistema deve receber o cadastro dos ~30 residentes reais (ver "Ao terminar a Fase 1" em `docs/superpowers/plans/2026-08-18-fase-1-nucleo-cadastral.md`). |
 
+### O que já foi verificado fora da VPS, em 23/08/2026
+
+O teste acima continua **pendente** — ele é o único que prova o caminho
+inteiro. Mas parte do que os scripts afirmam pôde ser exercitada numa máquina
+sem Docker, contra o Postgres 18 local, e passou. Fica registrado para que a
+primeira execução na VPS saiba o que já não precisa ser suspeito:
+
+| O que | Como | Resultado |
+|---|---|---|
+| Sintaxe dos dois scripts | `sh -n` | ok |
+| `ler_env` com as variações que o comentário promete tolerar (`X=v`, `X = "v"`, `X='v com espaço'`, ausente, vazio) | função extraída do próprio `backup.sh` e exercitada com um `.env` de teste | ok nas 5 |
+| A trava de `DESTINO_BACKUP` | `case` extraído do script, contra `/`, `/var`, `/etc`, `/home`, `/root`, `/usr` e dois caminhos legítimos | recusa os 6, aceita os 2 |
+| O marcador `PostgreSQL database dump complete`, que `backup.sh` exige para não enviar dump truncado | `pg_dump 18.6` com as flags do script | presente |
+| Ciclo `gzip` → `gpg --symmetric AES256 --passphrase-file` → `gpg -d` → `gunzip -t`, com as flags exatas dos dois scripts | 630 linhas de auditoria e 45 residentes do banco de desenvolvimento | volta íntegro |
+| `--clean --if-exists` + `psql -v ON_ERROR_STOP=1` restaurando **sobre banco já povoado** — a hipótese em que o comentário do passo [4/6] de `restaurar.sh` se apoia | restauração aplicada duas vezes seguidas no mesmo banco | saída 0 nas duas, contagens idênticas, sem duplicar |
+
+**O que isso não prova, e por isso a linha acima segue `_PENDENTE_`:** nada
+que dependa de Docker — `docker volume inspect lar_uploads`, o `pg_dump` de
+dentro do contêiner, o tar do volume de uploads, a troca do volume no passo
+[5/6] com o `chown 1001:1001`, o `stop`/`start app` — nem o envio pelo
+`rclone`, nem o cron, nem a restauração dos documentos, que é metade do que o
+backup protege. A versão do `pg_dump` verificada é a da máquina de
+desenvolvimento; a que roda em produção é a do contêiner, e só a execução real
+confirma que são compatíveis.
+
 Repita o teste completo **a cada 6 meses**. A partir do segundo teste
 (quando já houver residentes reais cadastrados), **não repita os passos
 1–11 acima direto na produção** — veja a próxima seção.
