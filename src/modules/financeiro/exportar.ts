@@ -5,6 +5,7 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { montarDocumentoPrestacao } from './documento-prestacao'
 import { gerarXlsxPrestacao } from './xlsx-prestacao'
 import { gerarPdfPrestacao } from './pdf-prestacao'
+import { fimDoMes } from '@/lib/periodo'
 import { gerarCsvLancamentos } from './csv-lancamentos'
 
 /**
@@ -64,7 +65,7 @@ async function gerarConteudo(
     const csv = await gerarCsvLancamentos(ctx, {
       contaBancariaId: prestacao.contaBancariaId,
       de: new Date(ano, mes - 1, 1),
-      ate: new Date(ano, mes, 0, 23, 59, 59),
+      ate: fimDoMes(ano, mes),
     })
     return Buffer.from(csv, 'utf8')
   }

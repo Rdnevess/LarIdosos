@@ -15,6 +15,7 @@ import {
   FormularioFecharPrestacao,
   FormularioReabrirPrestacao,
 } from '@/components/formularios-financeiro'
+import { fimDoMes } from '@/lib/periodo'
 
 /**
  * As prestações de contas, por conta e competência.
@@ -41,7 +42,7 @@ async function totaisDa(
   const lancamentos = await listarLancamentos(ctx, {
     contaBancariaId,
     de: new Date(ano, mes - 1, 1),
-    ate: new Date(ano, mes, 0, 23, 59, 59),
+    ate: fimDoMes(ano, mes),
   })
 
   let receitas = 0

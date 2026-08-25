@@ -4,7 +4,7 @@ import { useActionState } from 'react'
 import { BotaoTema } from '@/components/botao-tema'
 import { entrar } from './acoes'
 
-export function FormularioLogin() {
+export function FormularioLogin({ destino }: { destino: string }) {
   const [erro, acao, enviando] = useActionState(entrar, null)
 
   return (
@@ -18,6 +18,11 @@ export function FormularioLogin() {
           <BotaoTema />
         </div>
         <p className="text-sm text-apoio">Entre com suas credenciais</p>
+
+        {/* Viaja no formulário, e não na URL do POST: a Server Action recebe
+            `FormData`, e é lá que `entrar` o lê — depois de `destinoSeguro`
+            já ter aprovado o valor no servidor. */}
+        <input type="hidden" name="destino" value={destino} />
 
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm font-medium text-firme">E-mail</label>

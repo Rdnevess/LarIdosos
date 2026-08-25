@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { AcaoAuditoria } from '@prisma/client'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
 import type { EntidadeAuditada } from '@/modules/audit/auditoria.service'
 import { formatarDiff } from '@/modules/audit/auditoria.formatacao'
+import { fimDoDia } from '@/lib/periodo'
 import { formatarDataHora } from '@/lib/ptbr'
 
 // Tipado contra o enum do Prisma de propósito: uma ação nova em
@@ -99,7 +101,7 @@ export default async function PaginaAuditoria({
       entidade: filtros.entidade || undefined,
       usuarioId: filtros.usuarioId || undefined,
       de: filtros.de ? new Date(`${filtros.de}T00:00:00`) : undefined,
-      ate: filtros.ate ? new Date(`${filtros.ate}T23:59:59`) : undefined,
+      ate: filtros.ate ? fimDoDia(filtros.ate) : undefined,
       pagina,
     }),
   ])
@@ -111,6 +113,17 @@ export default async function PaginaAuditoria({
     }
     busca.set('pagina', String(novaPagina))
     return `?${busca.toString()}`
+  }
+
+  // O excesso só é detectável depois da consulta, porque é ela quem sabe
+  // quantas páginas existem. Sem isto, pedir a página 9999 de 12 mostrava o
+  // cabeçalho dizendo exatamente isso, com a lista vazia embaixo — o que
+  // parece trilha sem registro, e é a conclusão errada para quem audita.
+  //
+  // `paginas > 0` evita o laço quando não há registro nenhum: aí a página 1
+  // vazia é a resposta certa.
+  if (resultado.paginas > 0 && pagina > resultado.paginas) {
+    redirect(`/auditoria${parametros(resultado.paginas)}`)
   }
 
   return (

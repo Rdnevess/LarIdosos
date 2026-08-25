@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
+import { textoDeAnotacaoSchema, textoDeRetificacaoSchema } from '@/lib/anotacao'
 import { prazoDeEdicao, exigirJanelaAberta } from '@/lib/janela-edicao'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
@@ -17,12 +18,12 @@ const categoriaSchema = z.enum([
 const novaAnotacaoSchema = z.object({
   residenteId: z.string().cuid(),
   categoria: categoriaSchema,
-  texto: z.string().trim().min(3, 'Escreva o conteúdo da anotação'),
+  texto: textoDeAnotacaoSchema,
 })
 
 const retificacaoSchema = z.object({
   categoria: categoriaSchema.optional(),
-  texto: z.string().trim().min(3, 'Escreva o conteúdo da retificação'),
+  texto: textoDeRetificacaoSchema,
 })
 
 export type DadosNovaAnotacao = z.infer<typeof novaAnotacaoSchema>
@@ -109,7 +110,7 @@ export async function editarAnotacao(
   // fiscalização lê.
   exigirJanelaAberta(atual, ctx, 'Anotacao')
 
-  const novoTexto = validar(z.string().trim().min(3, 'Escreva o conteúdo da anotação'), texto)
+  const novoTexto = validar(textoDeAnotacaoSchema, texto)
 
   return prisma.$transaction(async (tx) => {
     const atualizada = await tx.anotacao.update({

@@ -14,6 +14,7 @@ import {
   FormularioDespesa,
   FormularioCancelarLancamento,
 } from '@/components/formularios-financeiro'
+import { fimDoDia } from '@/lib/periodo'
 
 /**
  * Os lançamentos do mês.
@@ -75,7 +76,7 @@ export default async function PaginaFinanceiro({
   const lancamentos = await listarLancamentos(ctx, {
     contaBancariaId: filtros.conta || undefined,
     de: new Date(`${de}T00:00:00`),
-    ate: new Date(`${ate}T23:59:59`),
+    ate: fimDoDia(ate),
     natureza: (filtros.natureza as 'RECEITA' | 'DESPESA') || undefined,
   })
 
