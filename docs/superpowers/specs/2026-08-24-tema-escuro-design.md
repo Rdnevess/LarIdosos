@@ -1,7 +1,7 @@
 # Tema escuro, acessível de qualquer página
 
 **Data:** 2026-08-24
-**Status:** Design aprovado, aguardando plano de implementação
+**Status:** Implementado na branch `tema-escuro`. As seções §4.1 e §4.2 foram acrescentadas durante a implementação, e o valor escuro de `--cor-suave` na §3.1 foi ajustado pela medição que a própria §3 previa.
 
 ## 1. Contexto e objetivo
 
@@ -110,7 +110,25 @@ Duas consequências:
 
 A correção é uma regra só, na camada base do `globals.css`, fixando a cor padrão da borda no token `--cor-borda` — o mesmo remendo que o guia de migração da v4 recomenda para quem quer o comportamento da v3. Ela resolve os ~75 lugares de uma vez, inclusive os `divide-y`, e continua sendo sobrescrita por qualquer `border-*` explícito.
 
-**Esta é a única mudança visível no tema claro**: as bordas sem cor deixam de ser quase pretas e passam a ser slate-300. Está registrada aqui porque contraria o critério "byte a byte igual", e conscientemente.
+**Esta é a mudança visível no tema claro que o design aceitou de saída**: as bordas sem cor deixam de ser quase pretas e passam a ser slate-300. Está registrada aqui porque contraria o critério "byte a byte igual", e conscientemente.
+
+### 4.1 Três valores soltos que convergiram (acrescentado na implementação)
+
+O `body` e os campos usavam valores que não correspondiam a token nenhum — sobras do template inicial do Next, e não escolhas de design. Torná-los temáveis exigiu apontá-los para tokens, e isso move três valores no claro:
+
+| Onde | Antes | Depois | Quem vê |
+|---|---|---|---|
+| `body` background | `#ffffff` | `#f8fafc` | Ninguém em condições normais: as telas pintam `bg-fundo` no `min-h-screen`. Só aparece no overscroll |
+| `body` color | `#171717` | `#1e293b` | Quem não declara cor própria e herda — os `<th>` da auditoria, por exemplo |
+| `input`/`select`/`textarea` color | `#0f172a` | `#1e293b` | O texto digitado em qualquer campo |
+
+São tons quase pretos convergindo para o `--cor-forte` que o sistema já usa 101 vezes. Preservá-los exigiria dois tokens a mais, existindo só para guardar valores que ninguém escolheu — o oposto do que a §3 defende ao recusar fusões de tons que o código de fato distingue.
+
+### 4.2 A varredura do Tailwind, estreitada (acrescentado na implementação)
+
+A detecção automática de fontes da v4 varre o repositório inteiro, e `docs/` cita `bg-white` e `text-slate-800` em prosa ao explicar o que foi substituído — inclusive este documento. O Tailwind lia essas menções como uso real e continuava emitindo as classes cruas que a repintura acabara de aposentar: 2,9 KB de CSS morto, e uma rede de segurança falsa para quem reintroduzisse uma delas numa tela.
+
+`@import "tailwindcss" source("../../src")` limita a varredura ao código. Antes da repintura o problema era invisível, porque as classes também eram usadas de verdade.
 
 ## 5. A engrenagem
 
