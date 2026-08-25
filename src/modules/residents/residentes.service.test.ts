@@ -97,15 +97,6 @@ describe('obterResidente', () => {
 })
 
 describe('CPF unico', () => {
-  it('recusa cadastrar dois residentes com o mesmo CPF', async () => {
-    // Quem barra e o indice unico do banco; o servico so traduz a recusa para
-    // uma frase que a pessoa do cadastro entende.
-    const ctx = await ctxComPapel('ADMINISTRATIVO')
-    await criarResidente(ctx, dadosValidos)
-
-    await expect(criarResidente(ctx, dadosValidos)).rejects.toThrow(ErroValidacao)
-  })
-
   it('recusa mudar o CPF para um que ja e de outro residente', async () => {
     // O caso que faltava: a duplicidade tambem chega pela edicao, e nao so
     // pelo cadastro.

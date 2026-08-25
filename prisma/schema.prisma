@@ -286,7 +286,10 @@ enum VinculoFuncionario {
 model Funcionario {
   id                 String             @id @default(cuid())
   nomeCompleto       String
-  cpf                String             @unique
+  /// Sem `@unique`: recontratação gera registro novo com o mesmo CPF — ver a
+  /// migration `20260825140000_cpf_funcionario_repetivel`. Residente é único;
+  /// funcionário, não.
+  cpf                String
   rg                 String?
   cargo              String
   /// Gerada pelo banco (ver migration `20260825120000_busca_sem_acento`):

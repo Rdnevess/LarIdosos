@@ -1,12 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
-
-// O App Router injeta em toda página um anunciador de rota
-// (`#__next-route-announcer__`) que também usa `role="alert"`, ainda que vazio.
-// Filtrar pelo texto mira no alerta do formulário, não no do framework — mesmo
-// ajuste que `residentes.spec.ts` precisou.
-function alertaCom(page: Page, texto: string) {
-  return page.getByRole('alert').filter({ hasText: texto })
-}
+import { test, expect } from '@playwright/test'
 
 function calcularDigitoVerificador(digitos: number[]): number {
   let soma = 0
@@ -57,16 +49,23 @@ test('cadastra funcionário com registro de conselho', async ({ page }) => {
   await expect(page.getByText(nome)).toBeVisible()
 })
 
-test('recusa CPF duplicado com mensagem clara', async ({ page }) => {
+test('aceita recontratação com o mesmo CPF, como cadastro novo', async ({ page }) => {
+  // Diferente de residente, onde o CPF é único. A mesma pessoa pode voltar a
+  // trabalhar no Lar depois de desligada, e o segundo vínculo entra como
+  // registro próprio — com admissão, cargo e desligamento seus. Forçar
+  // unicidade obrigaria a reabrir a ficha antiga e apagar a história do
+  // vínculo anterior, que é o que a ficha existe para guardar.
+  const nome = `Recontratada ${Date.now()}`
+
   await page.goto('/funcionarios/novo')
-  await page.getByLabel('Nome completo').fill('Outro Nome Qualquer')
+  await page.getByLabel('Nome completo').fill(nome)
   await page.getByLabel('CPF').fill(CPF_TESTE)
   await page.getByLabel('Cargo').fill('Auxiliar')
   await page.getByLabel('Vínculo').selectOption('CLT')
   await page.getByLabel('Data de admissão').fill('2025-02-01')
   await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
 
-  await expect(alertaCom(page, 'Já existe um funcionário com este CPF')).toBeVisible()
+  await expect(page.getByText(nome)).toBeVisible()
 })
 
 test('funcionário desligado sai do aviso de conselho vencendo', async ({ page }) => {

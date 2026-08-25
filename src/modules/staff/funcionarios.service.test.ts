@@ -39,29 +39,19 @@ describe('criarFuncionario', () => {
     ).rejects.toThrow(ErroValidacao)
   })
 
-  it('recusa CPF duplicado', async () => {
+  it('aceita CPF repetido, porque recontratacao e registro novo', async () => {
+    // Diferente de residente, onde o CPF e unico. Aqui a mesma pessoa pode
+    // voltar a trabalhar no Lar depois de desligada, e a recontratacao entra
+    // como cadastro novo — com admissao, cargo e desligamento proprios. Forcar
+    // unicidade obrigaria a reabrir o registro antigo e apagar a historia do
+    // vinculo anterior, que e justamente o que a ficha existe para guardar.
     const ctx = await ctxComPapel('ADMINISTRATIVO')
-    await criarFuncionario(ctx, dadosValidos)
-    await expect(criarFuncionario(ctx, dadosValidos)).rejects.toThrow(ErroValidacao)
-  })
+    const primeiro = await criarFuncionario(ctx, dadosValidos)
 
-  it('recusa mudar o CPF para um que ja e de outro funcionario', async () => {
-    // O caso que faltava: a duplicidade tambem chega pela edicao.
-    const ctx = await ctxComPapel('ADMINISTRATIVO')
-    await criarFuncionario(ctx, dadosValidos)
-    const outro = await criarFuncionario(ctx, {
-      ...dadosValidos,
-      nomeCompleto: 'Carlos Lima',
-      cpf: '11144477735',
-      conselhoSigla: undefined,
-      conselhoNumero: undefined,
-      conselhoUf: undefined,
-      conselhoValidade: undefined,
-    })
+    const recontratado = await criarFuncionario(ctx, dadosValidos)
 
-    await expect(
-      atualizarFuncionario(ctx, outro.id, { cpf: dadosValidos.cpf })
-    ).rejects.toThrow(ErroValidacao)
+    expect(recontratado.id).not.toBe(primeiro.id)
+    expect(recontratado.cpf).toBe(primeiro.cpf)
   })
 
   it('nega para o papel SAUDE', async () => {
@@ -166,7 +156,10 @@ describe('atualizarFuncionario', () => {
     expect(log.diff).toEqual({ cargo: { de: 'Técnica de enfermagem', para: 'Enfermeira' } })
   })
 
-  it('recusa CPF já cadastrado em outro funcionário', async () => {
+  it('deixa pôr num funcionário o CPF que já é de outro', async () => {
+    // O contrário do que valia antes. Recontratação é registro novo, e a
+    // corrigir um CPF digitado errado pode ser exatamente pôr nele o mesmo
+    // CPF do vínculo anterior da mesma pessoa.
     const ctx = await ctxComPapel('ADMINISTRATIVO')
     await criarFuncionario(ctx, dadosValidos)
     const carlos = await criarFuncionario(ctx, {
@@ -175,9 +168,10 @@ describe('atualizarFuncionario', () => {
       cpf: '11144477735',
     })
 
-    await expect(
-      atualizarFuncionario(ctx, carlos.id, { cpf: dadosValidos.cpf })
-    ).rejects.toThrow(ErroValidacao)
+    const salvo = await atualizarFuncionario(ctx, carlos.id, { cpf: dadosValidos.cpf })
+
+    // O CPF é normalizado na gravação: entra pontuado, fica só com dígitos.
+    expect(salvo.cpf).toBe('52998224725')
   })
 
   it('nega atualização ao papel SAUDE', async () => {
