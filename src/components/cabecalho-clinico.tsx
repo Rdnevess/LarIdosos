@@ -35,10 +35,10 @@ function Bloco({
 }) {
   return (
     <div className="space-y-1">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-apoio">
         {titulo}
       </h3>
-      {temConteudo ? children : <p className="text-sm text-slate-500">{vazio}</p>}
+      {temConteudo ? children : <p className="text-sm text-apoio">{vazio}</p>}
     </div>
   )
 }
@@ -76,10 +76,10 @@ export function CabecalhoClinico({
   return (
     <section
       aria-label="Cabeçalho clínico"
-      className="grid gap-4 rounded border bg-white p-4 sm:grid-cols-2"
+      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
     >
       <Bloco titulo="Grau de dependência" vazio="Não avaliado" temConteudo={grau !== null}>
-        <p className="text-sm text-slate-800">Grau {grau}</p>
+        <p className="text-sm text-forte">Grau {grau}</p>
       </Bloco>
 
       <Bloco
@@ -93,12 +93,12 @@ export function CabecalhoClinico({
               key={alergia.id}
               className={
                 alergia.gravidade === 'GRAVE'
-                  ? 'rounded border border-red-500 bg-red-50 px-2 py-1 text-sm font-medium text-red-800'
-                  : 'text-sm text-slate-800'
+                  ? 'rounded border border-perigo-borda bg-perigo-fundo px-2 py-1 text-sm font-medium text-perigo-forte'
+                  : 'text-sm text-forte'
               }
             >
               {alergia.agente}{' '}
-              <span className="font-normal text-slate-500">
+              <span className="font-normal text-apoio">
                 ({ROTULO_TIPO_ALERGIA[alergia.tipo] ?? alergia.tipo}
                 {alergia.reacao ? ` — ${alergia.reacao}` : ''})
               </span>
@@ -114,11 +114,11 @@ export function CabecalhoClinico({
       >
         <ul className="space-y-1">
           {dados.condicoes.map((condicao) => (
-            <li key={condicao.id} className="text-sm text-slate-800">
+            <li key={condicao.id} className="text-sm text-forte">
               {condicao.descricao}
-              {condicao.cid10 && <span className="text-slate-500"> ({condicao.cid10})</span>}
+              {condicao.cid10 && <span className="text-apoio"> ({condicao.cid10})</span>}
               {condicao.dataDiagnostico && (
-                <span className="text-slate-500">
+                <span className="text-apoio">
                   {' '}
                   · desde {formatarData(condicao.dataDiagnostico)}
                 </span>
@@ -135,7 +135,7 @@ export function CabecalhoClinico({
       >
         <ul className="space-y-1">
           {dados.restricoes.map((restricao) => (
-            <li key={restricao.id} className="text-sm text-slate-800">
+            <li key={restricao.id} className="text-sm text-forte">
               {restricao.descricao}
             </li>
           ))}
@@ -149,9 +149,9 @@ export function CabecalhoClinico({
       >
         <ul className="space-y-1">
           {medicacoesAtivas.map((medicacao) => (
-            <li key={medicacao.id} className="text-sm text-slate-800">
+            <li key={medicacao.id} className="text-sm text-forte">
               {medicacao.farmaco}{' '}
-              <span className="text-slate-500">
+              <span className="text-apoio">
                 {medicacao.dose}
                 {medicacao.horarios.length > 0
                   ? ` · ${medicacao.horarios.join(', ')}`
@@ -168,9 +168,9 @@ export function CabecalhoClinico({
           vazio="Nenhuma aferição registrada."
           temConteudo={ultimoSinalVital !== null}
         >
-          <p className="text-sm text-slate-800">
+          <p className="text-sm text-forte">
             {ultimoSinalVital && resumirSinalVital(ultimoSinalVital)}
-            <span className="text-slate-500">
+            <span className="text-apoio">
               {' '}
               — {ultimoSinalVital && formatarDataHora(ultimoSinalVital.aferidoEm)}
             </span>

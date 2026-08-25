@@ -31,11 +31,11 @@ export default function ErroNaTela({
   reset: () => void
 }) {
   return (
-    <section className="space-y-4 rounded border bg-white p-4">
-      <h1 className="text-lg font-semibold text-slate-800">
+    <section className="space-y-4 rounded border bg-superficie p-4">
+      <h1 className="text-lg font-semibold text-forte">
         Não foi possível abrir esta tela
       </h1>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-medio">
         Pode ser uma falha temporária, ou o seu perfil pode não ter permissão
         para esta parte do sistema. Tente de novo; se continuar, avise a
         coordenação.
@@ -45,20 +45,20 @@ export default function ErroNaTela({
         <button
           type="button"
           onClick={reset}
-          className="rounded bg-slate-800 px-4 py-3 text-sm text-white"
+          className="rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
         >
           Tentar de novo
         </button>
         <Link
           href="/residentes"
-          className="rounded border border-slate-300 px-4 py-3 text-sm text-slate-700"
+          className="rounded border border-borda px-4 py-3 text-sm text-firme"
         >
           Voltar aos residentes
         </Link>
       </div>
 
       {error.digest && (
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-medio">
           Código para o suporte: {error.digest}
         </p>
       )}

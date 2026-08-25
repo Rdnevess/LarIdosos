@@ -34,10 +34,10 @@ export function LinhaDoTempo({
   return (
     <section
       aria-labelledby="titulo-linha-do-tempo"
-      className="space-y-3 rounded border bg-white p-4"
+      className="space-y-3 rounded border bg-superficie p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="titulo-linha-do-tempo" className="font-medium text-slate-800">
+        <h2 id="titulo-linha-do-tempo" className="font-medium text-forte">
           Linha do tempo
         </h2>
         <form action={`/residentes/${residenteId}/prontuario`} className="flex gap-2">
@@ -45,7 +45,7 @@ export function LinhaDoTempo({
             name="tipo"
             defaultValue={tipoSelecionado ?? ''}
             aria-label="Tipo de evento"
-            className="rounded border border-slate-300 px-3 py-2 text-base"
+            className="rounded border border-borda px-3 py-2 text-base"
           >
             <option value="">Todos os tipos</option>
             {TIPOS.map((tipo) => (
@@ -56,29 +56,29 @@ export function LinhaDoTempo({
           </select>
           <button
             type="submit"
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700"
+            className="rounded border border-borda px-4 py-2 text-sm text-firme"
           >
             Filtrar
           </button>
         </form>
       </div>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-apoio">
         Últimos 90 dias · {eventos.length} evento(s)
       </p>
 
       <ul className="space-y-3">
         {eventos.map((evento) => (
-          <li key={`${evento.tipo}-${evento.id}`} className="border-l-2 border-slate-200 pl-3">
-            <p className="text-sm text-slate-500">
+          <li key={`${evento.tipo}-${evento.id}`} className="border-l-2 border-borda-suave pl-3">
+            <p className="text-sm text-apoio">
               {formatarDataHora(evento.ocorridoEm)} · {ROTULO_TIPO_EVENTO[evento.tipo]}
             </p>
-            <p className="font-medium text-slate-800">{evento.titulo}</p>
-            {evento.detalhe && <p className="text-sm text-slate-600">{evento.detalhe}</p>}
+            <p className="font-medium text-forte">{evento.titulo}</p>
+            {evento.detalhe && <p className="text-sm text-medio">{evento.detalhe}</p>}
           </li>
         ))}
         {eventos.length === 0 && (
-          <li className="text-sm text-slate-500">
+          <li className="text-sm text-apoio">
             Nada registrado no período e no filtro selecionados.
           </li>
         )}

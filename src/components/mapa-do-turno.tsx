@@ -36,12 +36,12 @@ const ROTULO_MOTIVO: Record<string, string> = {
  * pode ter sido dada e apenas não marcada.
  */
 const CLASSE_ESTADO: Record<DoseDoTurno['estado'], string> = {
-  PREVISTA: 'text-slate-500',
-  ATRASADA: 'font-medium text-amber-800',
-  SEM_REGISTRO: 'font-medium text-amber-800',
-  ADMINISTRADA: 'text-green-700',
-  RECUSADA: 'text-slate-600',
-  NAO_ADMINISTRADA: 'text-slate-600',
+  PREVISTA: 'text-apoio',
+  ATRASADA: 'font-medium text-alerta-suave',
+  SEM_REGISTRO: 'font-medium text-alerta-suave',
+  ADMINISTRADA: 'text-sucesso',
+  RECUSADA: 'text-medio',
+  NAO_ADMINISTRADA: 'text-medio',
 }
 
 function hora(momento: Date): string {
@@ -66,29 +66,29 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
     <div className="space-y-6">
       <section aria-label="Doses do turno" className="space-y-4">
         {grupos.map(([horario, doses]) => (
-          <div key={horario} className="rounded border bg-white p-4">
-            <h2 className="mb-3 text-lg font-semibold text-slate-800">{horario}</h2>
+          <div key={horario} className="rounded border bg-superficie p-4">
+            <h2 className="mb-3 text-lg font-semibold text-forte">{horario}</h2>
             <ul className="divide-y">
               {doses.map((dose) => (
                 <li
                   key={`${dose.medicacaoId}-${dose.horarioPrevisto.getTime()}`}
                   className={
                     dose.estado === 'ATRASADA' || dose.estado === 'SEM_REGISTRO'
-                      ? 'border-l-4 border-amber-500 bg-amber-50 py-3 pl-3'
+                      ? 'border-l-4 border-alerta-borda-forte bg-alerta-fundo py-3 pl-3'
                       : 'py-3'
                   }
                 >
                   <Link
                     href={`/residentes/${dose.residenteId}/prontuario`}
-                    className="font-medium text-slate-800 underline"
+                    className="font-medium text-forte underline"
                   >
                     {dose.residenteNome}
                   </Link>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-medio">
                     {dose.farmaco} · {dose.dose} · {dose.via.toLowerCase()}
                   </p>
                   {dose.instrucoes && (
-                    <p className="text-sm text-slate-500">{dose.instrucoes}</p>
+                    <p className="text-sm text-apoio">{dose.instrucoes}</p>
                   )}
                   <p className={`text-sm ${CLASSE_ESTADO[dose.estado]}`}>
                     {ROTULO_ESTADO[dose.estado]}
@@ -96,7 +96,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
                     {dose.registroTardio && ' · registro fora do turno'}
                   </p>
                   {dose.observacao && (
-                    <p className="text-sm text-slate-500">{dose.observacao}</p>
+                    <p className="text-sm text-apoio">{dose.observacao}</p>
                   )}
 
                   {dose.estado !== 'ADMINISTRADA' &&
@@ -125,17 +125,17 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
         ))}
 
         {grupos.length === 0 && (
-          <p className="rounded border bg-white p-4 text-sm text-slate-500">
+          <p className="rounded border bg-superficie p-4 text-sm text-apoio">
             Nenhuma dose de horário fixo neste turno.
           </p>
         )}
       </section>
 
-      <section aria-label="Se necessário" className="rounded border bg-white p-4">
-        <h2 className="mb-1 font-medium text-slate-800">
+      <section aria-label="Se necessário" className="rounded border bg-superficie p-4">
+        <h2 className="mb-1 font-medium text-forte">
           Se necessário ({mapa.seNecessario.length})
         </h2>
-        <p className="mb-3 text-sm text-slate-500">
+        <p className="mb-3 text-sm text-apoio">
           Não têm dose prevista: registram-se quando a necessidade aparece.
         </p>
         <ul className="divide-y">
@@ -143,15 +143,15 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
             <li key={medicacao.medicacaoId} className="py-3">
               <Link
                 href={`/residentes/${medicacao.residenteId}/prontuario`}
-                className="font-medium text-slate-800 underline"
+                className="font-medium text-forte underline"
               >
                 {medicacao.residenteNome}
               </Link>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-medio">
                 {medicacao.farmaco} · {medicacao.dose} · {medicacao.via.toLowerCase()}
               </p>
               {medicacao.instrucoes && (
-                <p className="text-sm text-slate-500">{medicacao.instrucoes}</p>
+                <p className="text-sm text-apoio">{medicacao.instrucoes}</p>
               )}
               <FormularioRegistrarDose
                 medicacaoId={medicacao.medicacaoId}
@@ -162,7 +162,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
             </li>
           ))}
           {mapa.seNecessario.length === 0 && (
-            <li className="py-2 text-sm text-slate-500">
+            <li className="py-2 text-sm text-apoio">
               Nenhuma medicação de uso condicional prescrita.
             </li>
           )}
@@ -175,10 +175,10 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
 export function CabecalhoDoTurno({ mapa }: { mapa: Mapa }) {
   return (
     <div>
-      <h1 className="text-lg font-semibold text-slate-800">
+      <h1 className="text-lg font-semibold text-forte">
         Turno da {ROTULO_TURNO[mapa.janela.turno].toLowerCase()}
       </h1>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-apoio">
         {formatarData(mapa.janela.inicio)}, das {hora(mapa.janela.inicio)} às{' '}
         {hora(mapa.janela.fim)} · {mapa.doses.length} dose(s)
       </p>

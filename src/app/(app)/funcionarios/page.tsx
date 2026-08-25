@@ -23,10 +23,10 @@ export default async function PaginaFuncionarios({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-800">Funcionários</h1>
+        <h1 className="text-lg font-semibold text-forte">Funcionários</h1>
         <Link
           href="/funcionarios/novo"
-          className="rounded bg-slate-800 px-3 py-2 text-sm text-white"
+          className="rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
         >
           Novo funcionário
         </Link>
@@ -38,11 +38,11 @@ export default async function PaginaFuncionarios({
         vencendo que precisa se destacar.
       */}
       {vencendo.length > 0 && (
-        <div role="status" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-900">
+        <div role="status" className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-sm">
+          <p className="font-medium text-alerta">
             {vencendo.length} registro(s) profissional(is) vencendo nos próximos 60 dias
           </p>
-          <ul className="mt-1 text-amber-800">
+          <ul className="mt-1 text-alerta-suave">
             {vencendo.map((funcionario) => (
               <li key={funcionario.id}>
                 {funcionario.nomeCompleto} — {funcionario.conselhoSigla}{' '}
@@ -62,35 +62,35 @@ export default async function PaginaFuncionarios({
           defaultValue={busca}
           placeholder="Buscar por nome ou cargo"
           aria-label="Buscar por nome ou cargo"
-          className="flex-1 rounded border border-slate-300 px-3 py-2 text-base"
+          className="flex-1 rounded border border-borda px-3 py-2 text-base"
         />
-        <button type="submit" className="rounded border border-slate-300 px-3 py-2 text-sm">
+        <button type="submit" className="rounded border border-borda px-3 py-2 text-sm">
           Filtrar
         </button>
       </form>
 
-      <ul className="divide-y rounded border bg-white">
+      <ul className="divide-y rounded border bg-superficie">
         {funcionarios.map((funcionario) => (
           <li key={funcionario.id}>
             <Link
               href={`/funcionarios/${funcionario.id}/editar`}
-              className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50"
+              className="flex items-center justify-between gap-3 p-3 hover:bg-suave"
             >
               <span>
-                <span className="block font-medium text-slate-800">
+                <span className="block font-medium text-forte">
                   {funcionario.nomeCompleto}
                 </span>
-                <span className="block text-sm text-slate-500">
+                <span className="block text-sm text-apoio">
                   {funcionario.cargo} · {ROTULO_VINCULO[funcionario.vinculo]} · desde{' '}
                   {formatarData(funcionario.dataAdmissao)}
                 </span>
               </span>
-              <span aria-hidden className="text-slate-400">›</span>
+              <span aria-hidden className="text-tenue">›</span>
             </Link>
           </li>
         ))}
         {funcionarios.length === 0 && (
-          <li className="p-3 text-sm text-slate-500">Nenhum funcionário encontrado.</li>
+          <li className="p-3 text-sm text-apoio">Nenhum funcionário encontrado.</li>
         )}
       </ul>
     </section>

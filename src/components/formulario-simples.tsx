@@ -34,7 +34,7 @@ export function FormularioSimples({
       ))}
 
       {aviso && (
-        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-2 text-sm text-alerta">
           {aviso}
         </p>
       )}
@@ -46,13 +46,13 @@ export function FormularioSimples({
       </div>
 
       {estado?.erro && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-perigo">
           {estado.erro}
         </p>
       )}
 
       {estado?.sucesso && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-sm text-sucesso">
           Registro salvo.
         </p>
       )}
@@ -60,7 +60,7 @@ export function FormularioSimples({
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded bg-slate-800 px-4 py-3 text-white disabled:opacity-60 sm:w-auto"
+        className="w-full rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60 sm:w-auto"
       >
         {enviando ? 'Salvando…' : rotuloBotao}
       </button>

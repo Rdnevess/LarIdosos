@@ -30,14 +30,14 @@ export default async function PaginaPendencias() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-800">Pendências</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-lg font-semibold text-forte">Pendências</h1>
+        <p className="text-sm text-apoio">
           De todos os residentes, da mais antiga para a mais recente.
         </p>
       </div>
 
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-3 font-medium text-slate-800">
+      <div className="rounded border bg-superficie p-4">
+        <h2 className="mb-3 font-medium text-forte">
           Exames em aberto ({exames.length})
         </h2>
         <ul className="divide-y">
@@ -45,14 +45,14 @@ export default async function PaginaPendencias() {
             <li key={exame.id} className="py-2 text-sm">
               <Link
                 href={`/residentes/${exame.residenteId}/prontuario`}
-                className="font-medium text-slate-800 underline"
+                className="font-medium text-forte underline"
               >
                 {nomeDe(exame.residente)}
               </Link>
-              <span className="block text-slate-600">
+              <span className="block text-medio">
                 {exame.tipo} — {ROTULO_STATUS_EXAME[exame.status] ?? exame.status}
               </span>
-              <span className="block text-slate-500">
+              <span className="block text-apoio">
                 {exame.dataSolicitacao
                   ? `Solicitado em ${formatarData(exame.dataSolicitacao)}`
                   : 'Sem data de solicitação'}
@@ -61,15 +61,15 @@ export default async function PaginaPendencias() {
             </li>
           ))}
           {exames.length === 0 && (
-            <li className="py-2 text-sm text-slate-500">
+            <li className="py-2 text-sm text-apoio">
               Nenhum exame aguardando andamento.
             </li>
           )}
         </ul>
       </div>
 
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-3 font-medium text-slate-800">
+      <div className="rounded border bg-superficie p-4">
+        <h2 className="mb-3 font-medium text-forte">
           Consultas agendadas ({consultas.length})
         </h2>
         <ul className="divide-y">
@@ -83,17 +83,17 @@ export default async function PaginaPendencias() {
               <li key={consulta.id} className="py-2 text-sm">
                 <Link
                   href={`/residentes/${consulta.residenteId}/prontuario`}
-                  className="font-medium text-slate-800 underline"
+                  className="font-medium text-forte underline"
                 >
                   {nomeDe(consulta.residente)}
                 </Link>
-                <span className="block text-slate-600">
+                <span className="block text-medio">
                   {consulta.especialidade}
                   {consulta.local ? ` · ${consulta.local}` : ''}
                 </span>
                 <span
                   className={
-                    atrasada ? 'block font-medium text-amber-800' : 'block text-slate-500'
+                    atrasada ? 'block font-medium text-alerta-suave' : 'block text-apoio'
                   }
                 >
                   {formatarDataHora(consulta.dataHora)}
@@ -103,7 +103,7 @@ export default async function PaginaPendencias() {
             )
           })}
           {consultas.length === 0 && (
-            <li className="py-2 text-sm text-slate-500">Nenhuma consulta agendada.</li>
+            <li className="py-2 text-sm text-apoio">Nenhuma consulta agendada.</li>
           )}
         </ul>
       </div>

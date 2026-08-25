@@ -95,7 +95,7 @@ export function FormularioSuspender({
 }) {
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm text-slate-600 underline">Suspender</summary>
+      <summary className="cursor-pointer text-sm text-medio underline">Suspender</summary>
       <div className="mt-2">
         <FormularioSimples
           acao={acaoSuspenderMedicacao}
@@ -126,7 +126,7 @@ export function FormularioSubstituir({
 }) {
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm font-medium text-slate-800 underline">
+      <summary className="cursor-pointer text-sm font-medium text-forte underline">
         Prescrever substituta
       </summary>
       <div className="mt-2">
@@ -194,7 +194,7 @@ export function FormularioRegistrarDose({
 
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm text-slate-600 underline">Registrar</summary>
+      <summary className="cursor-pointer text-sm text-medio underline">Registrar</summary>
       <div className="mt-2">
         <FormularioSimples
           acao={acaoRegistrarDose}

@@ -103,8 +103,8 @@ export default async function PaginaFinanceiro({
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-slate-800">Financeiro</h1>
-          <p className="text-sm text-slate-500">Receitas e despesas do período.</p>
+          <h1 className="text-lg font-semibold text-forte">Financeiro</h1>
+          <p className="text-sm text-apoio">Receitas e despesas do período.</p>
         </div>
         <div className="flex gap-3 text-sm">
           <Link href="/financeiro/cadastros" className="underline">
@@ -120,7 +120,7 @@ export default async function PaginaFinanceiro({
       </div>
 
       {contas.length === 0 && (
-        <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-sm text-alerta">
           Nenhuma conta bancária cadastrada.{' '}
           <Link href="/financeiro/cadastros" className="underline">
             Cadastre uma conta
@@ -129,16 +129,16 @@ export default async function PaginaFinanceiro({
         </p>
       )}
 
-      <form className="grid gap-3 rounded border bg-white p-4 sm:grid-cols-4">
+      <form className="grid gap-3 rounded border bg-superficie p-4 sm:grid-cols-4">
         <div className="space-y-1">
-          <label htmlFor="conta" className="text-sm font-medium text-slate-700">
+          <label htmlFor="conta" className="text-sm font-medium text-firme">
             Conta
           </label>
           <select
             id="conta"
             name="conta"
             defaultValue={filtros.conta ?? ''}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-base"
           >
             <option value="">Todas</option>
             {opcoesConta.map((opcao) => (
@@ -149,7 +149,7 @@ export default async function PaginaFinanceiro({
           </select>
         </div>
         <div className="space-y-1">
-          <label htmlFor="de" className="text-sm font-medium text-slate-700">
+          <label htmlFor="de" className="text-sm font-medium text-firme">
             De
           </label>
           <input
@@ -157,11 +157,11 @@ export default async function PaginaFinanceiro({
             name="de"
             type="date"
             defaultValue={de}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-base"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="ate" className="text-sm font-medium text-slate-700">
+          <label htmlFor="ate" className="text-sm font-medium text-firme">
             Até
           </label>
           <input
@@ -169,18 +169,18 @@ export default async function PaginaFinanceiro({
             name="ate"
             type="date"
             defaultValue={ate}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-base"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="natureza" className="text-sm font-medium text-slate-700">
+          <label htmlFor="natureza" className="text-sm font-medium text-firme">
             Natureza
           </label>
           <select
             id="natureza"
             name="natureza"
             defaultValue={filtros.natureza ?? ''}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-base"
           >
             <option value="">Todas</option>
             <option value="RECEITA">Receitas</option>
@@ -189,31 +189,31 @@ export default async function PaginaFinanceiro({
         </div>
         <button
           type="submit"
-          className="rounded bg-slate-800 px-4 py-2 text-white sm:col-span-4 sm:w-auto"
+          className="rounded bg-acao px-4 py-2 text-sobre-acao sm:col-span-4 sm:w-auto"
         >
           Filtrar
         </button>
       </form>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <p className="rounded border bg-white p-3 text-sm">
-          <span className="block text-slate-500">Receitas no período</span>
-          <span className="text-lg font-semibold text-slate-800">{formatarMoeda(receitas)}</span>
+        <p className="rounded border bg-superficie p-3 text-sm">
+          <span className="block text-apoio">Receitas no período</span>
+          <span className="text-lg font-semibold text-forte">{formatarMoeda(receitas)}</span>
         </p>
-        <p className="rounded border bg-white p-3 text-sm">
-          <span className="block text-slate-500">Despesas no período</span>
-          <span className="text-lg font-semibold text-slate-800">{formatarMoeda(despesas)}</span>
+        <p className="rounded border bg-superficie p-3 text-sm">
+          <span className="block text-apoio">Despesas no período</span>
+          <span className="text-lg font-semibold text-forte">{formatarMoeda(despesas)}</span>
         </p>
-        <p className="rounded border bg-white p-3 text-sm">
-          <span className="block text-slate-500">Resultado</span>
-          <span className="text-lg font-semibold text-slate-800">
+        <p className="rounded border bg-superficie p-3 text-sm">
+          <span className="block text-apoio">Resultado</span>
+          <span className="text-lg font-semibold text-forte">
             {formatarMoeda(Math.round((receitas - despesas) * 100) / 100)}
           </span>
         </p>
       </div>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Lançar receita</h2>
         </summary>
         <div className="mt-4">
@@ -228,8 +228,8 @@ export default async function PaginaFinanceiro({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Lançar despesa</h2>
         </summary>
         <div className="mt-4">
@@ -241,28 +241,28 @@ export default async function PaginaFinanceiro({
         </div>
       </details>
 
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-3 font-medium text-slate-800">
+      <div className="rounded border bg-superficie p-4">
+        <h2 className="mb-3 font-medium text-forte">
           Lançamentos ({lancamentos.length})
         </h2>
         <ul className="divide-y">
           {lancamentos.map((lancamento) => (
             <li key={lancamento.id} className="py-3 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="font-medium text-slate-800">{lancamento.descricao}</span>
+                <span className="font-medium text-forte">{lancamento.descricao}</span>
                 <span
                   className={
                     lancamento.status === 'CANCELADO'
-                      ? 'text-slate-500 line-through'
+                      ? 'text-apoio line-through'
                       : lancamento.natureza === 'RECEITA'
-                        ? 'font-semibold text-green-700'
-                        : 'font-semibold text-slate-800'
+                        ? 'font-semibold text-sucesso'
+                        : 'font-semibold text-forte'
                   }
                 >
                   {formatarMoeda(Number(lancamento.valor))}
                 </span>
               </div>
-              <p className="text-slate-500">
+              <p className="text-apoio">
                 {formatarData(lancamento.data)} ·{' '}
                 {lancamento.natureza === 'RECEITA' ? 'Receita' : 'Despesa'} ·{' '}
                 {porId.get(lancamento.origemReceitaId ?? lancamento.fornecedorId ?? '') ?? '—'} ·{' '}
@@ -270,11 +270,11 @@ export default async function PaginaFinanceiro({
                 {lancamento.prestacaoContasId && ' · congelado em prestação fechada'}
               </p>
               {lancamento.motivoCancelamento && (
-                <p className="text-slate-500">Motivo: {lancamento.motivoCancelamento}</p>
+                <p className="text-apoio">Motivo: {lancamento.motivoCancelamento}</p>
               )}
               {lancamento.status !== 'CANCELADO' && !lancamento.prestacaoContasId && (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-slate-600 underline">
+                  <summary className="cursor-pointer text-medio underline">
                     Cancelar este lançamento
                   </summary>
                   <div className="mt-2">
@@ -285,7 +285,7 @@ export default async function PaginaFinanceiro({
             </li>
           ))}
           {lancamentos.length === 0 && (
-            <li className="py-2 text-sm text-slate-500">
+            <li className="py-2 text-sm text-apoio">
               Nenhum lançamento no período filtrado.
             </li>
           )}

@@ -79,7 +79,7 @@ export function FormularioResidente({
       </div>
 
       {estado?.erro && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-perigo">
           {estado.erro}
         </p>
       )}
@@ -87,7 +87,7 @@ export function FormularioResidente({
       {/* A edição não redireciona: sem este aviso o usuário salva e não recebe
           sinal nenhum de que a correção foi gravada. */}
       {estado?.sucesso && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-sm text-sucesso">
           Cadastro salvo.
         </p>
       )}
@@ -95,7 +95,7 @@ export function FormularioResidente({
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded bg-slate-800 px-4 py-3 text-white disabled:opacity-60 sm:w-auto"
+        className="w-full rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60 sm:w-auto"
       >
         {enviando ? 'Salvando…' : rotuloBotao}
       </button>

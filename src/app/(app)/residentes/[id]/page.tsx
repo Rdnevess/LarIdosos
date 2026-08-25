@@ -113,9 +113,9 @@ export default async function FichaResidente({
 
   return (
     <section className="space-y-4">
-      <header className="rounded border bg-white p-4">
+      <header className="rounded border bg-superficie p-4">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-lg font-semibold text-slate-800">
+          <h1 className="text-lg font-semibold text-forte">
             {residente.nomeSocial || residente.nomeCompleto}
           </h1>
           {/* Sem este link não havia tela nenhuma que atribuísse DESLIGADO ou
@@ -127,7 +127,7 @@ export default async function FichaResidente({
             {podeVerProntuario && (
               <Link
                 href={`/residentes/${residente.id}/prontuario`}
-                className="whitespace-nowrap text-sm font-medium text-slate-800 underline"
+                className="whitespace-nowrap text-sm font-medium text-forte underline"
               >
                 Prontuário
               </Link>
@@ -137,13 +137,13 @@ export default async function FichaResidente({
             <div className="flex shrink-0 flex-col items-end gap-1">
               <Link
                 href={`/residentes/${residente.id}/editar`}
-                className="whitespace-nowrap text-sm text-slate-600 underline"
+                className="whitespace-nowrap text-sm text-medio underline"
               >
                 Editar cadastro
               </Link>
               <Link
                 href={`/residentes/${residente.id}/desligar`}
-                className="whitespace-nowrap text-sm text-slate-600 underline"
+                className="whitespace-nowrap text-sm text-medio underline"
               >
                 {residente.status === 'ATIVO'
                   ? 'Registrar saída ou óbito'
@@ -157,7 +157,7 @@ export default async function FichaResidente({
               faleceu é visualmente idêntica à de quem está no Lar. */}
           {residente.status !== 'ATIVO' && (
             <div className="flex gap-2 font-medium sm:col-span-2">
-              <dt className="text-slate-500">Situação:</dt>
+              <dt className="text-apoio">Situação:</dt>
               <dd>
                 {ROTULO_STATUS_RESIDENTE[residente.status]}
                 {residente.dataSaida && ` em ${formatarData(residente.dataSaida)}`}
@@ -165,23 +165,23 @@ export default async function FichaResidente({
             </div>
           )}
           <div className="flex gap-2">
-            <dt className="text-slate-500">Nascimento:</dt>
+            <dt className="text-apoio">Nascimento:</dt>
             <dd>{formatarData(residente.dataNascimento)}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">Quarto/leito:</dt>
+            <dt className="text-apoio">Quarto/leito:</dt>
             <dd>{residente.quarto ?? '—'} / {residente.leito ?? '—'}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">CPF:</dt>
+            <dt className="text-apoio">CPF:</dt>
             <dd>{residente.cpf ? formatarCpf(residente.cpf) : '—'}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">Grau de dependência:</dt>
+            <dt className="text-apoio">Grau de dependência:</dt>
             <dd className="font-medium">{grau ?? 'não avaliado'}</dd>
           </div>
           <div className="flex gap-2 sm:col-span-2">
-            <dt className="text-slate-500">Emergência:</dt>
+            <dt className="text-apoio">Emergência:</dt>
             <dd>
               {emergencia.length > 0
                 ? emergencia.map((r) => `${r.nome} (${r.telefonePrincipal})`).join(' · ')
@@ -191,8 +191,8 @@ export default async function FichaResidente({
         </dl>
       </header>
 
-      <details open className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details open className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Anotações ({anotacoes.length})
         </summary>
         <ul className="mt-3 space-y-3">
@@ -206,19 +206,19 @@ export default async function FichaResidente({
               anotacao.editavelAte.getTime() > agora
 
             return (
-              <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3">
-                <p className="text-sm text-slate-500">
+              <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3">
+                <p className="text-sm text-apoio">
                   {formatarDataHora(anotacao.criadoEm)} ·{' '}
                   {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
                   {anotacao.retificaAnotacaoId && ' · retificação'}
                   {retificadas.has(anotacao.id) && ' · retificada depois'}
                 </p>
-                <p className="text-slate-800">{anotacao.texto}</p>
+                <p className="text-forte">{anotacao.texto}</p>
 
                 <div className="mt-1 space-y-1">
                   {podeEditar && (
                     <details>
-                      <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      <summary className="cursor-pointer text-sm text-medio underline">
                         Editar
                       </summary>
                       <div className="mt-2">
@@ -233,7 +233,7 @@ export default async function FichaResidente({
                   {/* Retificar não tem janela nem exigência de autoria: é o
                       caminho que continua aberto depois que a edição fecha. */}
                   <details>
-                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    <summary className="cursor-pointer text-sm text-medio underline">
                       Retificar
                     </summary>
                     <div className="mt-2">
@@ -248,7 +248,7 @@ export default async function FichaResidente({
             )
           })}
           {anotacoes.length === 0 && (
-            <li className="text-sm text-slate-500">Nenhuma anotação registrada.</li>
+            <li className="text-sm text-apoio">Nenhuma anotação registrada.</li>
           )}
         </ul>
         <div className="mt-4 border-t pt-4">
@@ -256,15 +256,15 @@ export default async function FichaResidente({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Responsáveis ({responsaveis.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {responsaveis.map((responsavel) => (
             <li key={responsavel.id} className="text-sm">
-              <span className="font-medium text-slate-800">{responsavel.nome}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{responsavel.nome}</span>{' '}
+              <span className="text-apoio">
                 — {responsavel.parentesco} · {responsavel.telefonePrincipal}
                 {responsavel.ehResponsavelLegal && ' · responsável legal'}
                 {/* Mostra a exceção, não a regra: quase todo responsável pode
@@ -279,7 +279,7 @@ export default async function FichaResidente({
               {podeCadastrar && (
                 <div className="mt-1 space-y-1">
                   <details>
-                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    <summary className="cursor-pointer text-sm text-medio underline">
                       Editar
                     </summary>
                     <div className="mt-2">
@@ -290,7 +290,7 @@ export default async function FichaResidente({
                     </div>
                   </details>
                   <details>
-                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    <summary className="cursor-pointer text-sm text-medio underline">
                       Remover
                     </summary>
                     <div className="mt-2">
@@ -305,7 +305,7 @@ export default async function FichaResidente({
             </li>
           ))}
           {responsaveis.length === 0 && (
-            <li className="text-sm text-slate-500">Nenhum responsável cadastrado.</li>
+            <li className="text-sm text-apoio">Nenhum responsável cadastrado.</li>
           )}
         </ul>
         {podeCadastrar && (
@@ -319,18 +319,18 @@ export default async function FichaResidente({
           `definirContribuicao` o recusa de qualquer forma — esconder é
           conveniência, quem barra é o serviço. */}
       {(ctx.papel === 'COORDENACAO' || ctx.papel === 'ADMINISTRATIVO') && (
-        <details className="rounded border bg-white p-4">
-          <summary className="cursor-pointer font-medium text-slate-800">
+        <details className="rounded border bg-superficie p-4">
+          <summary className="cursor-pointer font-medium text-forte">
             Contribuição
           </summary>
           <div className="mt-3 space-y-3">
             {contribuicao ? (
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-firme">
                 <span className="font-medium">
                   {Number(contribuicao.percentual)}% de{' '}
                   {formatarMoeda(Number(contribuicao.valorBaseBeneficio))}
                 </span>
-                <span className="block text-slate-500">
+                <span className="block text-apoio">
                   {formatarMoeda(
                     Math.round(
                       Number(contribuicao.percentual) *
@@ -341,7 +341,7 @@ export default async function FichaResidente({
                 </span>
               </p>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-apoio">
                 Nenhuma contribuição definida para este residente.
               </p>
             )}
@@ -352,8 +352,8 @@ export default async function FichaResidente({
         </details>
       )}
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Documentos ({documentos.length})
         </summary>
         <ul className="mt-3 space-y-2">
@@ -363,7 +363,7 @@ export default async function FichaResidente({
                 href={`/api/documentos/${documento.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-slate-800 underline"
+                className="text-forte underline"
               >
                 {/* Sem `??`: `ROTULO_TIPO_DOCUMENTO` é `Record<TipoDocumento,
                     string>`, então um tipo sem rótulo não compila — não há
@@ -374,7 +374,7 @@ export default async function FichaResidente({
 
               <div className="mt-1">
                 <details>
-                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                  <summary className="cursor-pointer text-sm text-medio underline">
                     Excluir
                   </summary>
                   <div className="mt-2">
@@ -388,7 +388,7 @@ export default async function FichaResidente({
             </li>
           ))}
           {documentos.length === 0 && (
-            <li className="text-sm text-slate-500">Nenhum documento anexado.</li>
+            <li className="text-sm text-apoio">Nenhum documento anexado.</li>
           )}
         </ul>
         {tiposAnexaveis.length > 0 && (
@@ -398,21 +398,21 @@ export default async function FichaResidente({
         )}
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Grau de dependência ({avaliacoes.length} avaliações)
         </summary>
         <ul className="mt-3 space-y-2">
           {avaliacoes.map((avaliacao) => (
             <li key={avaliacao.id} className="text-sm">
               <span className="font-medium">Grau {avaliacao.grau}</span>{' '}
-              <span className="text-slate-500">
+              <span className="text-apoio">
                 em {formatarData(avaliacao.dataAvaliacao)} por {avaliacao.avaliadorNome}
               </span>
             </li>
           ))}
           {avaliacoes.length === 0 && (
-            <li className="text-sm text-slate-500">Nenhuma avaliação registrada.</li>
+            <li className="text-sm text-apoio">Nenhuma avaliação registrada.</li>
           )}
         </ul>
         {podeAvaliar && (

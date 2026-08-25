@@ -21,8 +21,8 @@ const ROTULO_MOTIVO: Record<string, string> = {
 function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
   return (
     <div className="rounded border p-3">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{rotulo}</p>
-      <p className="text-lg font-semibold text-slate-800">{valor}</p>
+      <p className="text-xs uppercase tracking-wide text-apoio">{rotulo}</p>
+      <p className="text-lg font-semibold text-forte">{valor}</p>
     </div>
   )
 }
@@ -30,7 +30,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
 export function RelatorioAderencia({ aderencia }: { aderencia: Aderencia }) {
   if (aderencia.previstas === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-apoio">
         Nenhuma dose prevista no período — não há prescrição de horário fixo vigente.
       </p>
     )
@@ -43,17 +43,17 @@ export function RelatorioAderencia({ aderencia }: { aderencia: Aderencia }) {
       <div
         className={
           aderencia.percentualSemRegistro > 0
-            ? 'rounded border border-amber-300 bg-amber-50 p-3'
+            ? 'rounded border border-alerta-borda bg-alerta-fundo p-3'
             : 'rounded border p-3'
         }
       >
-        <p className="text-xs uppercase tracking-wide text-slate-500">
+        <p className="text-xs uppercase tracking-wide text-apoio">
           Doses sem registro
         </p>
-        <p className="text-2xl font-semibold text-slate-800">
+        <p className="text-2xl font-semibold text-forte">
           {aderencia.percentualSemRegistro}%
         </p>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-medio">
           {aderencia.semRegistro} de {aderencia.previstas} doses previstas. Sem
           registro não é o mesmo que não administrada: a dose pode ter sido dada e
           apenas não marcada.
@@ -69,12 +69,12 @@ export function RelatorioAderencia({ aderencia }: { aderencia: Aderencia }) {
 
       {motivos.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-apoio">
             Motivos
           </h3>
           <ul className="mt-1 space-y-1">
             {motivos.map(([motivo, quantas]) => (
-              <li key={motivo} className="text-sm text-slate-700">
+              <li key={motivo} className="text-sm text-firme">
                 {ROTULO_MOTIVO[motivo] ?? motivo}: {quantas}
               </li>
             ))}
@@ -83,7 +83,7 @@ export function RelatorioAderencia({ aderencia }: { aderencia: Aderencia }) {
       )}
 
       {aderencia.registradasForaDoTurno > 0 && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-apoio">
           {aderencia.registradasForaDoTurno} dose(s) registrada(s) fora do turno em
           que aconteceram. Elas contam entre as administradas — isto mede
           disciplina de registro, não de administração.

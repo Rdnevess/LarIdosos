@@ -108,16 +108,16 @@ export default async function PaginaPrestacoes({
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-slate-800">Prestações de contas</h1>
-          <p className="text-sm text-slate-500">Uma por conta bancária, por mês.</p>
+          <h1 className="text-lg font-semibold text-forte">Prestações de contas</h1>
+          <p className="text-sm text-apoio">Uma por conta bancária, por mês.</p>
         </div>
         <Link href="/financeiro" className="text-sm underline">
           Voltar aos lançamentos
         </Link>
       </div>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Abrir prestação</h2>
         </summary>
         <div className="mt-4">
@@ -137,15 +137,15 @@ export default async function PaginaPrestacoes({
           const ajustado = prestacao.saldoAnteriorAjustado !== null
 
           return (
-            <article key={prestacao.id} className="space-y-3 rounded border bg-white p-4">
+            <article key={prestacao.id} className="space-y-3 rounded border bg-superficie p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-medium text-slate-800">
+                <h2 className="font-medium text-forte">
                   {mesPorExtenso(prestacao.mesCompetencia)} de {prestacao.anoCompetencia}
                   {conta && ` — ${conta.banco} ${conta.numeroConta}`}
                 </h2>
                 <span
                   className={`rounded px-2 py-1 text-xs font-medium ${
-                    aberta ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-900'
+                    aberta ? 'bg-alerta-realce text-alerta' : 'bg-sucesso-fundo text-sucesso-forte'
                   }`}
                 >
                   {aberta ? 'Aberta' : 'Fechada'}
@@ -154,39 +154,39 @@ export default async function PaginaPrestacoes({
 
               <dl className="grid gap-2 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-slate-500">Saldo anterior</dt>
-                  <dd className="font-semibold text-slate-800">
+                  <dt className="text-apoio">Saldo anterior</dt>
+                  <dd className="font-semibold text-forte">
                     {formatarMoeda(saldoAnterior)}
                     {ajustado && (
-                      <span className="block text-xs font-normal text-amber-800">
+                      <span className="block text-xs font-normal text-alerta-suave">
                         ajustado (derivado: {formatarMoeda(derivado)})
                       </span>
                     )}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Receitas</dt>
-                  <dd className="font-semibold text-slate-800">{formatarMoeda(receitas)}</dd>
+                  <dt className="text-apoio">Receitas</dt>
+                  <dd className="font-semibold text-forte">{formatarMoeda(receitas)}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Despesas</dt>
-                  <dd className="font-semibold text-slate-800">{formatarMoeda(despesas)}</dd>
+                  <dt className="text-apoio">Despesas</dt>
+                  <dd className="font-semibold text-forte">{formatarMoeda(despesas)}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Saldo disponível</dt>
-                  <dd className="font-semibold text-slate-800">
+                  <dt className="text-apoio">Saldo disponível</dt>
+                  <dd className="font-semibold text-forte">
                     {formatarMoeda(saldoDisponivel)}
                   </dd>
                 </div>
               </dl>
 
               {prestacao.justificativaAjuste && (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-medio">
                   Ajuste do saldo: {prestacao.justificativaAjuste}
                 </p>
               )}
               {prestacao.motivoReabertura && (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-medio">
                   Reaberta: {prestacao.motivoReabertura}
                 </p>
               )}
@@ -222,7 +222,7 @@ export default async function PaginaPrestacoes({
               {aberta ? (
                 <div className="space-y-2">
                   <details>
-                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    <summary className="cursor-pointer text-sm text-medio underline">
                       Observações do mês
                     </summary>
                     <div className="mt-2">
@@ -230,7 +230,7 @@ export default async function PaginaPrestacoes({
                     </div>
                   </details>
                   <details>
-                    <summary className="cursor-pointer text-sm text-slate-600 underline">
+                    <summary className="cursor-pointer text-sm text-medio underline">
                       Ajustar saldo anterior
                     </summary>
                     <div className="mt-2">
@@ -241,7 +241,7 @@ export default async function PaginaPrestacoes({
                 </div>
               ) : (
                 <details>
-                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                  <summary className="cursor-pointer text-sm text-medio underline">
                     Reabrir esta prestação
                   </summary>
                   <div className="mt-2">
@@ -255,7 +255,7 @@ export default async function PaginaPrestacoes({
       )}
 
       {cartoes.length === 0 && (
-        <p className="rounded border bg-white p-4 text-sm text-slate-500">
+        <p className="rounded border bg-superficie p-4 text-sm text-apoio">
           Nenhuma prestação aberta ainda.
         </p>
       )}

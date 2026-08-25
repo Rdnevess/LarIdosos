@@ -12,17 +12,17 @@ import Link from 'next/link'
  */
 export default function NaoEncontrado() {
   return (
-    <section className="space-y-4 rounded border bg-white p-4">
-      <h1 className="text-lg font-semibold text-slate-800">
+    <section className="space-y-4 rounded border bg-superficie p-4">
+      <h1 className="text-lg font-semibold text-forte">
         Registro não encontrado
       </h1>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-medio">
         O endereço não corresponde a nenhum cadastro. Ele pode ter sido
         digitado errado, ou o link pode estar desatualizado.
       </p>
       <Link
         href="/residentes"
-        className="inline-block rounded bg-slate-800 px-4 py-3 text-sm text-white"
+        className="inline-block rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
       >
         Voltar aos residentes
       </Link>

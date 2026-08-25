@@ -115,14 +115,14 @@ export default async function PaginaAuditoria({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-lg font-semibold text-slate-800">Trilha de auditoria</h1>
+      <h1 className="text-lg font-semibold text-forte">Trilha de auditoria</h1>
 
       <form className="grid gap-2 sm:grid-cols-5">
         <select
           name="entidade"
           defaultValue={filtros.entidade ?? ''}
           aria-label="Entidade"
-          className="rounded border border-slate-300 px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-base"
         >
           <option value="">Todas as entidades</option>
           {Object.entries(ROTULO_ENTIDADE).map(([valor, rotulo]) => (
@@ -136,7 +136,7 @@ export default async function PaginaAuditoria({
           name="usuarioId"
           defaultValue={filtros.usuarioId ?? ''}
           aria-label="Usuário"
-          className="rounded border border-slate-300 px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-base"
         >
           <option value="">Todos os usuários</option>
           {usuarios.map((usuario) => (
@@ -151,28 +151,28 @@ export default async function PaginaAuditoria({
           name="de"
           defaultValue={filtros.de}
           aria-label="De"
-          className="rounded border border-slate-300 px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-base"
         />
         <input
           type="date"
           name="ate"
           defaultValue={filtros.ate}
           aria-label="Até"
-          className="rounded border border-slate-300 px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-base"
         />
 
-        <button type="submit" className="rounded border border-slate-300 px-3 py-2 text-sm">
+        <button type="submit" className="rounded border border-borda px-3 py-2 text-sm">
           Filtrar
         </button>
       </form>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-apoio">
         {resultado.total} registro(s) · página {pagina} de {resultado.paginas}
       </p>
 
-      <div className="overflow-x-auto rounded border bg-white">
+      <div className="overflow-x-auto rounded border bg-superficie">
         <table className="w-full text-left text-sm">
-          <thead className="border-b bg-slate-50">
+          <thead className="border-b bg-suave">
             <tr>
               <th className="p-2">Data/hora</th>
               <th className="p-2">Usuário</th>
@@ -190,15 +190,15 @@ export default async function PaginaAuditoria({
                 <td className="p-2">
                   {rotularEntidade(registro.entidade)}
                   {registro.entidadeId && (
-                    <span className="block text-xs text-slate-500">{registro.entidadeId}</span>
+                    <span className="block text-xs text-apoio">{registro.entidadeId}</span>
                   )}
                 </td>
-                <td className="p-2 text-slate-600">{formatarDiff(registro.diff)}</td>
+                <td className="p-2 text-medio">{formatarDiff(registro.diff)}</td>
               </tr>
             ))}
             {resultado.registros.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-3 text-slate-500">
+                <td colSpan={5} className="p-3 text-apoio">
                   Nenhum registro no filtro selecionado.
                 </td>
               </tr>
