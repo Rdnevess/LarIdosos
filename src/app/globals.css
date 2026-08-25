@@ -246,25 +246,25 @@
  * então nunca há dois textos concorrendo — e o nome do botão continua vindo do
  * `aria-label`, que não muda com o tema.
  */
-[data-oferta='claro'] {
+[data-oferta="claro"] {
   display: none;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema='claro']) [data-oferta='escuro'] {
+  :root:not([data-tema="claro"]) [data-oferta="escuro"] {
     display: none;
   }
 
-  :root:not([data-tema='claro']) [data-oferta='claro'] {
+  :root:not([data-tema="claro"]) [data-oferta="claro"] {
     display: inline;
   }
 }
 
-:root[data-tema='escuro'] [data-oferta='escuro'] {
+:root[data-tema="escuro"] [data-oferta="escuro"] {
   display: none;
 }
 
-:root[data-tema='escuro'] [data-oferta='claro'] {
+:root[data-tema="escuro"] [data-oferta="claro"] {
   display: inline;
 }
 
