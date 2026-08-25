@@ -17,7 +17,7 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'autenticado',
-      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts|administrativo\.spec\.ts|tema\.spec\.ts/,
+      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts|administrativo\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts/,
       dependencies: ['setup'],
       use: { storageState: 'tests/e2e/.sessao.json' },
     },
@@ -41,7 +41,7 @@ export default defineConfig({
     },
     // O tema começa deslogado — a escolha é feita na tela de login e o teste
     // segue por ela adentro — então roda aqui, e não com sessão pronta.
-    { name: 'anonimo', testMatch: /login\.spec\.ts|tema\.spec\.ts/ },
+    { name: 'anonimo', testMatch: /login\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts/ },
   ],
   webServer: {
     command: 'npm run dev',

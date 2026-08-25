@@ -64,6 +64,23 @@ services:
       TZ: America/Sao_Paulo
     volumes:
       - uploads:/data/uploads
+    # `node -e` em vez de curl ou wget: a imagem de runtime é `node:24-alpine`
+    # e não traz curl; instalar um binário só para isto engordaria a imagem que
+    # o `output: standalone` existe para enxugar.
+    #
+    # `start_period` generoso porque o entrypoint roda as migrations antes de
+    # servir: sem ele, as primeiras tentativas falhariam e o contêiner nasceria
+    # marcado como não-saudável durante uma partida que está correndo bem.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   caddy:
     image: caddy:2-alpine
