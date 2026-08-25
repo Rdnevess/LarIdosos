@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit*)",
+      "Bash(npm run typecheck)",
+      "Bash(npx eslint)",
+      "Bash(npm run lint)",
+      "Bash(npx prisma validate*)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}
