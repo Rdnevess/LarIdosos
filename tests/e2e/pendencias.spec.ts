@@ -19,6 +19,11 @@ test('o exame entra nas pendências e sai quando o resultado chega', async ({ pa
   await secao.getByLabel('Tipo do exame').fill(tipoExame)
   await secao.getByLabel('Data da solicitação').fill('2026-07-01')
   await secao.getByRole('button', { name: 'Registrar exame' }).click()
+  // Mesma espera que a segunda metade deste teste já fazia, e pelo mesmo
+  // motivo: `click()` resolve quando o clique é despachado, não quando a
+  // Server Action termina. Sem ela o `goto` corre com a gravação e
+  // `/pendencias` renderiza antes de o exame existir.
+  await expect(secao.getByRole('status')).toHaveText('Registro salvo.')
 
   await page.goto('/pendencias')
   const linha = page.locator('li', { hasText: tipoExame })

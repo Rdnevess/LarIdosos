@@ -171,6 +171,42 @@ test('a enfermeira registra o turno inteiro e ve tudo na linha do tempo', async 
   await expect(filtrada).not.toContainText(`Aceitou o café da manhã ${marca}.`)
 })
 
+/**
+ * Os números do relatório de aderência, lidos do texto.
+ *
+ * O relatório é agregado por residente, e o residente da enfermagem é fixo —
+ * SAUDE não pode cadastrar residente, então toda execução prescreve no mesmo.
+ * Afirmar "0% sem registro" seria afirmar algo sobre todas as execuções que já
+ * passaram por aqui: bastaria uma falhar no meio, deixando uma prescrição sem
+ * administrar, para envenenar todas as seguintes. Por isso se mede a diferença
+ * que ESTA execução provoca, e não o total.
+ */
+async function lerAderencia(page: Page) {
+  const aderencia = page.locator('details').filter({ hasText: 'Aderência' })
+  // Abrir só se estiver fechado: clicar num `<details>` já aberto o fecharia.
+  if (!(await aderencia.evaluate((d: HTMLDetailsElement) => d.open))) {
+    await aderencia.locator('summary').first().click()
+  }
+
+  const texto = (await aderencia.textContent()) ?? ''
+  if (/Nenhuma dose prevista/.test(texto)) {
+    return { semRegistro: 0, previstas: 0, administradas: 0 }
+  }
+
+  const proporcao = texto.match(/(\d+) de (\d+) doses previstas/)
+  // `Administradas` com maiúscula não casa com o rótulo "Não administradas".
+  const administradas = texto.match(/Administradas(\d+)/)
+  if (!proporcao || !administradas) {
+    throw new Error(`relatório de aderência ilegível: ${texto}`)
+  }
+
+  return {
+    semRegistro: Number(proporcao[1]),
+    previstas: Number(proporcao[2]),
+    administradas: Number(administradas[1]),
+  }
+}
+
 test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', async ({
   page,
 }) => {
@@ -178,6 +214,10 @@ test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', 
   // relatorio, sem passar pela coordenacao.
   await abrirFicha(page)
   await page.getByRole('link', { name: 'Prontuário' }).click()
+
+  // Antes de prescrever: o relatório já traz o que execuções anteriores
+  // deixaram neste residente fixo, e é dessa linha de base que se mede.
+  const antes = await lerAderencia(page)
 
   const farmaco = `Losartana ${Date.now()}`
   const agora = new Date()
@@ -202,18 +242,34 @@ test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', 
   await secao.getByLabel('Vigente a partir de').fill(vigencia)
   await secao.getByRole('button', { name: 'Prescrever' }).click()
 
+  // `click()` resolve quando o clique é despachado, e não quando a Server
+  // Action termina. Sem esperar, a navegação seguinte vence a corrida sempre
+  // que a máquina está ocupada: o `/turno` renderiza sem a dose, e a
+  // asserção seguinte repete o seletor por 20 s numa página que nunca mais
+  // é buscada.
+  //
+  // `toHaveCount` e não `toBeVisible`: o `<details>` recolhe ao re-renderizar
+  // depois da action, e medir visibilidade mediria a gaveta em vez do commit.
+  //
+  // O mesmo padrão está no `turno.spec.ts`, onde a corrida foi diagnosticada.
+  await expect(secao.locator('li', { hasText: farmaco })).toHaveCount(1)
+
   await page.goto('/turno')
   const linha = page.locator('li', { hasText: farmaco })
   await expect(linha).toBeVisible()
   await linha.getByRole('button', { name: 'Administrada' }).click()
   await expect(page.locator('li', { hasText: farmaco })).toContainText('Administrada')
 
-  // E o relatorio conta a dose administrada, sem nenhuma sem registro.
+  // E o relatório conta a dose administrada, sem nenhuma sem registro.
   await linha.getByRole('link').first().click()
-  const aderencia = page.locator('details').filter({ hasText: 'Aderência' })
-  await aderencia.locator('summary').first().click()
-  await expect(aderencia).toContainText('Administradas')
-  await expect(aderencia).toContainText('0%')
+  const depois = await lerAderencia(page)
+
+  // A prescrição criada acrescentou uma dose prevista, e administrá-la a pôs
+  // entre as administradas sem deixar nada sem registro. Em diferenças, e não
+  // em totais: o que este teste faz é +1 e +1, qualquer que seja o acumulado.
+  expect(depois.previstas).toBe(antes.previstas + 1)
+  expect(depois.administradas).toBe(antes.administradas + 1)
+  expect(depois.semRegistro).toBe(antes.semRegistro)
 })
 
 /**
