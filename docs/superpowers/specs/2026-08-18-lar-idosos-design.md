@@ -281,7 +281,7 @@ Por residente e por período: doses previstas (derivadas), administradas, recusa
 |---|---|---|
 | **COORDENACAO** | Tudo, incluindo gestão de usuários e consulta da auditoria | — |
 | **SAUDE** | Prontuário completo, medicação, sinais vitais, exames, anotações gerais, consulta ao cadastro de residentes | Financeiro, cadastro de funcionários, gestão de usuários |
-| **ADMINISTRATIVO** | Cadastro de residentes e responsáveis, documentos, funcionários, financeiro completo, anotações gerais | Prontuário clínico, exames, medicação |
+| **ADMINISTRATIVO** | Cadastro de residentes e responsáveis, documentos, funcionários, financeiro completo, anotações gerais, e os **alertas de cuidado** da §7.1 | Prontuário clínico, exames, medicação, sinais vitais |
 
 Dois pontos de fronteira que a tabela acima não resolve sozinha:
 
@@ -291,6 +291,18 @@ Dois pontos de fronteira que a tabela acima não resolve sozinha:
 A verificação vive na camada de serviço: a interface esconde o que o usuário não pode ver, e o serviço **recusa** ainda que a requisição chegue por outro caminho. Cada recusa tem teste automatizado.
 
 Permissão implementada apenas no componente React é a falha de segurança mais comum nesta classe de aplicação, e a mais difícil de perceber — porque a tela parece correta.
+
+### 7.1 Alertas de cuidado: o segundo recorte clínico do ADMINISTRATIVO
+
+O grau de dependência não é mais o único dado clínico que esse papel lê. **Alergias, restrições alimentares e condições crônicas** passaram a ser legíveis por ele.
+
+**Por quê.** A regra anterior punha todo o prontuário fora do alcance do administrativo, e alergia é prontuário. O custo apareceu numa situação cotidiana: neste Lar, quem cadastra é a mesma pessoa que atende a portaria e recebe a entrega de alimento. Ela precisava saber que a dona Maria não pode comer camarão, e o sistema não contava. A fronteira estava nítida e errada — nítida é diferente de certa.
+
+**O recorte é de proibições, não de prontuário.** Alergia e restrição alimentar são instruções operacionais: quem recebe a entrega as respeita sem interpretar nada. Medicação ativa e aferição de sinais vitais continuam fora, porque não há ato administrativo que dependa delas.
+
+**Condição crônica entra, e é a parte que carrega tensão.** Diagnóstico não é instrução: "diabético" só vira conduta depois de leitura clínica, e exibi-lo a quem não é da saúde convida à dedução por conta própria. Entrou porque a conduta alimentar frequentemente não é lançada como restrição explícita, e sem ele a lacuna continuaria aberta na prática. **A contrapartida é de processo:** a equipe clínica registra a conduta como restrição alimentar explícita, em vez de contar com a dedução de quem não é da saúde. Sem isso, esta mudança troca uma lacuna por outra.
+
+**A fronteira de rota continua onde estava.** Os alertas aparecem na ficha do residente; `/residentes/[id]/prontuario` segue recusada ao administrativo, e `obterCabecalhoClinico` — a guarda dessa rota — segue exigindo COORDENACAO ou SAUDE. Quem lê os alertas é uma função irmã, com permissão própria. Há teste para as duas coisas: que o administrativo alcança os alertas, e que não alcança o prontuário nem pela URL.
 
 ## 8. Auditoria e LGPD
 
@@ -304,6 +316,7 @@ Decisões concretas decorrentes disso:
 - Backup criptografado antes de deixar a VPS
 - Termo de ciência do residente/responsável anexado ao cadastro (`Documento` tipo `TERMO_LGPD`)
 - Auditoria de **toda escrita** e de **leitura de dado sensível**. Leitura de tela comum não é auditada: volume que ninguém consegue consultar não é controle, é custo de disco
+- Com a §7.1, a ficha do residente passou a exibir dado clínico. O `VISUALIZAR` que `obterResidente` já grava cobre essa leitura — não há segundo registro por abertura de ficha, que dobraria o volume sobre o mesmo ato
 - Exclusão sempre lógica. Prontuário tem guarda obrigatória de **20 anos** após o último registro (Resolução CFM 1.821/2007), o que se sobrepõe a eventual pedido de eliminação
 
 A coordenação tem tela de consulta da auditoria, filtrável por usuário, entidade e período.

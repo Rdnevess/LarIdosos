@@ -14,6 +14,8 @@ import {
   listarAvaliacoes,
 } from '@/modules/residents/dependencia.service'
 import { obterContribuicaoVigente } from '@/modules/financeiro/contribuicoes.service'
+import { obterAlertasDeCuidado } from '@/modules/health/cabecalho.service'
+import { AlertasDeCuidado } from '@/components/cabecalho-clinico'
 import { FormularioContribuicao } from '@/components/formularios-financeiro'
 import {
   formatarData,
@@ -68,13 +70,18 @@ export default async function FichaResidente({
     throw erro
   }
 
-  const [grau, responsaveis, documentos, anotacoes, avaliacoes] = await Promise.all([
-    obterGrauVigente(ctx, id),
-    listarResponsaveis(ctx, id),
-    listarDocumentos(ctx, { residenteId: id }),
-    listarAnotacoes(ctx, id),
-    listarAvaliacoes(ctx, id),
-  ])
+  const [grau, responsaveis, documentos, anotacoes, avaliacoes, alertas] =
+    await Promise.all([
+      obterGrauVigente(ctx, id),
+      listarResponsaveis(ctx, id),
+      listarDocumentos(ctx, { residenteId: id }),
+      listarAnotacoes(ctx, id),
+      listarAvaliacoes(ctx, id),
+      // Dentro do `Promise.all` porque os três papéis alcançam: é o recorte da
+      // §7.1, e não o prontuário. O prontuário continua fora, e continua sendo
+      // `obterCabecalhoClinico` quem o guarda.
+      obterAlertasDeCuidado(ctx, id),
+    ])
 
   // Fora do `Promise.all`: `obterContribuicaoVigente` exige COORDENACAO ou
   // ADMINISTRATIVO, e chamá-lo junto faria a ficha inteira quebrar para o
@@ -190,6 +197,13 @@ export default async function FichaResidente({
           </div>
         </dl>
       </header>
+
+      {/* Alto na página, e antes de tudo que não é identificação: é
+          informação de proibição — quem recebe uma entrega de alimento ou
+          está prestes a encostar na pessoa precisa dela antes do resto. O
+          ADMINISTRATIVO também a alcança (§7.1 do design); o prontuário,
+          não. */}
+      <AlertasDeCuidado dados={alertas} />
 
       <details open className="rounded border bg-superficie p-4">
         <summary className="cursor-pointer font-medium text-forte">

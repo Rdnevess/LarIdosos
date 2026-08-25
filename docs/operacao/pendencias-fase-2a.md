@@ -6,7 +6,7 @@ para não dependerem da memória de ninguém.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. Cabeçalho clínico invisível ao ADMINISTRATIVO | aberto — decisão a revisitar | com a equipe, antes de a 2A entrar em uso |
+| 1. Cabeçalho clínico invisível ao ADMINISTRATIVO | resolvido | 25/08/2026 — §7.1 do design |
 | 2. Sinal vital fora de faixa não alerta | aberto | depois da 2B |
 | 3. Sem gráfico de tendência | aberto, deliberado | quando alguém pedir |
 
@@ -30,6 +30,16 @@ não é escondê-la melhor — é a §7 do design, que precisa passar a distingu
 Enquanto isso não acontecer, **o cabeçalho está a um clique de quem pode vê-lo**
 (o link "Prontuário" na ficha), e ninguém do administrativo o alcança nem pela
 URL — há teste E2E para isso.
+
+### Resolvido em 25/08/2026
+
+A pergunta foi feita e a resposta foi sim: neste Lar, quem cadastra é a mesma pessoa que atende a portaria e recebe a entrega de alimento. A §7 do design mudou, como este registro previa que teria de mudar.
+
+A §7.1 passou a distinguir **alertas de cuidado** — alergia, restrição alimentar e condição crônica — do resto do prontuário. Medicação ativa e aferição de sinais vitais continuam fora: não há ato administrativo que dependa delas.
+
+**A fronteira de rota não se mexeu.** Os alertas aparecem na ficha; `obterCabecalhoClinico` continua sendo a guarda de `/residentes/[id]/prontuario` e continua exigindo COORDENACAO ou SAUDE. Quem lê os alertas é `obterAlertasDeCuidado`, função irmã com permissão própria — relaxar a primeira teria aberto a rota, porque a página não tem outra checagem de papel. O teste E2E que prova "não alcança nem pela URL" continua valendo, sem alteração.
+
+**A tensão que sobrou, e está no design:** condição crônica é diagnóstico, não instrução. Ela entrou porque a conduta alimentar nem sempre é lançada como restrição explícita, mas a contrapartida é de processo — a equipe clínica registra a conduta como restrição, em vez de contar com a dedução de quem não é da saúde. Sem isso, a mudança troca uma lacuna por outra.
 
 ## 2. Sinal vital fora de faixa não alerta ninguém
 

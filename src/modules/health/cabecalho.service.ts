@@ -191,11 +191,26 @@ export const desativarAlergia = (ctx: Ctx, id: string) => desativar(ctx, 'Alergi
 export const desativarRestricaoAlimentar = (ctx: Ctx, id: string) =>
   desativar(ctx, 'RestricaoAlimentar', id)
 
-export async function obterCabecalhoClinico(
+/**
+ * Alergias, restrições alimentares e condições crônicas — os **alertas de
+ * cuidado** da §7.1 do design.
+ *
+ * Existe separada de `obterCabecalhoClinico` porque as duas têm permissões
+ * diferentes, e a diferença é a fronteira: neste Lar, quem cadastra é a mesma
+ * pessoa que atende a portaria e recebe a entrega de alimento, e precisa saber
+ * que a dona Maria não pode comer camarão. Medicação ativa e aferição de sinais
+ * vitais continuam fora — não há ato administrativo que dependa delas.
+ *
+ * **Relaxar `obterCabecalhoClinico` em vez de criar esta função abriria a rota
+ * do prontuário**, porque aquela chamada é a guarda dessa rota: a página não
+ * tem outra checagem de papel. Duas funções, duas permissões, uma fronteira
+ * intacta.
+ */
+export async function obterAlertasDeCuidado(
   ctx: Ctx,
   residenteId: string
 ): Promise<CabecalhoClinico> {
-  exigirPapel(ctx, 'Alergia', 'COORDENACAO', 'SAUDE')
+  exigirPapel(ctx, 'Alergia', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const [alergias, condicoes, restricoes] = await Promise.all([
     prisma.alergia.findMany({ where: { residenteId, ativa: true } }),
@@ -216,4 +231,21 @@ export async function obterCabecalhoClinico(
   )
 
   return { alergias, condicoes, restricoes }
+}
+
+/**
+ * O mesmo conteúdo, pela porta restrita. É a guarda da rota
+ * `/residentes/[id]/prontuario`, que não tem outra checagem de papel — por isso
+ * ela continua exigindo COORDENACAO ou SAUDE mesmo agora que existe a porta
+ * vizinha, e por isso tem teste próprio de recusa.
+ *
+ * Delega em vez de repetir a consulta: a ordenação por gravidade precisa ser a
+ * mesma nas duas portas, e duas cópias divergiriam.
+ */
+export async function obterCabecalhoClinico(
+  ctx: Ctx,
+  residenteId: string
+): Promise<CabecalhoClinico> {
+  exigirPapel(ctx, 'Alergia', 'COORDENACAO', 'SAUDE')
+  return obterAlertasDeCuidado(ctx, residenteId)
 }
