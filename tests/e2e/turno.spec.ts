@@ -62,6 +62,19 @@ test('a tela do turno lista a dose e a marca como administrada em um toque', asy
   await secao.getByLabel('Vigente a partir de').fill(inicioDoTurnoCorrente())
   await secao.getByRole('button', { name: 'Prescrever' }).click()
 
+  // `click()` resolve quando o clique é despachado, e não quando a Server
+  // Action termina. Sem esperar, a navegação seguinte vence a corrida sempre
+  // que a máquina está ocupada: o `/turno` renderiza sem a dose, e a
+  // asserção seguinte repete o seletor por 20 s numa página que nunca mais
+  // é buscada.
+  //
+  // `toHaveCount` e não `toBeVisible`: o `<details>` recolhe ao re-renderizar
+  // depois da action, e medir visibilidade mediria a gaveta em vez do commit.
+  //
+  // É a mesma pós-condição de que o teste da suspensão já depende, logo
+  // abaixo, e por isso aquele nunca falhou.
+  await expect(secao.locator('li', { hasText: farmaco })).toHaveCount(1)
+
   await page.goto('/turno')
   const linha = page.locator('li', { hasText: farmaco })
   await expect(linha).toContainText(nome)
