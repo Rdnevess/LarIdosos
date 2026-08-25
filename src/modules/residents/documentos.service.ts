@@ -255,7 +255,7 @@ export async function obterDocumentoParaDownload(
     // `exigirPapel` recebe uma lista estatica e nao serve. O registro entao
     // parte daqui, para que a tentativa negada deixe rastro como a bem
     // sucedida ja deixava.
-    dispararRegistroDeAcessoNegado(ctx, 'Documento')
+    dispararRegistroDeAcessoNegado(ctx, 'Documento', id)
     throw new ErroPermissao()
   }
 

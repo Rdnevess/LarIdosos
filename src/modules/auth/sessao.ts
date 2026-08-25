@@ -11,6 +11,15 @@ export async function obterCtx(): Promise<Ctx> {
     throw new ErroPermissao('Sessão inválida')
   }
 
+  // Lido antes das checagens, e nao depois: as negacoes abaixo precisam dizer de
+  // onde vieram, e no caminho feliz esta leitura aconteceria de qualquer forma.
+  // Mudou a ordem, nao o custo.
+  const cabecalhos = await headers()
+  const origem = {
+    ip: cabecalhos.get('x-forwarded-for')?.split(',')[0]?.trim(),
+    userAgent: cabecalhos.get('user-agent') ?? undefined,
+  }
+
   const usuario = await prisma.usuario.findUnique({ where: { id: sessao.user.id } })
   if (!usuario || !usuario.ativo) {
     // Conta desativada que ainda apresenta token válido é evento forense: quem
@@ -22,6 +31,7 @@ export async function obterCtx(): Promise<Ctx> {
         usuarioId: sessao.user.id,
         email: usuario?.email ?? sessao.user.email ?? '(desconhecido)',
         papel: usuario?.papel ?? null,
+        ...origem,
       },
       'Usuario'
     )
@@ -30,7 +40,7 @@ export async function obterCtx(): Promise<Ctx> {
 
   // Daqui para baixo a conta existe e está ativa, então a negação sempre sabe
   // quem tentou.
-  const ator = { usuarioId: usuario.id, email: usuario.email, papel: usuario.papel }
+  const ator = { usuarioId: usuario.id, email: usuario.email, papel: usuario.papel, ...origem }
 
   // Falha fechada: sem carimbo de emissão não há como comparar com a troca de
   // senha, e uma comparação contra `undefined` seria sempre falsa — aceitaria a
@@ -49,14 +59,11 @@ export async function obterCtx(): Promise<Ctx> {
     throw new ErroPermissao('Sessão inválida')
   }
 
-  const cabecalhos = await headers()
-
   return {
     usuarioId: usuario.id,
     email: usuario.email,
     papel: usuario.papel,
-    ip: cabecalhos.get('x-forwarded-for')?.split(',')[0]?.trim(),
-    userAgent: cabecalhos.get('user-agent') ?? undefined,
+    ...origem,
   }
 }
 

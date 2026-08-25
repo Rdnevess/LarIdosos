@@ -107,7 +107,7 @@ export async function editarAnotacao(
   // A regra R3 mora em `src/lib/janela-edicao.ts`, compartilhada com
   // `AnotacaoSaude`: duas cópias dela divergiriam, e é regra que a
   // fiscalização lê.
-  exigirJanelaAberta(atual.editavelAte, atual.criadoPorId, ctx, 'Anotacao')
+  exigirJanelaAberta(atual, ctx, 'Anotacao')
 
   const novoTexto = validar(z.string().trim().min(3, 'Escreva o conteúdo da anotação'), texto)
 

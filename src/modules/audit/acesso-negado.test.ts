@@ -56,6 +56,22 @@ describe('registrarAcessoNegado', () => {
       .toEqual([1, 2, 4])
   })
 
+  it('nao reinicia a contagem a cada recurso tentado', async () => {
+    // A guarda do design: `entidadeId` entra na linha, mas nao na chave da
+    // contagem. Se entrasse, enumerar duzentos documentos criaria duzentos
+    // contadores, cada um registrando na primeira tentativa — a enxurrada que
+    // esta contagem existe para evitar. Cinco recursos distintos continuam
+    // sendo cinco tentativas do mesmo par usuario+entidade.
+    const ctx = await ctxComPapel('SAUDE')
+
+    for (let i = 0; i < 5; i += 1) {
+      await registrarAcessoNegado(ctx, 'Documento', `doc_${i}`)
+    }
+
+    const logs = await negacoesDe(ctx.usuarioId)
+    expect(logs.map((log) => log.entidadeId)).toEqual(['doc_0', 'doc_1', 'doc_3'])
+  })
+
   it('conta cada entidade por si', async () => {
     // Tentar a ficha de um residente e a tela de usuários são sinais
     // diferentes, e um não pode abafar o outro.
@@ -131,6 +147,9 @@ describe('obterDocumentoParaDownload', () => {
     const [log] = await negacoesDe(administrativo.usuarioId)
     expect(log.entidade).toBe('Documento')
     expect(log.acao).toBe('ACESSO_NEGADO')
+    // Qual documento, e nao so 'algum documento': numa apuracao, saber que
+    // tentaram o laudo de uma pessoa especifica e o que muda a conversa.
+    expect(log.entidadeId).toBe(exame.id)
   })
 })
 
@@ -156,6 +175,7 @@ describe('exigirJanelaAberta', () => {
     const [log] = await negacoesDe(outra.usuarioId)
     expect(log.entidade).toBe('Anotacao')
     expect(log.acao).toBe('ACESSO_NEGADO')
+    expect(log.entidadeId).toBe(anotacao.id)
   })
 
   it('distingue anotacao do prontuario da anotacao da ficha', async () => {
