@@ -96,6 +96,46 @@ describe('obterResidente', () => {
   })
 })
 
+describe('CPF unico', () => {
+  it('recusa cadastrar dois residentes com o mesmo CPF', async () => {
+    // Quem barra e o indice unico do banco; o servico so traduz a recusa para
+    // uma frase que a pessoa do cadastro entende.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, dadosValidos)
+
+    await expect(criarResidente(ctx, dadosValidos)).rejects.toThrow(ErroValidacao)
+  })
+
+  it('recusa mudar o CPF para um que ja e de outro residente', async () => {
+    // O caso que faltava: a duplicidade tambem chega pela edicao, e nao so
+    // pelo cadastro.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, dadosValidos)
+    const outro = await criarResidente(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Joana Ribeiro',
+      cpf: '11144477735',
+    })
+
+    await expect(
+      atualizarResidente(ctx, outro.id, { cpf: dadosValidos.cpf })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('deixa salvar mantendo o proprio CPF', async () => {
+    // A guarda do caminho comum: reenviar o formulario sem mexer no CPF nao
+    // pode ser lido como duplicidade contra o proprio registro.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidente(ctx, dadosValidos)
+
+    const salvo = await atualizarResidente(ctx, residente.id, {
+      cpf: dadosValidos.cpf,
+      quarto: '7',
+    })
+    expect(salvo.quarto).toBe('7')
+  })
+})
+
 describe('listarResidentes', () => {
   it('acha o nome acentuado por quem digita sem acento', async () => {
     // Quem usa o sistema digita no celular, em pe no corredor, e nao para
