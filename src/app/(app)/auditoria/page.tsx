@@ -190,7 +190,7 @@ export default async function PaginaAuditoria({
                 <td className="p-2">
                   {rotularEntidade(registro.entidade)}
                   {registro.entidadeId && (
-                    <span className="block text-xs text-slate-400">{registro.entidadeId}</span>
+                    <span className="block text-xs text-slate-500">{registro.entidadeId}</span>
                   )}
                 </td>
                 <td className="p-2 text-slate-600">{formatarDiff(registro.diff)}</td>

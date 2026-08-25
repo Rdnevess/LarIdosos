@@ -198,6 +198,19 @@ O terceiro perfil nasceu com a Fase 2A e pelo mesmo motivo que criou o
 segundo: o prontuário inteiro é recusado ao ADMINISTRATIVO, e uma fronteira
 que nenhum teste atravessa é uma fronteira que ninguém sabe se existe.
 
+Como a suíte E2E não limpa o banco, os usuários que ela cria pelas telas de
+usuários e de auditoria vão se acumulando. Para recolhê-los:
+
+```bash
+npm run db:limpar-teste              # confere e lista, sem apagar
+npm run db:limpar-teste -- --apagar  # apaga
+```
+
+Ele só remove quem casa com o padrão de e-mail descartável
+(`<palavra>.<epoch>@lar.local`), nunca os três fixos, e **não toca na trilha de
+auditoria** — ela é append-only, e apagar linha dela por causa de faxina seria
+apagar justamente o que ela existe para guardar.
+
 `npm run typecheck` antes de cada commit.
 
 ## Estrutura

@@ -58,7 +58,7 @@ export default function ErroNaTela({
       </div>
 
       {error.digest && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-600">
           Código para o suporte: {error.digest}
         </p>
       )}

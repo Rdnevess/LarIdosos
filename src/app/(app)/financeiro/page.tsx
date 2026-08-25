@@ -253,7 +253,7 @@ export default async function PaginaFinanceiro({
                 <span
                   className={
                     lancamento.status === 'CANCELADO'
-                      ? 'text-slate-400 line-through'
+                      ? 'text-slate-500 line-through'
                       : lancamento.natureza === 'RECEITA'
                         ? 'font-semibold text-green-700'
                         : 'font-semibold text-slate-800'
