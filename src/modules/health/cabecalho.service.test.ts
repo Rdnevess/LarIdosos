@@ -9,6 +9,7 @@ import {
   desativarAlergia,
   desativarCondicaoCronica,
   obterCabecalhoClinico,
+  obterAlertasDeCuidado,
 } from './cabecalho.service'
 
 describe('registrarAlergia', () => {
@@ -112,6 +113,60 @@ describe('obterCabecalhoClinico', () => {
     const residente = await criarResidenteDeTeste()
 
     await expect(obterCabecalhoClinico(ctx, residente.id)).rejects.toThrow(ErroPermissao)
+  })
+})
+
+describe('obterAlertasDeCuidado', () => {
+  it('deixa o ADMINISTRATIVO ler alergia, restricao e condicao', async () => {
+    // Secao 7.1 do design: neste Lar, quem cadastra e a mesma pessoa que
+    // atende a portaria e recebe a entrega de alimento. Ela precisa saber que
+    // a dona Maria nao pode comer camarao.
+    const saude = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    await registrarAlergia(saude, {
+      residenteId: residente.id,
+      agente: 'Camarão',
+      tipo: 'ALIMENTO',
+      gravidade: 'GRAVE',
+    })
+    await registrarRestricaoAlimentar(saude, {
+      residenteId: residente.id,
+      descricao: 'Dieta pastosa',
+    })
+    await registrarCondicaoCronica(saude, {
+      residenteId: residente.id,
+      descricao: 'Diabetes tipo 2',
+      cid10: 'E11',
+    })
+
+    const alertas = await obterAlertasDeCuidado(await ctxComPapel('ADMINISTRATIVO'), residente.id)
+
+    expect(alertas.alergias.map((a) => a.agente)).toEqual(['Camarão'])
+    expect(alertas.restricoes).toHaveLength(1)
+    expect(alertas.condicoes).toHaveLength(1)
+  })
+
+  it('mantem a alergia mais grave primeiro, como no cabecalho', async () => {
+    // Mesma ordenacao das duas portas: quem le antes de encostar na pessoa
+    // precisa ver o edema de glote antes da coceira, venha por onde vier.
+    const saude = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    await registrarAlergia(saude, {
+      residenteId: residente.id,
+      agente: 'Poeira',
+      tipo: 'OUTRO',
+      gravidade: 'LEVE',
+    })
+    await registrarAlergia(saude, {
+      residenteId: residente.id,
+      agente: 'Dipirona',
+      tipo: 'MEDICAMENTO',
+      gravidade: 'GRAVE',
+    })
+
+    const alertas = await obterAlertasDeCuidado(saude, residente.id)
+
+    expect(alertas.alergias.map((a) => a.agente)).toEqual(['Dipirona', 'Poeira'])
   })
 })
 

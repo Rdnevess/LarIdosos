@@ -62,26 +62,17 @@ function resumirSinalVital(sinal: SinalVital): string {
   return partes.join(' · ')
 }
 
-export function CabecalhoClinico({
-  grau,
-  dados,
-  ultimoSinalVital,
-  medicacoesAtivas,
-}: {
-  grau: GrauDependencia | null
-  dados: Dados
-  ultimoSinalVital: SinalVital | null
-  medicacoesAtivas: Medicacao[]
-}) {
+/**
+ * Os tres blocos que a secao 7.1 do design chama de **alertas de cuidado**:
+ * alergia, condicao cronica e restricao alimentar. Vivem separados porque sao
+ * lidos por dois papeis diferentes, em duas telas — e uma copia do markup em
+ * cada uma divergiria no dia em que a marcacao da alergia grave mudasse.
+ *
+ * Devolve um fragmento, e nao uma secao: quem chama e dono da grade.
+ */
+function BlocosDeCuidado({ dados }: { dados: Dados }) {
   return (
-    <section
-      aria-label="Cabeçalho clínico"
-      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
-    >
-      <Bloco titulo="Grau de dependência" vazio="Não avaliado" temConteudo={grau !== null}>
-        <p className="text-sm text-forte">Grau {grau}</p>
-      </Bloco>
-
+    <>
       <Bloco
         titulo="Alergias"
         vazio="Nenhuma alergia registrada."
@@ -141,6 +132,49 @@ export function CabecalhoClinico({
           ))}
         </ul>
       </Bloco>
+    </>
+  )
+}
+
+/**
+ * A porta da ficha do residente, alcancavel tambem pelo ADMINISTRATIVO.
+ *
+ * O prontuario continua fechado a esse papel: o que se abriu foi o dado de
+ * proibicao — quem recebe a entrega de alimento precisa saber da alergia —, e
+ * nao a rota. Ver a secao 7.1 do design.
+ */
+export function AlertasDeCuidado({ dados }: { dados: Dados }) {
+  return (
+    <section
+      aria-label="Alertas de cuidado"
+      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
+    >
+      <BlocosDeCuidado dados={dados} />
+    </section>
+  )
+}
+
+export function CabecalhoClinico({
+  grau,
+  dados,
+  ultimoSinalVital,
+  medicacoesAtivas,
+}: {
+  grau: GrauDependencia | null
+  dados: Dados
+  ultimoSinalVital: SinalVital | null
+  medicacoesAtivas: Medicacao[]
+}) {
+  return (
+    <section
+      aria-label="Cabeçalho clínico"
+      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
+    >
+      <Bloco titulo="Grau de dependência" vazio="Não avaliado" temConteudo={grau !== null}>
+        <p className="text-sm text-forte">Grau {grau}</p>
+      </Bloco>
+
+      <BlocosDeCuidado dados={dados} />
 
       <Bloco
         titulo="Medicações ativas"
