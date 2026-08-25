@@ -4,6 +4,16 @@ import { ctxComPapel } from '@/../tests/helpers/fabricas'
 import { exigirPapel } from '@/lib/contexto'
 import { ErroPermissao } from '@/lib/erros'
 import { listarUsuarios } from '@/modules/auth/usuarios.service'
+import { criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
+import {
+  anexarDocumento,
+  obterDocumentoParaDownload,
+} from '@/modules/residents/documentos.service'
+import { criarAnotacao, editarAnotacao } from '@/modules/residents/anotacoes.service'
+import {
+  criarAnotacaoSaude,
+  editarAnotacaoSaude,
+} from '@/modules/health/anotacoes-saude.service'
 import { registrarAcessoNegado, registrosDeNegacaoPendentes } from './acesso-negado'
 
 async function negacoesDe(usuarioId: string) {
@@ -93,5 +103,83 @@ describe('exigirPapel', () => {
     const [log] = await negacoesDe(ctx.usuarioId)
     expect(log.entidade).toBe('Usuario')
     expect(log.acao).toBe('ACESSO_NEGADO')
+  })
+})
+
+describe('obterDocumentoParaDownload', () => {
+  it('registra a tentativa de baixar documento que o papel nao alcanca', async () => {
+    // O download bem-sucedido ja entrava na trilha como `DOWNLOAD`; a tentativa
+    // negada nao deixava nada. Os papeis aqui sao calculados por documento
+    // (`papeisQuePodemVer`), entao `exigirPapel` nao serve e o registro precisa
+    // partir do proprio servico.
+    const saude = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const exame = await anexarDocumento(saude, {
+      tipo: 'EXAME',
+      nomeArquivoOriginal: 'hemograma.pdf',
+      mimeType: 'application/pdf',
+      conteudo: Buffer.from('%PDF-1.4 exame'),
+      residenteId: residente.id,
+    })
+
+    const administrativo = await ctxComPapel('ADMINISTRATIVO')
+    await expect(
+      obterDocumentoParaDownload(administrativo, exame.id)
+    ).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const [log] = await negacoesDe(administrativo.usuarioId)
+    expect(log.entidade).toBe('Documento')
+    expect(log.acao).toBe('ACESSO_NEGADO')
+  })
+})
+
+describe('exigirJanelaAberta', () => {
+  it('registra a tentativa de editar anotacao de outra pessoa', async () => {
+    // Nao e checagem de papel — os dois tem papel para anotar. E de autoria, e
+    // por isso escapava do `exigirPapel`. Numa ILPI, tentar alterar registro
+    // clinico alheio e evento forense, e a trilha nao guardava nada.
+    const autor = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const anotacao = await criarAnotacao(autor, {
+      residenteId: residente.id,
+      categoria: 'SOCIAL',
+      texto: 'Recebeu visita da filha.',
+    })
+
+    const outra = await ctxComPapel('COORDENACAO')
+    await expect(
+      editarAnotacao(outra, anotacao.id, 'Texto trocado por quem nao escreveu.')
+    ).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const [log] = await negacoesDe(outra.usuarioId)
+    expect(log.entidade).toBe('Anotacao')
+    expect(log.acao).toBe('ACESSO_NEGADO')
+  })
+
+  it('distingue anotacao do prontuario da anotacao da ficha', async () => {
+    // A entidade e obrigatoria justamente para isto: na tela de auditoria,
+    // 'tentou alterar anotacao clinica' pesa diferente de 'tentou alterar
+    // anotacao social'. Se as duas chegassem com o mesmo nome, o parametro
+    // seria enfeite.
+    const autor = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const anotacao = await criarAnotacaoSaude(autor, {
+      residenteId: residente.id,
+      categoria: 'QUEDA',
+      turno: 'NOITE',
+      texto: 'Queda sem ferimento aparente.',
+      ocorridoEm: new Date(Date.now() - 3_600_000),
+    })
+
+    const outra = await ctxComPapel('COORDENACAO')
+    await expect(
+      editarAnotacaoSaude(outra, anotacao.id, 'Texto trocado por quem nao escreveu.')
+    ).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const [log] = await negacoesDe(outra.usuarioId)
+    expect(log.entidade).toBe('AnotacaoSaude')
   })
 })

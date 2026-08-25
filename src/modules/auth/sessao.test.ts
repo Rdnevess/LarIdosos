@@ -10,6 +10,11 @@ vi.mock('./config', () => ({ auth: () => mockAuth() }))
 vi.mock('next/headers', () => ({ headers: () => mockHeaders() }))
 
 const { obterCtx } = await import('./sessao')
+const { registrosDeNegacaoPendentes } = await import('@/modules/audit/acesso-negado')
+
+async function negacoes() {
+  return prisma.logAuditoria.findMany({ where: { acao: 'ACESSO_NEGADO' } })
+}
 
 beforeEach(() => {
   mockAuth.mockReset()
@@ -77,5 +82,59 @@ describe('obterCtx', () => {
 
     const ctx = await obterCtx()
     expect(ctx.papel).toBe('ADMINISTRATIVO')
+  })
+})
+
+describe('a trilha das sessoes recusadas', () => {
+  it('registra a sessao viva de uma conta desativada', async () => {
+    // Conta desativada que ainda carrega token valido e evento forense: alguem
+    // que perdeu o acesso continuando a bater na porta. Nao e checagem de
+    // papel, entao `exigirPapel` nunca via este caso.
+    const usuario = await criarUsuarioDeTeste({ papel: 'SAUDE' })
+    await prisma.usuario.update({ where: { id: usuario.id }, data: { ativo: false } })
+    mockAuth.mockResolvedValue({
+      user: { id: usuario.id },
+      emitidoEm: Math.floor(Date.now() / 1000) + 60,
+    })
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const [log] = await negacoes()
+    expect(log.entidade).toBe('Usuario')
+    expect(log.usuarioId).toBe(usuario.id)
+    expect(log.usuarioEmail).toBe(usuario.email)
+  })
+
+  it('registra a sessao emitida antes da troca de senha', async () => {
+    // O caso classico: a senha foi trocada porque alguem suspeitou de invasao,
+    // e o token antigo continua sendo apresentado. Sem registro, a trilha nao
+    // guarda a unica evidencia de que a suspeita procedia.
+    const usuario = await criarUsuarioDeTeste()
+    mockAuth.mockResolvedValue({
+      user: { id: usuario.id },
+      emitidoEm: Math.floor(usuario.senhaAlteradaEm.getTime() / 1000) - 10,
+    })
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const [log] = await negacoes()
+    expect(log.entidade).toBe('Usuario')
+    expect(log.usuarioId).toBe(usuario.id)
+  })
+
+  it('nao registra nada quando simplesmente nao ha sessao', async () => {
+    // Decisao deliberada, e o unico dos quatro pontos que fica de fora: isto e
+    // "nao logado", nao "negado". Acontece em toda visita anonima, e sem id a
+    // chave de deduplicacao viraria `null:Usuario` — todos os visitantes
+    // colapsados num contador so, que e o oposto do que a trilha serve para
+    // mostrar.
+    mockAuth.mockResolvedValue(null)
+
+    await expect(obterCtx()).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    expect(await negacoes()).toHaveLength(0)
   })
 })

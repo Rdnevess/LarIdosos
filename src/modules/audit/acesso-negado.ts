@@ -1,6 +1,21 @@
+import type { Papel } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import type { Ctx } from '@/lib/contexto'
-import { registrarAuditoria, type EntidadeAuditada } from './auditoria.service'
+import {
+  registrarAuditoria,
+  type AtorAuditoria,
+  type EntidadeAuditada,
+} from './auditoria.service'
+
+/**
+ * Quem tentou.
+ *
+ * Mais frouxo que `Ctx`, porque nem toda negacao acontece com um contexto
+ * pronto: uma sessao recusada por conta desativada tem id e e-mail, mas a
+ * sessao em si e o que esta sendo rejeitado, e o papel pode nao ser
+ * conhecido. `Ctx` satisfaz esta forma estruturalmente, entao os chamadores
+ * que ja tinham um continuam iguais.
+ */
+export type AtorNegado = AtorAuditoria & { papel?: Papel | null }
 
 /**
  * Silêncio necessário para a contagem recomeçar. Desliza a cada tentativa: uma
@@ -45,10 +60,10 @@ const ehPotenciaDeDois = (n: number) => (n & (n - 1)) === 0
  * porque a operação não começou.
  */
 export async function registrarAcessoNegado(
-  ctx: Ctx,
+  ator: AtorNegado,
   entidade: EntidadeAuditada
 ): Promise<void> {
-  const chave = `${ctx.usuarioId}:${entidade}`
+  const chave = `${ator.usuarioId}:${entidade}`
   const agora = Date.now()
   const anterior = janelas.get(chave)
   const tentativas =
@@ -58,14 +73,14 @@ export async function registrarAcessoNegado(
 
   if (!ehPotenciaDeDois(tentativas)) return
 
-  await registrarAuditoria(prisma, ctx, {
+  await registrarAuditoria(prisma, ator, {
     acao: 'ACESSO_NEGADO',
     entidade,
     diff: {
       // O papel vai no diff porque o papel de uma conta pode ser corrigido
       // depois (`atualizarUsuario`): sem isto, a trilha mostraria o papel de
       // hoje no lugar do que a pessoa tinha quando tentou.
-      papel: { de: null, para: ctx.papel },
+      papel: { de: null, para: ator.papel ?? null },
       tentativas: { de: null, para: tentativas },
     },
   })
@@ -82,10 +97,10 @@ export async function registrarAcessoNegado(
  * pode ser o motivo de uma tela quebrar.
  */
 export function dispararRegistroDeAcessoNegado(
-  ctx: Ctx,
+  ator: AtorNegado,
   entidade: EntidadeAuditada
 ): void {
-  const promessa = registrarAcessoNegado(ctx, entidade)
+  const promessa = registrarAcessoNegado(ator, entidade)
     .catch((erro) => {
       console.error('Falha ao registrar acesso negado na auditoria', erro)
     })

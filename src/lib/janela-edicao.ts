@@ -1,4 +1,6 @@
 import { ErroPermissao, ErroValidacao } from './erros'
+import { dispararRegistroDeAcessoNegado } from '@/modules/audit/acesso-negado'
+import type { EntidadeAuditada } from '@/modules/audit/auditoria.service'
 import type { Ctx } from './contexto'
 
 /**
@@ -24,9 +26,16 @@ export function prazoDeEdicao(): Date {
 export function exigirJanelaAberta(
   editavelAte: Date,
   autorId: string | null,
-  ctx: Ctx
+  ctx: Ctx,
+  entidade: EntidadeAuditada
 ): void {
   if (autorId !== ctx.usuarioId) {
+    // Tentar alterar registro alheio é evento forense, e escapava da trilha:
+    // esta negação é de autoria, não de papel, então `exigirPapel` — que é
+    // quem audita as outras — nunca a via. `entidade` é obrigatória para que
+    // a trilha distinga anotação da ficha de anotação do prontuário; sem ela
+    // as duas ficariam indistinguíveis na tela de auditoria.
+    dispararRegistroDeAcessoNegado(ctx, entidade)
     throw new ErroPermissao('Só o autor pode editar a própria anotação')
   }
 
