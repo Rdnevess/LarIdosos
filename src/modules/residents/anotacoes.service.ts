@@ -88,6 +88,10 @@ export async function listarAnotacoes(
     orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
   })
 
+  // Sem `try`, de propósito: se a trilha não registrar quem olhou, o dado não
+  // é devolvido. O registro é a contrapartida do acesso — ver a seção 8.1 do
+  // design. É o oposto do `ACESSO_NEGADO`, que falha em silêncio porque lá não
+  // há acesso a proteger.
   await registrarAuditoria(prisma, ctx, {
     acao: 'VISUALIZAR',
     entidade: 'Anotacao',
