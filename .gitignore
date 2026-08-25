@@ -55,3 +55,9 @@ docs/convenio/
 test-results/
 playwright-report/
 .playwright-mcp/
+
+# Claude Code: as permissões do projeto são versionadas (.claude/settings.json)
+# para quem clona não precisar reaprová-las uma a uma. As locais não: o arquivo
+# local acumula caminhos desta máquina e permissões de sessão que não valem
+# para mais ninguém.
+.claude/settings.local.json
