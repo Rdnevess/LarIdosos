@@ -308,6 +308,21 @@ Decisões concretas decorrentes disso:
 
 A coordenação tem tela de consulta da auditoria, filtrável por usuário, entidade e período.
 
+### 8.1 Quando o registro falha: a leitura para, a negação não
+
+Duas regras que parecem inconsistentes e não são. Ficam escritas aqui porque, vistas só no código, uma delas parece descuido da outra — e a próxima pessoa "corrigiria" a que estiver mais à mão.
+
+| Evento | Se a escrita na trilha falhar |
+|---|---|
+| `VISUALIZAR` (leitura de dado sensível) | a função lança, e **o dado não é devolvido** |
+| `ACESSO_NEGADO` (tentativa recusada) | vai para o log do servidor, e a tela segue |
+
+**Na leitura, o registro é a contrapartida do acesso.** É ele que torna o acesso prestável de contas: entregar o prontuário e não conseguir dizer quem o abriu é precisamente o que o art. 11 pede para não acontecer. Entre não mostrar e mostrar sem rastro, a decisão é não mostrar.
+
+**Na negação não há acesso a proteger.** A operação já foi recusada, e derrubar a tela por causa do registro puniria quem foi barrado — e ainda apagaria a barreira, que continua de pé de qualquer forma. Por isso `dispararRegistroDeAcessoNegado` escreve sem `await` e engole a falha.
+
+**O custo de bloquear é estreito**, e é isso que torna a escolha barata: a trilha vive no mesmo Postgres do dado. Se o banco estiver inalcançável, a leitura já falharia por conta própria — o registro não é um segundo ponto de falha independente. Sobra o caso específico de a escrita do log falhar sozinha (conflito de transação, disco cheio), e aí falhar alto é o comportamento desejado.
+
 ## 9. Interface
 
 **Mobile (equipe de cuidado).** A ficha do residente no celular abre com quatro botões grandes — *evolução*, *sinais vitais*, *intercorrência*, *medicação* — cada um levando a um formulário de um campo, com data/hora e autor preenchidos automaticamente. Se registrar der trabalho, ninguém registra, e o sistema vira um caderno digital vazio.
