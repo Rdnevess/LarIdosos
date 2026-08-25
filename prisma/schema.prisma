@@ -86,6 +86,11 @@ model Residente {
   id               String          @id @default(cuid())
   nomeCompleto     String
   nomeSocial       String?
+  /// Gerada pelo banco (ver migration `20260825120000_busca_sem_acento`):
+  /// minusculas e sem acento, concatenando os campos que a busca alcanca.
+  /// **Nunca escreva nela** — o Postgres recusa escrita em coluna gerada, e
+  /// nao ha o que manter: ela se atualiza sozinha a cada gravacao.
+  busca            String?
   dataNascimento   DateTime        @db.Date
   sexo             Sexo
   estadoCivil      String?
@@ -284,6 +289,11 @@ model Funcionario {
   cpf                String             @unique
   rg                 String?
   cargo              String
+  /// Gerada pelo banco (ver migration `20260825120000_busca_sem_acento`):
+  /// minusculas e sem acento, concatenando os campos que a busca alcanca.
+  /// **Nunca escreva nela** — o Postgres recusa escrita em coluna gerada, e
+  /// nao ha o que manter: ela se atualiza sozinha a cada gravacao.
+  busca              String?
   vinculo            VinculoFuncionario
   dataAdmissao       DateTime           @db.Date
   dataDesligamento   DateTime?          @db.Date
