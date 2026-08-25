@@ -28,5 +28,8 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
+  // `api/health` fora do matcher: quem o consulta é o Docker, que não faz
+  // login. Dentro dele, o healthcheck receberia o 307 para /login e o
+  // contêiner nunca ficaria saudável.
+  matcher: ['/((?!api/auth|api/health|_next/static|_next/image|favicon.ico).*)'],
 }
