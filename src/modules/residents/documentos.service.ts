@@ -7,6 +7,7 @@ import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { salvarArquivo, lerArquivo } from '@/lib/arquivos'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
+import { dispararRegistroDeAcessoNegado } from '@/modules/audit/acesso-negado'
 
 const TODOS: Papel[] = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO']
 const CLINICO: Papel[] = ['COORDENACAO', 'SAUDE']
@@ -250,6 +251,11 @@ export async function obterDocumentoParaDownload(
   }
 
   if (!papeisQuePodemVer(documento).includes(ctx.papel)) {
+    // Aqui os papeis saem de `papeisQuePodemVer`, que decide por documento —
+    // `exigirPapel` recebe uma lista estatica e nao serve. O registro entao
+    // parte daqui, para que a tentativa negada deixe rastro como a bem
+    // sucedida ja deixava.
+    dispararRegistroDeAcessoNegado(ctx, 'Documento')
     throw new ErroPermissao()
   }
 

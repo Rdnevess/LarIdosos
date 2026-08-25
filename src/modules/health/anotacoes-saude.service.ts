@@ -104,7 +104,7 @@ export async function editarAnotacaoSaude(
 
   // Regra R3, compartilhada com a anotação da ficha: só o autor, e só nos
   // primeiros quinze minutos.
-  exigirJanelaAberta(atual.editavelAte, atual.criadoPorId, ctx)
+  exigirJanelaAberta(atual.editavelAte, atual.criadoPorId, ctx, 'AnotacaoSaude')
 
   const novoTexto = validar(textoSchema, texto)
 
