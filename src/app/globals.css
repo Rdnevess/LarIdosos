@@ -1,54 +1,251 @@
 @import "tailwindcss";
 
 /**
- * O sistema tem um tema só, claro. Toda superfície é declarada à mão nos
- * componentes — `bg-white` no cartão, `bg-slate-50` na página, `text-slate-800`
- * no texto —, e nenhuma delas reage a `prefers-color-scheme`.
+ * Tema claro e escuro, em tokens semânticos.
  *
- * O template inicial do Next trazia aqui um bloco de tema escuro que pintava o
- * `body` de quase branco quando o sistema operacional estava em modo escuro.
- * Como só o `body` mudava, o efeito era um tema escuro pela metade: os campos,
- * que não declaram cor própria, herdavam texto quase branco e continuavam sobre
- * cartão branco. Contraste de 1,17:1 — quem usa o sistema com o Windows em modo
- * escuro não conseguia ler o que estava digitando no login.
+ * Um tema escuro pela metade já existiu aqui e foi removido: vinha do template
+ * inicial do Next, pintava o `body` de quase branco quando o sistema operacional
+ * estava em modo escuro, e nenhuma outra superfície reagia. Os campos, que não
+ * declaravam cor própria, herdavam texto quase branco sobre cartão branco —
+ * contraste de 1,17:1, ilegível no login. A lição ficou: um tema escuro de
+ * verdade é trabalho de repintar cada superfície, e não de trocar duas
+ * variáveis que quase nada consulta.
  *
- * O bloco saiu. Um tema escuro de verdade é trabalho de repintar cada
- * superfície, e não de trocar duas variáveis que quase nada consulta.
+ * É o que os blocos abaixo fazem. As classes cruas do markup (`bg-white`,
+ * `text-slate-800`, `border-slate-300`) viram papéis uma única vez, e o tema
+ * escuro passa a ser um bloco que redefine os mesmos 26 tokens. Nenhuma tela
+ * precisa saber que existem dois temas.
+ *
+ * A decisão é toda do CSS, em três blocos:
+ *
+ *   :root                                    -> claro
+ *   @media (prefers-color-scheme: dark)
+ *     :root:not([data-tema="claro"])         -> escuro para quem nunca escolheu
+ *   :root[data-tema="escuro"]                -> escuro para quem escolheu
+ *
+ * A escolha explícita ganha do sistema operacional nos dois sentidos: quem está
+ * no Windows escuro e prefere claro fica no claro (o `[data-tema="claro"]`
+ * desarma o `@media`), e quem está no Windows claro e prefere escuro fica no
+ * escuro. Quem nunca clicou herda o sistema. Nada disso precisa de JavaScript.
+ *
+ * Os dois blocos escuros repetem os mesmos valores literais de propósito. Um
+ * `var(--escuro-*)` compartilhado deixaria o arquivo mais curto, mas o teste de
+ * contraste lê este CSS como texto e extrai os pares `--cor-*: #rrggbb` de cada
+ * bloco — é assim que ele mede o que o navegador realmente recebe, em vez de
+ * medir uma tabela de cores duplicada em TypeScript. O preço da duplicação é o
+ * risco de os dois blocos escuros divergirem, e disso o teste também cuida.
  */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  /* Superfícies e bordas */
+  --cor-fundo: #f8fafc;
+  --cor-superficie: #ffffff;
+  --cor-suave: #f8fafc;
+  --cor-realce: #f1f5f9;
+  --cor-borda: #cbd5e1;
+  --cor-borda-suave: #e2e8f0;
+
+  /* Texto, cinco degraus */
+  --cor-forte: #1e293b;
+  --cor-firme: #334155;
+  --cor-medio: #475569;
+  --cor-apoio: #64748b;
+  --cor-tenue: #94a3b8;
+
+  /* Ação */
+  --cor-acao: #1e293b;
+  --cor-sobre-acao: #ffffff;
+
+  /* Semânticos */
+  --cor-alerta: #78350f;
+  --cor-alerta-suave: #92400e;
+  --cor-alerta-fundo: #fffbeb;
+  --cor-alerta-realce: #fef3c7;
+  --cor-alerta-borda: #fcd34d;
+  --cor-alerta-borda-forte: #f59e0b;
+  --cor-perigo: #dc2626;
+  --cor-perigo-forte: #991b1b;
+  --cor-perigo-fundo: #fef2f2;
+  --cor-perigo-borda: #ef4444;
+  --cor-sucesso: #15803d;
+  --cor-sucesso-forte: #14532d;
+  --cor-sucesso-fundo: #dcfce7;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+
+    /* Superfícies e bordas */
+    --cor-fundo: #0f172a;
+    --cor-superficie: #1e293b;
+    --cor-suave: #253345;
+    --cor-realce: #475569;
+    --cor-borda: #475569;
+    --cor-borda-suave: #334155;
+
+    /* Texto, cinco degraus */
+    --cor-forte: #f1f5f9;
+    --cor-firme: #e2e8f0;
+    --cor-medio: #cbd5e1;
+    --cor-apoio: #94a3b8;
+    --cor-tenue: #64748b;
+
+    /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
+       #0f172a seria quase invisível, e a inversão acontece num lugar só. */
+    --cor-acao: #e2e8f0;
+    --cor-sobre-acao: #0f172a;
+
+    /* Semânticos */
+    --cor-alerta: #fde68a;
+    --cor-alerta-suave: #fcd34d;
+    --cor-alerta-fundo: #422006;
+    --cor-alerta-realce: #78350f;
+    --cor-alerta-borda: #92400e;
+    --cor-alerta-borda-forte: #b45309;
+    --cor-perigo: #f87171;
+    --cor-perigo-forte: #fca5a5;
+    --cor-perigo-fundo: #450a0a;
+    --cor-perigo-borda: #b91c1c;
+    --cor-sucesso: #4ade80;
+    --cor-sucesso-forte: #86efac;
+    --cor-sucesso-fundo: #052e16;
+  }
+}
+
+:root[data-tema="escuro"] {
+  color-scheme: dark;
+
+  /* Superfícies e bordas */
+  --cor-fundo: #0f172a;
+  --cor-superficie: #1e293b;
+  --cor-suave: #253345;
+  --cor-realce: #475569;
+  --cor-borda: #475569;
+  --cor-borda-suave: #334155;
+
+  /* Texto, cinco degraus */
+  --cor-forte: #f1f5f9;
+  --cor-firme: #e2e8f0;
+  --cor-medio: #cbd5e1;
+  --cor-apoio: #94a3b8;
+  --cor-tenue: #64748b;
+
+  /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
+     #0f172a seria quase invisível, e a inversão acontece num lugar só. */
+  --cor-acao: #e2e8f0;
+  --cor-sobre-acao: #0f172a;
+
+  /* Semânticos */
+  --cor-alerta: #fde68a;
+  --cor-alerta-suave: #fcd34d;
+  --cor-alerta-fundo: #422006;
+  --cor-alerta-realce: #78350f;
+  --cor-alerta-borda: #92400e;
+  --cor-alerta-borda-forte: #b45309;
+  --cor-perigo: #f87171;
+  --cor-perigo-forte: #fca5a5;
+  --cor-perigo-fundo: #450a0a;
+  --cor-perigo-borda: #b91c1c;
+  --cor-sucesso: #4ade80;
+  --cor-sucesso-forte: #86efac;
+  --cor-sucesso-fundo: #052e16;
+}
+
+/**
+ * O `inline` não é enfeite. Sem ele, Tailwind resolve o valor da variável uma
+ * vez, no `:root`, e redefini-la num seletor aninhado não teria efeito nenhum.
+ * É a diferença entre um tema que troca e um tema que só parece trocar.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-fundo: var(--cor-fundo);
+  --color-superficie: var(--cor-superficie);
+  --color-suave: var(--cor-suave);
+  --color-realce: var(--cor-realce);
+  --color-borda: var(--cor-borda);
+  --color-borda-suave: var(--cor-borda-suave);
+
+  --color-forte: var(--cor-forte);
+  --color-firme: var(--cor-firme);
+  --color-medio: var(--cor-medio);
+  --color-apoio: var(--cor-apoio);
+  --color-tenue: var(--cor-tenue);
+
+  --color-acao: var(--cor-acao);
+  --color-sobre-acao: var(--cor-sobre-acao);
+
+  --color-alerta: var(--cor-alerta);
+  --color-alerta-suave: var(--cor-alerta-suave);
+  --color-alerta-fundo: var(--cor-alerta-fundo);
+  --color-alerta-realce: var(--cor-alerta-realce);
+  --color-alerta-borda: var(--cor-alerta-borda);
+  --color-alerta-borda-forte: var(--cor-alerta-borda-forte);
+  --color-perigo: var(--cor-perigo);
+  --color-perigo-forte: var(--cor-perigo-forte);
+  --color-perigo-fundo: var(--cor-perigo-fundo);
+  --color-perigo-borda: var(--cor-perigo-borda);
+  --color-sucesso: var(--cor-sucesso);
+  --color-sucesso-forte: var(--cor-sucesso-forte);
+  --color-sucesso-fundo: var(--cor-sucesso-fundo);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/**
+ * As bordas sem cor.
+ *
+ * Há ~75 lugares com `border`, `border-t`, `border-l-2` ou `divide-y` sem
+ * classe de cor: `rounded border bg-white p-4`. No Tailwind v3 essas caíam em
+ * gray-200; na v4 o `preflight` não define mais um padrão, e elas caem no
+ * `currentColor` — a cor do texto herdada. Hoje, no claro, saem quase pretas em
+ * vez do cinza discreto que o markup pretendia; no escuro virariam riscos claros
+ * e duros sobre superfície escura.
+ *
+ * Uma regra resolve os ~75 lugares de uma vez, inclusive os `divide-y`, e
+ * continua sendo sobrescrita por qualquer `border-*` explícito. É o mesmo
+ * remendo que o guia de migração da v4 recomenda para quem quer o comportamento
+ * da v3.
+ *
+ * Esta é a mudança visível no tema claro que o design aceitou de propósito: as
+ * bordas sem cor deixam de ser quase pretas e passam a ser slate-300.
+ */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--cor-borda);
+  }
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--cor-fundo);
+  color: var(--cor-forte);
   font-family: Arial, Helvetica, sans-serif;
 }
 
 /**
  * Cor explícita nos campos, e não herdada.
  *
- * Segunda barreira do mesmo defeito: mesmo que alguém reintroduza uma regra
- * que mexa na cor do `body`, o que a pessoa digita continua legível. O campo é
- * o lugar onde essa herança dói mais — o texto some enquanto está sendo
- * escrito, e a pessoa não tem como saber se errou a digitação ou a leitura.
+ * Segunda barreira do defeito que abriu este arquivo: mesmo que alguém
+ * reintroduza uma regra que mexa na cor do `body`, o que a pessoa digita
+ * continua legível. O campo é o lugar onde essa herança dói mais — o texto some
+ * enquanto está sendo escrito, e a pessoa não tem como saber se errou a
+ * digitação ou a leitura.
+ *
+ * A barreira continua de pé; a diferença é que agora ela escurece junto com o
+ * resto, em vez de ser o motivo de o texto sumir.
  */
 input,
 select,
 textarea {
-  color: #0f172a;
-  background-color: #ffffff;
+  color: var(--cor-forte);
+  background-color: var(--cor-superficie);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #64748b;
+  color: var(--cor-apoio);
 }

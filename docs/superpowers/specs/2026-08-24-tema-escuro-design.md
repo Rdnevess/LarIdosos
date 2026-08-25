@@ -53,7 +53,7 @@ O `@theme` precisa ser `inline`: sem isso, Tailwind resolve o valor da variável
 |---|---|---|---|---|
 | `--cor-fundo` | `bg-fundo` | `#f8fafc` slate-50 | `#0f172a` | Fundo da página, no `min-h-screen` (2) |
 | `--cor-superficie` | `bg-superficie` | `#ffffff` white | `#1e293b` | Cartão e cabeçalho (55) |
-| `--cor-suave` | `bg-suave` | `#f8fafc` slate-50 | `#334155` | Painel embutido e hover de linha (5) |
+| `--cor-suave` | `bg-suave` | `#f8fafc` slate-50 | `#253345` | Painel embutido e hover de linha (5) |
 | `--cor-realce` | `bg-realce` | `#f1f5f9` slate-100 | `#475569` | Hover do item de navegação (1) |
 | `--cor-borda` | `border-borda` | `#cbd5e1` slate-300 | `#475569` | Borda de campo e de cartão (28) |
 | `--cor-borda-suave` | `border-borda-suave` | `#e2e8f0` slate-200 | `#334155` | Filete da linha do tempo (3) |
