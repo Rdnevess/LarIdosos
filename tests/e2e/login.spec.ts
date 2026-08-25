@@ -23,6 +23,31 @@ test('entra com credenciais válidas e redireciona', async ({ page }) => {
   await expect(page).toHaveURL(/\/residentes/)
 })
 
+test('depois de entrar, volta para a tela que a pessoa tentou abrir', async ({ page }) => {
+  // O middleware já escrevia `?proximo=` ao barrar a navegação, e ninguém lia:
+  // quem tentava abrir /turno sem sessão entrava e caía em /residentes, tendo
+  // de navegar de novo até onde queria.
+  await page.goto('/turno')
+  await expect(page).toHaveURL(/\/login\?proximo=%2Fturno/)
+
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+
+  await expect(page).toHaveURL(/\/turno/)
+})
+
+test('não obedece a um destino externo posto na barra de endereço', async ({ page }) => {
+  // Redirecionamento aberto: sair para outro site logo depois de a pessoa
+  // digitar a senha aqui é o pior momento possível para isso acontecer.
+  await page.goto('/login?proximo=https://site-falso.example')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+
+  await expect(page).toHaveURL(/\/residentes/)
+})
+
 test('redireciona visitante não autenticado para o login', async ({ page }) => {
   await page.goto('/residentes')
   await expect(page).toHaveURL(/\/login/)

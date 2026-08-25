@@ -160,3 +160,31 @@ describe('listarAnotacoes', () => {
     expect(lista[0].texto).toBe('Segunda anotação registrada.')
   })
 })
+
+describe('texto minimo da anotacao', () => {
+  it('recusa texto curto ao criar, com a mensagem compartilhada', async () => {
+    // A mesma regra vale para `Anotacao` e `AnotacaoSaude`, e estava escrita
+    // em tres lugares. Estes casos amarram os tres a uma fonte so: mudar a
+    // mensagem num lugar e esquecer os outros passa a quebrar aqui.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      criarAnotacao(ctx, { residenteId: residente.id, categoria: 'SOCIAL', texto: 'ok' })
+    ).rejects.toThrow('Escreva o conteúdo da anotação')
+  })
+
+  it('recusa texto curto ao editar, com a mesma mensagem', async () => {
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const anotacao = await criarAnotacao(ctx, {
+      residenteId: residente.id,
+      categoria: 'SOCIAL',
+      texto: 'Recebeu visita da filha.',
+    })
+
+    await expect(editarAnotacao(ctx, anotacao.id, 'ok')).rejects.toThrow(
+      'Escreva o conteúdo da anotação'
+    )
+  })
+})

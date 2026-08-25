@@ -224,3 +224,22 @@ describe('listarAnotacoesSaude', () => {
     await expect(listarAnotacoesSaude(ctx, residente.id)).rejects.toThrow(ErroPermissao)
   })
 })
+
+describe('texto minimo da anotacao de saude', () => {
+  it('usa a mesma mensagem da anotacao da ficha', async () => {
+    // A regra e uma so, e agora a fonte tambem: `src/lib/anotacao.ts`. Este
+    // caso e o que prende o prontuario a ela.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(
+      criarAnotacaoSaude(ctx, {
+        residenteId: residente.id,
+        categoria: 'QUEDA',
+        turno: 'NOITE',
+        texto: 'ok',
+        ocorridoEm: new Date(Date.now() - 3_600_000),
+      })
+    ).rejects.toThrow('Escreva o conteúdo da anotação')
+  })
+})

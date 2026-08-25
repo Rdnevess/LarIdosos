@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
+import { textoDeAnotacaoSchema } from '@/lib/anotacao'
 import { prazoDeEdicao, exigirJanelaAberta } from '@/lib/janela-edicao'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
@@ -30,7 +31,7 @@ const categoriaSchema = z.enum([
 
 const turnoSchema = z.enum(['MANHA', 'TARDE', 'NOITE'])
 
-const textoSchema = z.string().trim().min(3, 'Escreva o conteúdo da anotação')
+const textoSchema = textoDeAnotacaoSchema
 
 const novaAnotacaoSchema = z.object({
   residenteId: z.string().cuid(),

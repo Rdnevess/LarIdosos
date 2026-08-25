@@ -142,3 +142,16 @@ test('mostra a tentativa de acesso negada, com o papel de quem tentou', async ({
   await expect(linha).toContainText('Papel: — → Saúde')
   await expect(linha).toContainText('Tentativas: — → 1')
 })
+
+test('página acima do total cai na última, em vez de mostrar lista vazia', async ({
+  page,
+}) => {
+  // `?pagina=` é digitável à mão. `numeroPagina` já defendia do `NaN` e do
+  // zero, mas não do excesso: pedir a página 9999 de 12 mostrava o cabeçalho
+  // dizendo exatamente isso, com a lista vazia embaixo — parece trilha sem
+  // registro, que é a conclusão errada para quem está auditando.
+  await page.goto('/auditoria?pagina=9999')
+
+  await expect(page).not.toHaveURL(/pagina=9999/)
+  await expect(page.locator('tbody tr').first()).toBeVisible()
+})
