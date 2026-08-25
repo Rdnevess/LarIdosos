@@ -31,12 +31,12 @@ export default async function PaginaEditarFuncionario({
 
   return (
     <section className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-800">
+      <h1 className="text-lg font-semibold text-forte">
         {funcionario.nomeCompleto}
       </h1>
 
-      <div className="rounded border bg-white p-4">
-        <h2 className="mb-3 font-medium text-slate-800">Dados cadastrais</h2>
+      <div className="rounded border bg-superficie p-4">
+        <h2 className="mb-3 font-medium text-forte">Dados cadastrais</h2>
         <FormularioSimples
           acao={acaoAtualizarFuncionario}
           ocultos={{ id: funcionario.id }}
@@ -49,9 +49,9 @@ export default async function PaginaEditarFuncionario({
       </div>
 
       {funcionario.ativo ? (
-        <div className="rounded border bg-white p-4">
-          <h2 className="mb-1 font-medium text-slate-800">Desligamento</h2>
-          <p className="mb-3 text-sm text-slate-500">
+        <div className="rounded border bg-superficie p-4">
+          <h2 className="mb-1 font-medium text-forte">Desligamento</h2>
+          <p className="mb-3 text-sm text-apoio">
             O registro é preservado; o funcionário deixa de aparecer nas listas e
             nos avisos de registro profissional.
           </p>
@@ -71,7 +71,7 @@ export default async function PaginaEditarFuncionario({
           />
         </div>
       ) : (
-        <p className="rounded border bg-slate-50 p-4 text-sm text-slate-600">
+        <p className="rounded border bg-suave p-4 text-sm text-medio">
           Desligado em{' '}
           {funcionario.dataDesligamento
             ? formatarData(funcionario.dataDesligamento)

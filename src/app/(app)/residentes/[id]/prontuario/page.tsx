@@ -179,17 +179,17 @@ export default async function PaginaProntuario({
 
   return (
     <section className="space-y-4">
-      <header className="rounded border bg-white p-4">
+      <header className="rounded border bg-superficie p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">Prontuário — {nome}</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-lg font-semibold text-forte">Prontuário — {nome}</h1>
+            <p className="text-sm text-apoio">
               Admissão em {formatarData(residente.dataAdmissao)}
             </p>
           </div>
           <Link
             href={`/residentes/${id}`}
-            className="shrink-0 whitespace-nowrap text-sm text-slate-600 underline"
+            className="shrink-0 whitespace-nowrap text-sm text-medio underline"
           >
             Ver cadastro
           </Link>
@@ -210,8 +210,8 @@ export default async function PaginaProntuario({
       {/* Os três botões grandes da §9: um toque para o caso comum. O quarto
           que a spec prevê — medicação — chega com a Fase 2B. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <details className="rounded border bg-white">
-          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+        <details className="rounded border bg-superficie">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Evolução
           </summary>
           <div className="border-t p-4">
@@ -223,16 +223,16 @@ export default async function PaginaProntuario({
             />
           </div>
         </details>
-        <details className="rounded border bg-white">
-          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+        <details className="rounded border bg-superficie">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Sinais vitais
           </summary>
           <div className="border-t p-4">
             <FormularioSinalVital residenteId={id} />
           </div>
         </details>
-        <details className="rounded border bg-white">
-          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-slate-800">
+        <details className="rounded border bg-superficie">
+          <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Intercorrência
           </summary>
           <div className="border-t p-4">
@@ -249,7 +249,7 @@ export default async function PaginaProntuario({
             previstas de todo mundo. */}
         <Link
           href="/turno"
-          className="flex items-center justify-center rounded border bg-white px-2 py-4 text-center font-medium text-slate-800"
+          className="flex items-center justify-center rounded border bg-superficie px-2 py-4 text-center font-medium text-forte"
         >
           Medicação
         </Link>
@@ -257,15 +257,15 @@ export default async function PaginaProntuario({
 
       <LinhaDoTempo eventos={eventos} tipoSelecionado={tipo} residenteId={id} />
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Alergias ({dados.alergias.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.alergias.map((alergia) => (
             <li key={alergia.id} className="text-sm">
-              <span className="font-medium text-slate-800">{alergia.agente}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{alergia.agente}</span>{' '}
+              <span className="text-apoio">
                 — {alergia.gravidade.toLowerCase()}
                 {alergia.reacao ? ` · ${alergia.reacao}` : ''}
               </span>
@@ -283,15 +283,15 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Condições crônicas ({dados.condicoes.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.condicoes.map((condicao) => (
             <li key={condicao.id} className="text-sm">
-              <span className="font-medium text-slate-800">{condicao.descricao}</span>
-              {condicao.cid10 && <span className="text-slate-500"> — {condicao.cid10}</span>}
+              <span className="font-medium text-forte">{condicao.descricao}</span>
+              {condicao.cid10 && <span className="text-apoio"> — {condicao.cid10}</span>}
               <FormularioDesativar
                 acao="condicao"
                 registroId={condicao.id}
@@ -306,14 +306,14 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Restrições alimentares ({dados.restricoes.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.restricoes.map((restricao) => (
             <li key={restricao.id} className="text-sm">
-              <span className="font-medium text-slate-800">{restricao.descricao}</span>
+              <span className="font-medium text-forte">{restricao.descricao}</span>
               <FormularioDesativar
                 acao="restricao"
                 registroId={restricao.id}
@@ -328,29 +328,29 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Anotações de saúde ({anotacoes.length})
         </summary>
         <ul className="mt-3 space-y-3">
           {anotacoes.map((anotacao) => (
-            <li key={anotacao.id} className="border-l-2 border-slate-200 pl-3 text-sm">
-              <p className="text-slate-500">
+            <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3 text-sm">
+              <p className="text-apoio">
                 {formatarDataHora(anotacao.ocorridoEm)} ·{' '}
                 {ROTULO_CATEGORIA_SAUDE[anotacao.categoria]} · turno da{' '}
                 {ROTULO_TURNO[anotacao.turno]}
                 {anotacao.retificaAnotacaoSaudeId && ' · retificação'}
                 {retificadas.has(anotacao.id) && ' · retificada depois'}
               </p>
-              <p className="text-slate-800">{anotacao.texto}</p>
+              <p className="text-forte">{anotacao.texto}</p>
               {anotacao.conduta && (
-                <p className="text-slate-600">Conduta: {anotacao.conduta}</p>
+                <p className="text-medio">Conduta: {anotacao.conduta}</p>
               )}
               <div className="mt-1 space-y-1">
                 {anotacao.criadoPorId === ctx.usuarioId &&
                   anotacao.editavelAte > new Date() && (
                     <details>
-                      <summary className="cursor-pointer text-sm text-slate-600 underline">
+                      <summary className="cursor-pointer text-sm text-medio underline">
                         Editar
                       </summary>
                       <div className="mt-2">
@@ -363,7 +363,7 @@ export default async function PaginaProntuario({
                     </details>
                   )}
                 <details>
-                  <summary className="cursor-pointer text-sm text-slate-600 underline">
+                  <summary className="cursor-pointer text-sm text-medio underline">
                     Retificar
                   </summary>
                   <div className="mt-2">
@@ -386,17 +386,17 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Sinais vitais ({sinais.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {sinais.map((sinal) => (
             <li key={sinal.id} className="text-sm">
-              <span className="text-slate-500">{formatarDataHora(sinal.aferidoEm)}</span>{' '}
-              <span className="text-slate-800">{resumirSinalVital(sinal)}</span>
+              <span className="text-apoio">{formatarDataHora(sinal.aferidoEm)}</span>{' '}
+              <span className="text-forte">{resumirSinalVital(sinal)}</span>
               {sinal.observacao && (
-                <span className="block text-slate-600">{sinal.observacao}</span>
+                <span className="block text-medio">{sinal.observacao}</span>
               )}
             </li>
           ))}
@@ -406,22 +406,22 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Exames ({exames.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {exames.map((exame) => (
             <li key={exame.id} className="text-sm">
-              <span className="font-medium text-slate-800">{exame.tipo}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{exame.tipo}</span>{' '}
+              <span className="text-apoio">
                 — {ROTULO_STATUS_EXAME[exame.status]}
                 {exame.dataSolicitacao
                   ? ` · solicitado em ${formatarData(exame.dataSolicitacao)}`
                   : ''}
               </span>
               {exame.resumoResultado && (
-                <span className="block text-slate-600">{exame.resumoResultado}</span>
+                <span className="block text-medio">{exame.resumoResultado}</span>
               )}
               <FormularioAtualizarExame
                 exameId={exame.id}
@@ -436,21 +436,21 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Consultas ({consultas.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {consultas.map((consulta) => (
             <li key={consulta.id} className="text-sm">
-              <span className="font-medium text-slate-800">{consulta.especialidade}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{consulta.especialidade}</span>{' '}
+              <span className="text-apoio">
                 — {ROTULO_STATUS_CONSULTA[consulta.status]} ·{' '}
                 {formatarDataHora(consulta.dataHora)}
                 {consulta.local ? ` · ${consulta.local}` : ''}
               </span>
               {consulta.conduta && (
-                <span className="block text-slate-600">Conduta: {consulta.conduta}</span>
+                <span className="block text-medio">Conduta: {consulta.conduta}</span>
               )}
               <FormularioAtualizarConsulta
                 consultaId={consulta.id}
@@ -465,15 +465,15 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Vacinas ({vacinas.length})
         </summary>
         <ul className="mt-3 space-y-2">
           {vacinas.map((vacina) => (
             <li key={vacina.id} className="text-sm">
-              <span className="font-medium text-slate-800">{vacina.imunizante}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{vacina.imunizante}</span>{' '}
+              <span className="text-apoio">
                 — {vacina.dose} · {formatarData(vacina.dataAplicacao)}
                 {vacina.lote ? ` · lote ${vacina.lote}` : ''}
               </span>
@@ -485,15 +485,15 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Medicações ({medicacoes.length})
         </summary>
         <ul className="mt-3 space-y-3">
           {medicacoes.map((medicacao) => (
             <li key={medicacao.id} className="text-sm">
-              <span className="font-medium text-slate-800">{medicacao.farmaco}</span>{' '}
-              <span className="text-slate-500">
+              <span className="font-medium text-forte">{medicacao.farmaco}</span>{' '}
+              <span className="text-apoio">
                 {medicacao.concentracao ? `${medicacao.concentracao} · ` : ''}
                 {medicacao.dose} · {medicacao.via.toLowerCase()}
                 {medicacao.horarios.length > 0
@@ -501,13 +501,13 @@ export default async function PaginaProntuario({
                   : ' · se necessário'}
               </span>
               {medicacao.instrucoes && (
-                <span className="block text-slate-600">{medicacao.instrucoes}</span>
+                <span className="block text-medio">{medicacao.instrucoes}</span>
               )}
               {medicacao.ativa ? (
                 <FormularioSuspender medicacaoId={medicacao.id} residenteId={id} />
               ) : (
                 <>
-                  <span className="block text-slate-500">
+                  <span className="block text-apoio">
                     Suspensa em {formatarData(medicacao.dataFim ?? medicacao.atualizadoEm)}
                     {medicacao.motivoSuspensao ? ` — ${medicacao.motivoSuspensao}` : ''}
                   </span>
@@ -526,8 +526,8 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-white p-4">
-        <summary className="cursor-pointer font-medium text-slate-800">
+      <details className="rounded border bg-superficie p-4">
+        <summary className="cursor-pointer font-medium text-forte">
           Aderência (últimos 30 dias)
         </summary>
         <div className="mt-3">

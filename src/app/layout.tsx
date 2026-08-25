@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
+import { COOKIE_TEMA, lerTema } from "@/lib/tema";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,13 +19,29 @@ export const metadata: Metadata = {
   description: "Sistema de gestão para Lar de Idosos",
 };
 
-export default function RootLayout({
+/**
+ * O tema sai já na resposta do servidor.
+ *
+ * Como o `data-tema` chega junto com o HTML, nunca existe o lampejo branco
+ * antes de escurecer que assombra as implementações baseadas em
+ * `localStorage` — lá o tema só é conhecido depois que o JavaScript roda, e a
+ * primeira pintura já aconteceu.
+ *
+ * Sem cookie, `lerTema` devolve `undefined`, o React omite o atributo, e o
+ * `@media (prefers-color-scheme: dark)` do `globals.css` assume.
+ *
+ * Ler cookie aqui torna toda rota dinâmica. Não há perda: o grupo `(app)` já é
+ * dinâmico por ler a sessão, e `/login` também.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
+
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" data-tema={tema}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

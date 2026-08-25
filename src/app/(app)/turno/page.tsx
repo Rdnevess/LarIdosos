@@ -50,14 +50,14 @@ export default async function PaginaTurno({
         <div className="flex shrink-0 gap-2">
           <Link
             href={`/turno?passos=${passosValidos - 1}`}
-            className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700"
+            className="rounded border border-borda px-4 py-2 text-sm text-firme"
           >
             Turno anterior
           </Link>
           {!ehTurnoCorrente && (
             <Link
               href={passosValidos + 1 === 0 ? '/turno' : `/turno?passos=${passosValidos + 1}`}
-              className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700"
+              className="rounded border border-borda px-4 py-2 text-sm text-firme"
             >
               Turno seguinte
             </Link>
@@ -66,7 +66,7 @@ export default async function PaginaTurno({
       </div>
 
       {!ehTurnoCorrente && (
-        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-2 text-sm text-alerta">
           Este turno já passou. Registrar uma dose aqui exige escrever o que
           aconteceu — é o que mantém honesto o indicador de doses sem registro.
         </p>

@@ -37,10 +37,10 @@ export function FormularioDocumento({
       <input type="hidden" name="residenteId" value={residenteId} />
 
       <div className="space-y-1">
-        <label htmlFor="tipo" className="text-sm font-medium text-slate-700">
-          Tipo do documento <span className="text-red-600">*</span>
+        <label htmlFor="tipo" className="text-sm font-medium text-firme">
+          Tipo do documento <span className="text-perigo">*</span>
         </label>
-        <select id="tipo" name="tipo" required className="w-full rounded border border-slate-300 px-3 py-2 text-base">
+        <select id="tipo" name="tipo" required className="w-full rounded border border-borda px-3 py-2 text-base">
           {tipos.map((tipo) => (
             <option key={tipo} value={tipo}>
               {ROTULO_TIPO_DOCUMENTO[tipo]}
@@ -50,13 +50,13 @@ export function FormularioDocumento({
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="descricao" className="text-sm font-medium text-slate-700">Descrição</label>
-        <input id="descricao" name="descricao" className="w-full rounded border border-slate-300 px-3 py-2 text-base" />
+        <label htmlFor="descricao" className="text-sm font-medium text-firme">Descrição</label>
+        <input id="descricao" name="descricao" className="w-full rounded border border-borda px-3 py-2 text-base" />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="arquivo" className="text-sm font-medium text-slate-700">
-          Arquivo (PDF, JPG, PNG ou WEBP, até 20 MB) <span className="text-red-600">*</span>
+        <label htmlFor="arquivo" className="text-sm font-medium text-firme">
+          Arquivo (PDF, JPG, PNG ou WEBP, até 20 MB) <span className="text-perigo">*</span>
         </label>
         <input
           id="arquivo"
@@ -64,13 +64,13 @@ export function FormularioDocumento({
           type="file"
           required
           accept="application/pdf,image/jpeg,image/png,image/webp"
-          className="w-full rounded border border-slate-300 px-3 py-2 text-base"
+          className="w-full rounded border border-borda px-3 py-2 text-base"
         />
       </div>
 
-      {estado?.erro && <p role="alert" className="text-sm text-red-600">{estado.erro}</p>}
+      {estado?.erro && <p role="alert" className="text-sm text-perigo">{estado.erro}</p>}
 
-      <button type="submit" disabled={enviando} className="rounded bg-slate-800 px-4 py-3 text-white disabled:opacity-60">
+      <button type="submit" disabled={enviando} className="rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60">
         {enviando ? 'Enviando…' : 'Anexar documento'}
       </button>
     </form>

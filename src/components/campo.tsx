@@ -35,7 +35,7 @@ export function Campo({
   // `text-base` (16px) é deliberado: em iOS, fonte menor faz o navegador dar
   // zoom automático ao focar o campo — atrapalha justamente quem está com o
   // celular na mão, em pé no corredor.
-  const classe = 'w-full rounded border border-slate-300 px-3 py-2 text-base'
+  const classe = 'w-full rounded border border-borda px-3 py-2 text-base'
 
   // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
   // alvo de toque grande o bastante para o dedo (`h-5 w-5`), sem `w-full`.
@@ -47,18 +47,18 @@ export function Campo({
           name={nome}
           type="checkbox"
           defaultChecked={marcadoInicial}
-          className="h-5 w-5 rounded border-slate-300"
+          className="h-5 w-5 rounded border-borda"
         />
-        <span className="text-sm font-medium text-slate-700">{rotulo}</span>
+        <span className="text-sm font-medium text-firme">{rotulo}</span>
       </label>
     )
   }
 
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="text-sm font-medium text-firme">
         {rotulo}
-        {obrigatorio && <span className="text-red-600"> *</span>}
+        {obrigatorio && <span className="text-perigo"> *</span>}
       </label>
       {opcoes ? (
         <select id={id} name={nome} required={obrigatorio} defaultValue={valorInicial} className={classe}>

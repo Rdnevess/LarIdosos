@@ -1,4 +1,14 @@
-@import "tailwindcss";
+/**
+ * `source("../../src")` limita a varredura ao código.
+ *
+ * A detecção automática da v4 varre o repositório inteiro, e `docs/` está cheio
+ * de nomes de classe citados em prosa — os planos e este próprio design falam de
+ * `bg-white` e `text-slate-800` ao explicar o que foi substituído. Sem esta
+ * restrição, o Tailwind lê essas menções como uso real e continua emitindo as
+ * classes cruas que a repintura acabou de aposentar: CSS morto, e uma rede de
+ * segurança falsa para quem reintroduzisse uma delas numa tela.
+ */
+@import "tailwindcss" source("../../src");
 
 /**
  * Tema claro e escuro, em tokens semânticos.
@@ -218,6 +228,44 @@
   ::after {
     border-color: var(--cor-borda);
   }
+}
+
+/**
+ * Qual rótulo o botão de tema mostra.
+ *
+ * O botão renderiza os dois — "☾ Escuro" e "☀ Claro" — e aqui se decide qual
+ * aparece, pelos mesmos três blocos que decidem o tema. É o que permite ao
+ * controle acertar o rótulo já na primeira pintura, sem cookie e sem
+ * JavaScript: quando ninguém escolheu nada, só o CSS sabe o que o sistema
+ * operacional prefere, e o servidor não.
+ *
+ * `data-oferta` nomeia o tema que o rótulo *oferece*, não o tema atual. No
+ * claro aparece a oferta de escuro; no escuro, a de claro.
+ *
+ * O `display: none` também tira o rótulo escondido da árvore de acessibilidade,
+ * então nunca há dois textos concorrendo — e o nome do botão continua vindo do
+ * `aria-label`, que não muda com o tema.
+ */
+[data-oferta='claro'] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) [data-oferta='escuro'] {
+    display: none;
+  }
+
+  :root:not([data-tema='claro']) [data-oferta='claro'] {
+    display: inline;
+  }
+}
+
+:root[data-tema='escuro'] [data-oferta='escuro'] {
+  display: none;
+}
+
+:root[data-tema='escuro'] [data-oferta='claro'] {
+  display: inline;
 }
 
 body {

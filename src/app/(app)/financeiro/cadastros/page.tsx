@@ -42,11 +42,11 @@ function Secao({
   children: React.ReactNode
 }) {
   return (
-    <details className="rounded border bg-white p-4">
-      <summary className="cursor-pointer font-medium text-slate-800">
+    <details className="rounded border bg-superficie p-4">
+      <summary className="cursor-pointer font-medium text-forte">
         <h2 className="inline">{titulo}</h2>
       </summary>
-      {descricao && <p className="mt-1 text-sm text-slate-500">{descricao}</p>}
+      {descricao && <p className="mt-1 text-sm text-apoio">{descricao}</p>}
       <div className="mt-4 space-y-4">{children}</div>
     </details>
   )
@@ -66,8 +66,8 @@ export default async function PaginaCadastrosFinanceiro() {
   return (
     <section className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-slate-800">Cadastros do financeiro</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-lg font-semibold text-forte">Cadastros do financeiro</h1>
+        <p className="text-sm text-apoio">
           O que precisa existir antes de lançar.{' '}
           <Link href="/financeiro" className="underline">
             Ir para os lançamentos
@@ -90,17 +90,17 @@ export default async function PaginaCadastrosFinanceiro() {
         <ul className="divide-y text-sm">
           {contas.map((conta) => (
             <li key={conta.id} className="py-2">
-              <span className="font-medium text-slate-800">
+              <span className="font-medium text-forte">
                 {conta.banco} — ag. {conta.agencia} — {conta.numeroConta}
               </span>
-              <span className="block text-slate-500">
+              <span className="block text-apoio">
                 {TIPO_CONTA[conta.tipo]} · {conta.titular} · saldo inicial{' '}
                 {formatarMoeda(Number(conta.saldoInicial))}
               </span>
             </li>
           ))}
           {contas.length === 0 && (
-            <li className="py-2 text-slate-500">Nenhuma conta cadastrada.</li>
+            <li className="py-2 text-apoio">Nenhuma conta cadastrada.</li>
           )}
         </ul>
         <FormularioConta />
@@ -113,15 +113,15 @@ export default async function PaginaCadastrosFinanceiro() {
         <ul className="divide-y text-sm">
           {origens.map((origem) => (
             <li key={origem.id} className="py-2">
-              <span className="font-medium text-slate-800">{origem.nome}</span>
-              <span className="block text-slate-500">
+              <span className="font-medium text-forte">{origem.nome}</span>
+              <span className="block text-apoio">
                 Na prestação: {origem.rotuloPrestacao}
                 {origem.exigeResidente && ' · exige informar o residente'}
               </span>
             </li>
           ))}
           {origens.length === 0 && (
-            <li className="py-2 text-slate-500">Nenhuma origem cadastrada.</li>
+            <li className="py-2 text-apoio">Nenhuma origem cadastrada.</li>
           )}
         </ul>
         <FormularioOrigem />
@@ -130,12 +130,12 @@ export default async function PaginaCadastrosFinanceiro() {
       <Secao titulo="Categorias de despesa" descricao="Em que o dinheiro é gasto.">
         <ul className="divide-y text-sm">
           {categorias.map((categoria) => (
-            <li key={categoria.id} className="py-2 text-slate-800">
+            <li key={categoria.id} className="py-2 text-forte">
               {categoria.nome}
             </li>
           ))}
           {categorias.length === 0 && (
-            <li className="py-2 text-slate-500">Nenhuma categoria cadastrada.</li>
+            <li className="py-2 text-apoio">Nenhuma categoria cadastrada.</li>
           )}
         </ul>
         <FormularioCategoria />
@@ -148,15 +148,15 @@ export default async function PaginaCadastrosFinanceiro() {
         <ul className="divide-y text-sm">
           {fornecedores.map((fornecedor) => (
             <li key={fornecedor.id} className="py-2">
-              <span className="font-medium text-slate-800">{fornecedor.nome}</span>
-              <span className="block text-slate-500">
+              <span className="font-medium text-forte">{fornecedor.nome}</span>
+              <span className="block text-apoio">
                 {fornecedor.tipoDocumento}: {fornecedor.documento}
                 {fornecedor.telefone && ` · ${fornecedor.telefone}`}
               </span>
             </li>
           ))}
           {fornecedores.length === 0 && (
-            <li className="py-2 text-slate-500">Nenhum fornecedor cadastrado.</li>
+            <li className="py-2 text-apoio">Nenhum fornecedor cadastrado.</li>
           )}
         </ul>
         <FormularioFornecedor />

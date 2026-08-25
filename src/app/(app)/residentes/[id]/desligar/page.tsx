@@ -33,12 +33,12 @@ export default async function PaginaDesligarResidente({
   if (ctx.papel === 'SAUDE') {
     return (
       <section className="space-y-4">
-        <h1 className="text-lg font-semibold text-slate-800">{nome}</h1>
-        <p className="rounded border bg-white p-4 text-sm text-slate-600">
+        <h1 className="text-lg font-semibold text-forte">{nome}</h1>
+        <p className="rounded border bg-superficie p-4 text-sm text-medio">
           O registro de desligamento ou óbito é feito pela coordenação ou pela
           equipe administrativa. Fale com a coordenação.
         </p>
-        <Link href={`/residentes/${id}`} className="text-sm text-slate-600 underline">
+        <Link href={`/residentes/${id}`} className="text-sm text-medio underline">
           Voltar à ficha
         </Link>
       </section>
@@ -47,13 +47,13 @@ export default async function PaginaDesligarResidente({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-lg font-semibold text-slate-800">
+      <h1 className="text-lg font-semibold text-forte">
         Desligamento de {nome}
       </h1>
 
       {residente.status === 'ATIVO' ? (
-        <div className="rounded border bg-white p-4">
-          <p className="mb-3 text-sm text-slate-500">
+        <div className="rounded border bg-superficie p-4">
+          <p className="mb-3 text-sm text-apoio">
             O cadastro é preservado; o residente deixa de aparecer na lista de
             ativos e passa a ser encontrado pelo filtro de situação. Registre
             aqui também o falecimento.
@@ -79,27 +79,27 @@ export default async function PaginaDesligarResidente({
           />
         </div>
       ) : (
-        <dl className="space-y-1 rounded border bg-slate-50 p-4 text-sm text-slate-700">
+        <dl className="space-y-1 rounded border bg-suave p-4 text-sm text-firme">
           <div className="flex gap-2">
-            <dt className="text-slate-500">Situação:</dt>
+            <dt className="text-apoio">Situação:</dt>
             <dd>{ROTULO_STATUS_RESIDENTE[residente.status]}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">Data da saída:</dt>
+            <dt className="text-apoio">Data da saída:</dt>
             <dd>{residente.dataSaida ? formatarData(residente.dataSaida) : '—'}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">Motivo:</dt>
+            <dt className="text-apoio">Motivo:</dt>
             <dd>{residente.motivoSaida ?? '—'}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-slate-500">Observação:</dt>
+            <dt className="text-apoio">Observação:</dt>
             <dd>{residente.observacaoSaida ?? '—'}</dd>
           </div>
         </dl>
       )}
 
-      <Link href={`/residentes/${id}`} className="text-sm text-slate-600 underline">
+      <Link href={`/residentes/${id}`} className="text-sm text-medio underline">
         Voltar à ficha
       </Link>
     </section>

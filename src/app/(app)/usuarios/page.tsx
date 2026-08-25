@@ -33,14 +33,14 @@ export default async function PaginaUsuarios() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-800">Usuários</h1>
+      <h1 className="text-lg font-semibold text-forte">Usuários</h1>
 
       {/* Região nomeada porque a lista abaixo passou a ter um formulário de
           edição por linha, com os mesmos rótulos "Nome" e "Papel". Sem o nome
           acessível, nem o leitor de tela nem o teste conseguem dizer de qual
           formulário se está falando. */}
-      <section aria-labelledby="titulo-novo-usuario" className="rounded border bg-white p-4">
-        <h2 id="titulo-novo-usuario" className="mb-3 font-medium text-slate-800">
+      <section aria-labelledby="titulo-novo-usuario" className="rounded border bg-superficie p-4">
+        <h2 id="titulo-novo-usuario" className="mb-3 font-medium text-forte">
           Novo usuário
         </h2>
         <FormularioSimples
@@ -60,14 +60,14 @@ export default async function PaginaUsuarios() {
         />
       </section>
 
-      <ul className="divide-y rounded border bg-white">
+      <ul className="divide-y rounded border bg-superficie">
         {usuarios.map((usuario) => (
           <li key={usuario.id} className="space-y-2 p-3">
             <div>
-              <span className="block font-medium text-slate-800">
+              <span className="block font-medium text-forte">
                 {usuario.nome} {!usuario.ativo && '(inativo)'}
               </span>
-              <span className="block text-sm text-slate-500">
+              <span className="block text-sm text-apoio">
                 {usuario.email} · {ROTULO_PAPEL[usuario.papel]} · último acesso:{' '}
                 {usuario.ultimoAcessoEm ? formatarDataHora(usuario.ultimoAcessoEm) : 'nunca'}
               </span>
@@ -99,7 +99,7 @@ export default async function PaginaUsuarios() {
             */}
             {usuario.ativo && (
               <details>
-                <summary className="cursor-pointer text-sm text-slate-600 underline">
+                <summary className="cursor-pointer text-sm text-medio underline">
                   Editar
                 </summary>
                 <div className="mt-2">
