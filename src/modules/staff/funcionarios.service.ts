@@ -1,6 +1,7 @@
 import type { Funcionario, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
+import { normalizarBusca } from '@/lib/busca'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -93,10 +94,9 @@ export async function listarFuncionarios(
   const where: Prisma.FuncionarioWhereInput = {}
   if (filtro.apenasAtivos) where.ativo = true
   if (filtro.busca?.trim()) {
-    where.OR = [
-      { nomeCompleto: { contains: filtro.busca.trim(), mode: 'insensitive' } },
-      { cargo: { contains: filtro.busca.trim(), mode: 'insensitive' } },
-    ]
+    // Mesma coluna gerada dos residentes, aqui juntando nome e cargo: assim
+    // "tecnico" acha "Tecnico de enfermagem" escrito com acento.
+    where.busca = { contains: normalizarBusca(filtro.busca) }
   }
 
   return prisma.funcionario.findMany({

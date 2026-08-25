@@ -97,6 +97,38 @@ describe('obterResidente', () => {
 })
 
 describe('listarResidentes', () => {
+  it('acha o nome acentuado por quem digita sem acento', async () => {
+    // Quem usa o sistema digita no celular, em pe no corredor, e nao para
+    // para achar o acento. `mode: 'insensitive'` do Prisma resolve
+    // maiuscula/minuscula e nao toca em acento: hoje 'jose' nao acha 'Jose'
+    // escrito com acento, e o nome do residente e o campo mais buscado do
+    // sistema.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'José Antônio Conceição',
+      cpf: undefined,
+    })
+
+    expect(await listarResidentes(ctx, { busca: 'jose' })).toHaveLength(1)
+    expect(await listarResidentes(ctx, { busca: 'antonio' })).toHaveLength(1)
+    expect(await listarResidentes(ctx, { busca: 'conceicao' })).toHaveLength(1)
+  })
+
+  it('acha o nome sem acento por quem digita com acento', async () => {
+    // O caminho inverso: o nome foi cadastrado sem acento — acontece o tempo
+    // todo — e quem procura escreve certo.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarResidente(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Jose Antonio Conceicao',
+      cpf: undefined,
+    })
+
+    expect(await listarResidentes(ctx, { busca: 'José' })).toHaveLength(1)
+    expect(await listarResidentes(ctx, { busca: 'Conceição' })).toHaveLength(1)
+  })
+
   it('filtra por status e busca por nome sem diferenciar maiúsculas', async () => {
     const ctx = await ctxComPapel('ADMINISTRATIVO')
     const maria = await criarResidente(ctx, dadosValidos)

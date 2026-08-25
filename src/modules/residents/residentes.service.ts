@@ -1,6 +1,7 @@
 import type { Prisma, Residente, StatusResidente } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
+import { normalizarBusca } from '@/lib/busca'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -93,10 +94,10 @@ export async function listarResidentes(
   const where: Prisma.ResidenteWhereInput = {}
   if (filtro.status) where.status = filtro.status
   if (filtro.busca?.trim()) {
-    where.OR = [
-      { nomeCompleto: { contains: filtro.busca.trim(), mode: 'insensitive' } },
-      { nomeSocial: { contains: filtro.busca.trim(), mode: 'insensitive' } },
-    ]
+    // `busca` e gerada pelo banco: minusculas e sem acento. O termo passa pela
+    // mesma normalizacao para que os dois lados falem a mesma lingua — sem isso,
+    // procurar "José" nao acharia o "jose" ja normalizado da coluna.
+    where.busca = { contains: normalizarBusca(filtro.busca) }
   }
 
   return prisma.residente.findMany({

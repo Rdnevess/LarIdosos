@@ -88,6 +88,21 @@ describe('obterFuncionario', () => {
 })
 
 describe('listarFuncionarios', () => {
+  it('acha o cargo acentuado por quem digita sem acento', async () => {
+    // O cargo entra na mesma coluna gerada que o nome, e por isso vale o
+    // mesmo: quem procura a equipe de enfermagem digita "tecnico".
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarFuncionario(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Inês Gonçalves',
+      cargo: 'Técnico de enfermagem',
+    })
+
+    expect(await listarFuncionarios(ctx, { busca: 'tecnico' })).toHaveLength(1)
+    expect(await listarFuncionarios(ctx, { busca: 'ines' })).toHaveLength(1)
+    expect(await listarFuncionarios(ctx, { busca: 'goncalves' })).toHaveLength(1)
+  })
+
   it('filtra ativos e busca por nome ou cargo', async () => {
     const ctx = await ctxComPapel('ADMINISTRATIVO')
     const ana = await criarFuncionario(ctx, dadosValidos)
