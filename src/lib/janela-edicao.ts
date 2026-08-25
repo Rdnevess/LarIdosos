@@ -24,22 +24,23 @@ export function prazoDeEdicao(): Date {
  * teria adiantado alguma coisa.
  */
 export function exigirJanelaAberta(
-  editavelAte: Date,
-  autorId: string | null,
+  anotacao: { id: string; editavelAte: Date; criadoPorId: string | null },
   ctx: Ctx,
   entidade: EntidadeAuditada
 ): void {
-  if (autorId !== ctx.usuarioId) {
+  if (anotacao.criadoPorId !== ctx.usuarioId) {
     // Tentar alterar registro alheio é evento forense, e escapava da trilha:
     // esta negação é de autoria, não de papel, então `exigirPapel` — que é
     // quem audita as outras — nunca a via. `entidade` é obrigatória para que
     // a trilha distinga anotação da ficha de anotação do prontuário; sem ela
     // as duas ficariam indistinguíveis na tela de auditoria.
-    dispararRegistroDeAcessoNegado(ctx, entidade)
+    // Qual anotação, e não só a entidade: a trilha precisa dizer sobre qual
+    // registro a tentativa foi feita.
+    dispararRegistroDeAcessoNegado(ctx, entidade, anotacao.id)
     throw new ErroPermissao('Só o autor pode editar a própria anotação')
   }
 
-  if (editavelAte.getTime() < Date.now()) {
+  if (anotacao.editavelAte.getTime() < Date.now()) {
     throw new ErroValidacao(
       `A janela de ${JANELA_EDICAO_MINUTOS} minutos para edição expirou. Registre uma retificação.`
     )

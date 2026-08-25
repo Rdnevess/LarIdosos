@@ -61,8 +61,14 @@ const ehPotenciaDeDois = (n: number) => (n & (n - 1)) === 0
  */
 export async function registrarAcessoNegado(
   ator: AtorNegado,
-  entidade: EntidadeAuditada
+  entidade: EntidadeAuditada,
+  entidadeId?: string
 ): Promise<void> {
+  // `entidadeId` fica de fora da chave de proposito. Dentro dela, enumerar
+  // duzentos documentos criaria duzentos contadores, cada um registrando na
+  // primeira tentativa — exatamente a enxurrada que esta contagem existe para
+  // evitar. Fora dela, a protecao continua de pe e as linhas amostradas dizem
+  // qual recurso estava sendo tentado naquele momento.
   const chave = `${ator.usuarioId}:${entidade}`
   const agora = Date.now()
   const anterior = janelas.get(chave)
@@ -76,6 +82,7 @@ export async function registrarAcessoNegado(
   await registrarAuditoria(prisma, ator, {
     acao: 'ACESSO_NEGADO',
     entidade,
+    entidadeId,
     diff: {
       // O papel vai no diff porque o papel de uma conta pode ser corrigido
       // depois (`atualizarUsuario`): sem isto, a trilha mostraria o papel de
@@ -98,9 +105,10 @@ export async function registrarAcessoNegado(
  */
 export function dispararRegistroDeAcessoNegado(
   ator: AtorNegado,
-  entidade: EntidadeAuditada
+  entidade: EntidadeAuditada,
+  entidadeId?: string
 ): void {
-  const promessa = registrarAcessoNegado(ator, entidade)
+  const promessa = registrarAcessoNegado(ator, entidade, entidadeId)
     .catch((erro) => {
       console.error('Falha ao registrar acesso negado na auditoria', erro)
     })

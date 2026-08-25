@@ -104,6 +104,10 @@ describe('a trilha das sessoes recusadas', () => {
     expect(log.entidade).toBe('Usuario')
     expect(log.usuarioId).toBe(usuario.id)
     expect(log.usuarioEmail).toBe(usuario.email)
+    // De onde veio a tentativa. Numa investigacao de token roubado e o
+    // primeiro campo que se olha, e as recusas de sessao gravavam nulo
+    // porque `headers()` so era lido depois das checagens.
+    expect(log.ip).toBe('10.0.0.9')
   })
 
   it('registra a sessao emitida antes da troca de senha', async () => {
