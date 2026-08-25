@@ -1,4 +1,5 @@
-import type { Funcionario, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { Funcionario } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { normalizarBusca } from '@/lib/busca'
@@ -27,31 +28,36 @@ export async function criarFuncionario(
   exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(novoFuncionarioSchema, dados)
 
-  const existente = await prisma.funcionario.findUnique({ where: { cpf: entrada.cpf } })
-  if (existente) throw new ErroValidacao('Já existe um funcionário com este CPF')
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const criado = await tx.funcionario.create({
+        data: { ...entrada, email: entrada.email || null, criadoPorId: ctx.usuarioId },
+      })
 
-  return prisma.$transaction(async (tx) => {
-    const criado = await tx.funcionario.create({
-      data: { ...entrada, email: entrada.email || null, criadoPorId: ctx.usuarioId },
+      await registrarAuditoria(tx, ctx, {
+        acao: 'CRIAR',
+        entidade: 'Funcionario',
+        entidadeId: criado.id,
+        diff: { nomeCompleto: { de: null, para: criado.nomeCompleto } },
+      })
+
+      return criado
     })
-
-    await registrarAuditoria(tx, ctx, {
-      acao: 'CRIAR',
-      entidade: 'Funcionario',
-      entidadeId: criado.id,
-      diff: { nomeCompleto: { de: null, para: criado.nomeCompleto } },
-    })
-
-    return criado
-  })
+  } catch (erro) {
+    // O índice único do banco é quem barra; aqui a recusa vira frase de gente.
+    //
+    // Não há mais checagem antecipada. Um `findUnique` antes do `create` deixa
+    // uma janela entre ler e escrever: duas telas salvando o mesmo CPF ao mesmo
+    // tempo passariam as duas pela checagem, e só então uma bateria no índice —
+    // com o erro cru do Prisma chegando a quem está cadastrando. Com um caminho
+    // só, a janela não existe.
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002') {
+      throw new ErroValidacao('Já existe um funcionário com este CPF')
+    }
+    throw erro
+  }
 }
 
-/**
- * Audita a visualização: devolve o cadastro completo (CPF, RG, endereço) de
- * UMA pessoa, o mesmo critério que `obterResidente` já aplica. `listarFuncionarios`
- * não precisa desse rastro porque seus campos já são reduzidos — aqui não há
- * minimização possível, quem abre a ficha vê o dado sensível inteiro.
- */
 export async function obterFuncionario(ctx: Ctx, id: string): Promise<Funcionario> {
   exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
   const funcionario = await exigirFuncionario(id)
@@ -115,11 +121,6 @@ export async function atualizarFuncionario(
   const entrada = validar(atualizacaoFuncionarioSchema, dados)
   const atual = await exigirFuncionario(id)
 
-  if (entrada.cpf && entrada.cpf !== atual.cpf) {
-    const existente = await prisma.funcionario.findUnique({ where: { cpf: entrada.cpf } })
-    if (existente) throw new ErroValidacao('Já existe um funcionário com este CPF')
-  }
-
   // Mantém a invariante de `criarFuncionario` (linha 34) para chamadores que
   // passem `entrada.email === ''`. A tela hoje não passa: `dadosDoFuncionario`
   // usa `texto()`, que devolve `undefined` para campo em branco, e
@@ -131,18 +132,32 @@ export async function atualizarFuncionario(
 
   const diff = calcularDiff(atual as unknown as Record<string, unknown>, gravavel)
 
-  return prisma.$transaction(async (tx) => {
-    const atualizado = await tx.funcionario.update({ where: { id }, data: gravavel })
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const atualizado = await tx.funcionario.update({ where: { id }, data: gravavel })
 
-    await registrarAuditoria(tx, ctx, {
-      acao: 'ATUALIZAR',
-      entidade: 'Funcionario',
-      entidadeId: id,
-      diff,
+      await registrarAuditoria(tx, ctx, {
+        acao: 'ATUALIZAR',
+        entidade: 'Funcionario',
+        entidadeId: id,
+        diff,
+      })
+
+      return atualizado
     })
-
-    return atualizado
-  })
+  } catch (erro) {
+    // O índice único do banco é quem barra; aqui a recusa vira frase de gente.
+    //
+    // Não há mais checagem antecipada. Um `findUnique` antes do `create` deixa
+    // uma janela entre ler e escrever: duas telas salvando o mesmo CPF ao mesmo
+    // tempo passariam as duas pela checagem, e só então uma bateria no índice —
+    // com o erro cru do Prisma chegando a quem está cadastrando. Com um caminho
+    // só, a janela não existe.
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002') {
+      throw new ErroValidacao('Já existe um funcionário com este CPF')
+    }
+    throw erro
+  }
 }
 
 export async function desligarFuncionario(

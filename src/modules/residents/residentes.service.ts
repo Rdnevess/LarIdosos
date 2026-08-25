@@ -1,4 +1,5 @@
-import type { Prisma, Residente, StatusResidente } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { Residente, StatusResidente } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { normalizarBusca } from '@/lib/busca'
@@ -27,26 +28,35 @@ export async function criarResidente(
   exigirPapel(ctx, 'Residente', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(novoResidenteSchema, dados)
 
-  if (entrada.cpf) {
-    const existente = await prisma.residente.findUnique({ where: { cpf: entrada.cpf } })
-    if (existente) throw new ErroValidacao('Já existe um residente com este CPF')
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const criado = await tx.residente.create({
+        data: { ...entrada, criadoPorId: ctx.usuarioId },
+      })
+
+      await registrarAuditoria(tx, ctx, {
+        acao: 'CRIAR',
+        entidade: 'Residente',
+        entidadeId: criado.id,
+        residenteId: criado.id,
+        diff: { nomeCompleto: { de: null, para: criado.nomeCompleto } },
+      })
+
+      return criado
+    })
+  } catch (erro) {
+    // O índice único do banco é quem barra; aqui a recusa vira frase de gente.
+    //
+    // Não há mais checagem antecipada. Um `findUnique` antes do `create` deixa
+    // uma janela entre ler e escrever: duas telas salvando o mesmo CPF ao mesmo
+    // tempo passariam as duas pela checagem, e só então uma bateria no índice —
+    // com o erro cru do Prisma chegando a quem está cadastrando. Com um caminho
+    // só, a janela não existe.
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002') {
+      throw new ErroValidacao('Já existe um residente com este CPF')
+    }
+    throw erro
   }
-
-  return prisma.$transaction(async (tx) => {
-    const criado = await tx.residente.create({
-      data: { ...entrada, criadoPorId: ctx.usuarioId },
-    })
-
-    await registrarAuditoria(tx, ctx, {
-      acao: 'CRIAR',
-      entidade: 'Residente',
-      entidadeId: criado.id,
-      residenteId: criado.id,
-      diff: { nomeCompleto: { de: null, para: criado.nomeCompleto } },
-    })
-
-    return criado
-  })
 }
 
 export async function obterResidente(ctx: Ctx, id: string): Promise<Residente> {
@@ -116,26 +126,35 @@ export async function atualizarResidente(
   const entrada = validar(atualizacaoResidenteSchema, dados)
   const atual = await exigirResidente(id)
 
-  if (entrada.cpf && entrada.cpf !== atual.cpf) {
-    const existente = await prisma.residente.findUnique({ where: { cpf: entrada.cpf } })
-    if (existente) throw new ErroValidacao('Já existe um residente com este CPF')
-  }
-
   const diff = calcularDiff(atual as unknown as Record<string, unknown>, entrada)
 
-  return prisma.$transaction(async (tx) => {
-    const atualizado = await tx.residente.update({ where: { id }, data: entrada })
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const atualizado = await tx.residente.update({ where: { id }, data: entrada })
 
-    await registrarAuditoria(tx, ctx, {
-      acao: 'ATUALIZAR',
-      entidade: 'Residente',
-      entidadeId: id,
-      residenteId: id,
-      diff,
+      await registrarAuditoria(tx, ctx, {
+        acao: 'ATUALIZAR',
+        entidade: 'Residente',
+        entidadeId: id,
+        residenteId: id,
+        diff,
+      })
+
+      return atualizado
     })
-
-    return atualizado
-  })
+  } catch (erro) {
+    // O índice único do banco é quem barra; aqui a recusa vira frase de gente.
+    //
+    // Não há mais checagem antecipada. Um `findUnique` antes do `create` deixa
+    // uma janela entre ler e escrever: duas telas salvando o mesmo CPF ao mesmo
+    // tempo passariam as duas pela checagem, e só então uma bateria no índice —
+    // com o erro cru do Prisma chegando a quem está cadastrando. Com um caminho
+    // só, a janela não existe.
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2002') {
+      throw new ErroValidacao('Já existe um residente com este CPF')
+    }
+    throw erro
+  }
 }
 
 export async function desligarResidente(

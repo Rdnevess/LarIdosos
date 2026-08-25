@@ -45,6 +45,25 @@ describe('criarFuncionario', () => {
     await expect(criarFuncionario(ctx, dadosValidos)).rejects.toThrow(ErroValidacao)
   })
 
+  it('recusa mudar o CPF para um que ja e de outro funcionario', async () => {
+    // O caso que faltava: a duplicidade tambem chega pela edicao.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarFuncionario(ctx, dadosValidos)
+    const outro = await criarFuncionario(ctx, {
+      ...dadosValidos,
+      nomeCompleto: 'Carlos Lima',
+      cpf: '11144477735',
+      conselhoSigla: undefined,
+      conselhoNumero: undefined,
+      conselhoUf: undefined,
+      conselhoValidade: undefined,
+    })
+
+    await expect(
+      atualizarFuncionario(ctx, outro.id, { cpf: dadosValidos.cpf })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
   it('nega para o papel SAUDE', async () => {
     const ctx = await ctxComPapel('SAUDE')
     await expect(criarFuncionario(ctx, dadosValidos)).rejects.toThrow(ErroPermissao)
