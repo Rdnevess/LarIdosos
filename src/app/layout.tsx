@@ -41,10 +41,17 @@ export default async function RootLayout({
   const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
 
   return (
-    <html lang="pt-BR" data-tema={tema}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html
+      lang="pt-BR"
+      data-tema={tema}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
+      {/* As variáveis de fonte (`--font-geist-sans`, `--font-geist-mono`) moram no
+          `<html>` para que o `:root` do `@theme inline` consiga resolvê-las. Se
+          fossem no `<body>`, quando o `@theme inline` tentasse resolver
+          `--font-sans: var(--font-geist-sans)` no `:root`, a variável ainda não
+          existiria, a resolução falhava, e o `body` caía no fallback. */}
+      <body className="antialiased">
         {children}
       </body>
     </html>

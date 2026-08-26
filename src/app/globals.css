@@ -223,17 +223,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@layer base {
-  /* As variáveis de fonte também são definidas aqui para que possam ser acessíveis
-     no CSS base enquanto respeitam a cascata de layers. O next/font injeta
-     `--font-geist-sans` no body via className; este valor é o fallback que o
-     CSS compilado receberá. */
-  :root {
-    --font-sans: 'Geist', 'Geist Fallback';
-    --font-mono: 'Geist Mono', 'Geist Mono Fallback';
-  }
-}
-
 /**
  * A densidade do sistema inteiro, em duas linhas.
  *
