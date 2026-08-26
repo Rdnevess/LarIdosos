@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { BotaoTema } from '@/components/botao-tema'
+import { Botao } from '@/components/ui/botao'
 import { entrar } from './acoes'
 
 export function FormularioLogin({ destino }: { destino: string }) {
@@ -50,13 +51,9 @@ export function FormularioLogin({ destino }: { destino: string }) {
 
         {erro && <p role="alert" className="text-sm text-perigo">{erro}</p>}
 
-        <button
-          type="submit"
-          disabled={enviando}
-          className="w-full rounded bg-acao py-2 text-sobre-acao disabled:opacity-60"
-        >
+        <Botao disabled={enviando} className="w-full">
           {enviando ? 'Entrando…' : 'Entrar'}
-        </button>
+        </Botao>
       </form>
     </main>
   )
