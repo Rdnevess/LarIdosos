@@ -115,7 +115,7 @@ git commit -m "Faz a interface usar a Geist que ja era baixada"
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: as classes `text-titulo`, `text-secao`, `text-corpo`, `text-apoio` e `text-legenda`, usadas pelas tarefas 6, 7 e 8.
+- Produces: as classes `text-titulo`, `text-secao`, `text-corpo`, `text-suporte` e `text-legenda`, usadas pelas tarefas 6, 7 e 8.
 
 - [ ] **Passo 1: Escrever o teste que falha**
 
@@ -163,8 +163,11 @@ Em `src/app/globals.css`, acrescentar os degraus dentro do `@theme inline` que j
   --text-secao--line-height: 1.75rem;
   --text-corpo: 1rem;
   --text-corpo--line-height: 1.5rem;
-  --text-apoio: 0.875rem;
-  --text-apoio--line-height: 1.25rem;
+  /* `suporte`, e nao `apoio`: `--color-apoio` ja existe e gera a mesma classe
+     utilitaria `text-apoio`. A cor venceria e o degrau de tamanho nasceria
+     morto — conferido compilando o CSS. */
+  --text-suporte: 0.875rem;
+  --text-suporte--line-height: 1.25rem;
   --text-legenda: 0.75rem;
   --text-legenda--line-height: 1rem;
 ```
@@ -673,7 +676,7 @@ export function Botao({
   return (
     <button
       type={tipo}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 text-apoio font-medium transition disabled:opacity-60 ${VARIANTES[variante]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 text-suporte font-medium transition disabled:opacity-60 ${VARIANTES[variante]} ${className}`}
       {...props}
     >
       {icone && <Icone nome={icone} />}
@@ -878,4 +881,4 @@ git commit -m "Adota o primitivo Botao em todas as telas, com guarda"
 
 **Lacuna consciente:** a spec (§9) pede um teste E2E que confira que a tabela de auditoria "continua mostrando o mesmo número de linhas por tela". A tarefa 2 verifica o `font-size` da raiz, que é a **causa** da densidade, e não a contagem de linhas — que depende do conteúdo do banco e tornaria o teste frágil. A troca é deliberada: verifica-se a regra, não o efeito que varia com o dado.
 
-**Nomes conferidos entre tarefas:** `Icone`/`NomeIcone`/`CAMINHOS` (tarefa 6) são consumidos com esses nomes na 7. `Botao`/`variante`/`tipo` (tarefa 7) aparecem com esses nomes na 8. As classes `text-secao`, `text-apoio` e `text-legenda` (tarefa 2) são usadas nos primitivos da 7.
+**Nomes conferidos entre tarefas:** `Icone`/`NomeIcone`/`CAMINHOS` (tarefa 6) são consumidos com esses nomes na 7. `Botao`/`variante`/`tipo` (tarefa 7) aparecem com esses nomes na 8. As classes `text-secao`, `text-suporte` e `text-legenda` (tarefa 2) são usadas nos primitivos da 7.
