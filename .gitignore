@@ -62,8 +62,8 @@ playwright-report/
 # para mais ninguém.
 .claude/settings.local.json
 
-# Material de referencia visual (logo, fotos do Lar) enviado para orientar o
-# design. Nao versionado: sao imagens de baixa resolucao, provisorias, e
-# algumas mostram residentes — foto de idoso em ILPI e dado pessoal, e o
-# repositorio nao e lugar para ela.
+# Material de referência visual (logo, fotos do Lar) enviado para orientar o
+# design. Não versionado: são imagens de baixa resolução, provisórias, e
+# algumas mostram residentes — foto de idoso em ILPI é dado pessoal, e o
+# repositório não é lugar para ela.
 exemplo/

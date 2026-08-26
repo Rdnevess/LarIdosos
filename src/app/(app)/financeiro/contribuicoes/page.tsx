@@ -95,7 +95,7 @@ export default async function PaginaContribuicoes({
             ))}
           </select>
         </div>
-        <Botao variante="secundario" className="self-end sm:w-auto">
+        <Botao variante="secundario" className="self-end">
           Ver competência
         </Botao>
       </form>

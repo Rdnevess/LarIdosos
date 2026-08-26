@@ -23,7 +23,7 @@
  *
  * É o que os blocos abaixo fazem. As classes cruas do markup (`bg-white`,
  * `text-slate-800`, `border-slate-300`) viram papéis uma única vez, e o tema
- * escuro passa a ser um bloco que redefine os mesmos 26 tokens. Nenhuma tela
+ * escuro passa a ser um bloco que redefine os mesmos 27 tokens. Nenhuma tela
  * precisa saber que existem dois temas.
  *
  * A decisão é toda do CSS, em três blocos:
@@ -235,8 +235,8 @@
   /* Cinco degraus, pelo mesmo motivo que a cor de texto tem cinco: o que não
      tem nome vira decisão repetida em cada tela. Antes disto, `text-sm`
      aparecia 155 vezes e `text-lg` 26 — a tela inteira falava no mesmo tom.
-     Em `rem` de propósito: é o que faz a densidade por dispositivo caber numa
-     regra só. */
+     Em `rem` de propósito: assim, se a raiz mudar de novo — por dispositivo
+     ou por qualquer outro motivo —, a escala inteira acompanha numa regra só. */
   --text-titulo: 1.5rem;
   --text-titulo--line-height: 2rem;
   --text-secao: 1.125rem;
@@ -256,26 +256,16 @@
 }
 
 /**
- * A densidade do sistema inteiro, em duas linhas.
+ * A raiz em 16px, e a mesma em todo dispositivo.
  *
- * Toda medida da escala é `rem`, então mudar o tamanho da raiz reescala texto,
- * espaçamento e alvo de toque de uma vez. No celular a raiz fica em 16px — o
- * tamanho que se lê em pé, no corredor, com o aparelho na mão. A partir de
- * 640px cai para 15px, o que devolve à tabela de auditoria e à de lançamentos
- * a densidade que a §9 do design promete a quem confere duzentas linhas.
- *
- * Fazer isso por breakpoint, e não por preferência da pessoa, é deliberado: um
- * seletor de densidade dobraria a matriz de teste visual (dois temas × duas
- * densidades) para resolver um problema que o dispositivo já responde.
+ * A densidade por dispositivo — 15px no desktop — foi tentada e revertida: ela
+ * só funciona depois que as telas adotarem a escala (`text-corpo`,
+ * `text-suporte`), e com 148 `text-sm` ainda no markup o efeito foi o oposto do
+ * pretendido, encolhendo o texto corrente de 14px para 13,1px. Volta quando a
+ * adoção acontecer, e não antes.
  */
 :root {
   font-size: 16px;
-}
-
-@media (min-width: 640px) {
-  :root {
-    font-size: 15px;
-  }
 }
 
 /**
@@ -294,7 +284,8 @@
  * da v3.
  *
  * Esta é a mudança visível no tema claro que o design aceitou de propósito: as
- * bordas sem cor deixam de ser quase pretas e passam a ser slate-300.
+ * bordas sem cor deixam de ser quase pretas e passam a ser `#d9d3cc`, o mesmo
+ * neutro quente do restante da paleta — e não um slate-300 genérico.
  */
 @layer base {
   *,
@@ -304,9 +295,9 @@
   }
 
   /**
-   * Piso de toque. `2.75rem` e não `44px`: em `rem` ele acompanha a raiz, então
-   * fica em 44px no celular e afrouxa para ~41px no desktop, onde o alvo é um
-   * ponteiro e não um dedo.
+   * Piso de toque. `2.75rem` e não `44px`: em `rem` ele acompanha a raiz —
+   * hoje 44px em qualquer dispositivo, porque a raiz é a mesma em qualquer
+   * dispositivo (ver o comentário da raiz, acima).
    *
    * `min-height` e não `height`: o controle pode crescer com o conteúdo, e um
    * botão de duas linhas não deve ser espremido de volta.

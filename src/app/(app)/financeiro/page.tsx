@@ -189,7 +189,7 @@ export default async function PaginaFinanceiro({
             <option value="DESPESA">Despesas</option>
           </select>
         </div>
-        <Botao variante="secundario" className="sm:col-span-4 sm:w-auto">
+        <Botao variante="secundario" className="sm:col-span-4">
           Filtrar
         </Botao>
       </form>

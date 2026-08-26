@@ -15,11 +15,10 @@ test('a interface usa a Geist, e não a Arial de sobra do template', async ({ pa
   expect(familia).not.toMatch(/arial/i)
 })
 
-test('o texto corrente tem 16px no celular e 15px no desktop', async ({ page }) => {
-  // Densidade por dispositivo, em uma regra só: o `font-size` da raiz muda no
-  // breakpoint e toda a escala em `rem` acompanha. É o que concilia "legível em
-  // pé no corredor" com a tabela densa que a §9 do design-mãe promete a quem
-  // confere duzentos lançamentos.
+test('a raiz fica em 16px em qualquer dispositivo', async ({ page }) => {
+  // A densidade por dispositivo (15px no desktop) foi revertida: com 148
+  // `text-sm` ainda fora da escala, ela encolhia o texto corrente para
+  // 13,1px. A raiz volta a ser uma constante, não uma variável por breakpoint.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/login')
   const celular = await page
@@ -31,7 +30,7 @@ test('o texto corrente tem 16px no celular e 15px no desktop', async ({ page }) 
   const desktop = await page
     .locator('html')
     .evaluate((el) => getComputedStyle(el).fontSize)
-  expect(desktop).toBe('15px')
+  expect(desktop).toBe('16px')
 })
 
 test('nenhum controle é menor que 44px no celular', async ({ page }) => {

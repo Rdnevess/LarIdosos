@@ -38,7 +38,8 @@ export function Campo({
   const classe = 'w-full rounded border border-borda px-3 py-2 text-base'
 
   // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
-  // alvo de toque grande o bastante para o dedo (`h-5 w-5`), sem `w-full`.
+  // caixinha visível em `h-5 w-5` (20px, pequena de propósito — ver abaixo),
+  // sem `w-full`.
   //
   // O piso de 44px do `globals.css` exclui checkbox de propósito — esticar a
   // caixinha a deformaria. `min-h-11` aqui devolve o alvo de toque ao
