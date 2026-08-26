@@ -1,8 +1,10 @@
 /**
  * A superfície do sistema.
  *
- * `rounded-lg` e não `rounded`: o raio de 4px que estava em 103 lugares é o
- * padrão do Tailwind, não uma escolha — e lê como formulário de intranet.
+ * A aparência vem da classe `.cartao` do `globals.css`, e não daqui: a mesma
+ * superfície veste `<details>`, `<form>` e `<header>`, cujas tags não podem
+ * virar `<section>`. Este componente é o caso comum — uma seção com título —,
+ * não o dono do estilo.
  *
  * `className` existe para o que é do lugar, e não para o que é do cartão: a
  * grade interna de uma tela (`grid gap-4 sm:grid-cols-2`), o espaçamento entre
@@ -22,7 +24,7 @@ export function Cartao({
   children: React.ReactNode
 }) {
   return (
-    <section className={`rounded-lg border border-borda bg-superficie p-4 ${className}`}>
+    <section className={`cartao p-4 ${className}`}>
       {(titulo || acao) && (
         <div className="mb-3 flex items-center justify-between gap-3">
           {titulo && <h2 className="text-secao font-semibold text-forte">{titulo}</h2>}

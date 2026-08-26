@@ -35,7 +35,7 @@ export default async function PaginaDesligarResidente({
     return (
       <section className="space-y-4">
         <h1 className="text-lg font-semibold text-forte">{nome}</h1>
-        <p className="rounded border bg-superficie p-4 text-sm text-medio">
+        <p className="cartao p-4 text-sm text-medio">
           O registro de desligamento ou óbito é feito pela coordenação ou pela
           equipe administrativa. Fale com a coordenação.
         </p>

@@ -192,6 +192,38 @@ function arquivosDeCodigo(dir: string): string[] {
   })
 }
 
+const SUPERFICIE_CRUA = /rounded border bg-superficie/
+
+describe('guarda contra superfície escrita à mão', () => {
+  it('nenhuma tela repete a superfície de cartão em classe solta', () => {
+    // A superfície tem um dono: a classe `.cartao` do `globals.css`. Ela não
+    // cabe num componente porque veste `<details>`, `<form>` e `<header>` —
+    // trocar a tag deles por `<section>` apagaria o que a tag significa. Um
+    // `<details>` que vira seção deixa de abrir e fechar.
+    const achados: string[] = []
+
+    for (const arquivo of arquivosDeCodigo(join(process.cwd(), 'src'))) {
+      readFileSync(arquivo, 'utf8')
+        .split(/\r?\n/)
+        .forEach((linha, i) => {
+          if (SUPERFICIE_CRUA.test(linha)) {
+            const relativo = arquivo.slice(process.cwd().length + 1).replace(/\\/g, '/')
+            achados.push(`${relativo}:${i + 1}`)
+          }
+        })
+    }
+
+    expect(achados, `use a classe \`cartao\`:\n${achados.join('\n')}`).toEqual([])
+  })
+
+  it('reconhece a forma que deve barrar, e não barra a classe', () => {
+    // Sem este par, um erro no padrão faria a guarda passar sempre — foi
+    // exatamente assim que a guarda contra `<button>` cru nasceu cega.
+    expect('rounded border bg-superficie p-4'.match(SUPERFICIE_CRUA)).not.toBeNull()
+    expect('cartao p-4'.match(SUPERFICIE_CRUA)).toBeNull()
+  })
+})
+
 describe('guarda contra cor crua', () => {
   it('nenhuma tela declara cor fora dos tokens', () => {
     const achados: string[] = []

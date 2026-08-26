@@ -68,7 +68,7 @@ export default async function PaginaFuncionarios({
         <Botao variante="secundario">Filtrar</Botao>
       </form>
 
-      <ul className="divide-y rounded border bg-superficie">
+      <ul className="divide-y cartao">
         {funcionarios.map((funcionario) => (
           <li key={funcionario.id}>
             <Link

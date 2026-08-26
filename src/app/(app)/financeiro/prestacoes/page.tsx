@@ -117,7 +117,7 @@ export default async function PaginaPrestacoes({
         </Link>
       </div>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Abrir prestação</h2>
         </summary>
@@ -138,7 +138,7 @@ export default async function PaginaPrestacoes({
           const ajustado = prestacao.saldoAnteriorAjustado !== null
 
           return (
-            <article key={prestacao.id} className="space-y-3 rounded border bg-superficie p-4">
+            <article key={prestacao.id} className="space-y-3 cartao p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-medium text-forte">
                   {mesPorExtenso(prestacao.mesCompetencia)} de {prestacao.anoCompetencia}
@@ -256,7 +256,7 @@ export default async function PaginaPrestacoes({
       )}
 
       {cartoes.length === 0 && (
-        <p className="rounded border bg-superficie p-4 text-sm text-apoio">
+        <p className="cartao p-4 text-sm text-apoio">
           Nenhuma prestação aberta ainda.
         </p>
       )}

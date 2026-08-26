@@ -179,7 +179,7 @@ export default async function PaginaProntuario({
 
   return (
     <section className="space-y-4">
-      <header className="rounded border bg-superficie p-4">
+      <header className="cartao p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-forte">Prontuário — {nome}</h1>
@@ -210,7 +210,7 @@ export default async function PaginaProntuario({
       {/* Os três botões grandes da §9: um toque para o caso comum. O quarto
           que a spec prevê — medicação — chega com a Fase 2B. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <details className="rounded border bg-superficie">
+        <details className="cartao">
           <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Evolução
           </summary>
@@ -223,7 +223,7 @@ export default async function PaginaProntuario({
             />
           </div>
         </details>
-        <details className="rounded border bg-superficie">
+        <details className="cartao">
           <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Sinais vitais
           </summary>
@@ -231,7 +231,7 @@ export default async function PaginaProntuario({
             <FormularioSinalVital residenteId={id} />
           </div>
         </details>
-        <details className="rounded border bg-superficie">
+        <details className="cartao">
           <summary className="cursor-pointer px-2 py-4 text-center font-medium text-forte">
             Intercorrência
           </summary>
@@ -249,7 +249,7 @@ export default async function PaginaProntuario({
             previstas de todo mundo. */}
         <Link
           href="/turno"
-          className="flex items-center justify-center rounded border bg-superficie px-2 py-4 text-center font-medium text-forte"
+          className="flex items-center justify-center cartao px-2 py-4 text-center font-medium text-forte"
         >
           Medicação
         </Link>
@@ -257,7 +257,7 @@ export default async function PaginaProntuario({
 
       <LinhaDoTempo eventos={eventos} tipoSelecionado={tipo} residenteId={id} />
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Alergias ({dados.alergias.length})
         </summary>
@@ -283,7 +283,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Condições crônicas ({dados.condicoes.length})
         </summary>
@@ -306,7 +306,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Restrições alimentares ({dados.restricoes.length})
         </summary>
@@ -328,7 +328,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Anotações de saúde ({anotacoes.length})
         </summary>
@@ -386,7 +386,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Sinais vitais ({sinais.length})
         </summary>
@@ -406,7 +406,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Exames ({exames.length})
         </summary>
@@ -436,7 +436,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Consultas ({consultas.length})
         </summary>
@@ -465,7 +465,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Vacinas ({vacinas.length})
         </summary>
@@ -485,7 +485,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Medicações ({medicacoes.length})
         </summary>
@@ -526,7 +526,7 @@ export default async function PaginaProntuario({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Aderência (últimos 30 dias)
         </summary>

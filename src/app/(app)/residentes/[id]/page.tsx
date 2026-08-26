@@ -120,7 +120,7 @@ export default async function FichaResidente({
 
   return (
     <section className="space-y-4">
-      <header className="rounded border bg-superficie p-4">
+      <header className="cartao p-4">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-lg font-semibold text-forte">
             {residente.nomeSocial || residente.nomeCompleto}
@@ -205,7 +205,7 @@ export default async function FichaResidente({
           não. */}
       <AlertasDeCuidado dados={alertas} />
 
-      <details open className="rounded border bg-superficie p-4">
+      <details open className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Anotações ({anotacoes.length})
         </summary>
@@ -270,7 +270,7 @@ export default async function FichaResidente({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Responsáveis ({responsaveis.length})
         </summary>
@@ -333,7 +333,7 @@ export default async function FichaResidente({
           `definirContribuicao` o recusa de qualquer forma — esconder é
           conveniência, quem barra é o serviço. */}
       {(ctx.papel === 'COORDENACAO' || ctx.papel === 'ADMINISTRATIVO') && (
-        <details className="rounded border bg-superficie p-4">
+        <details className="cartao p-4">
           <summary className="cursor-pointer font-medium text-forte">
             Contribuição
           </summary>
@@ -366,7 +366,7 @@ export default async function FichaResidente({
         </details>
       )}
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Documentos ({documentos.length})
         </summary>
@@ -412,7 +412,7 @@ export default async function FichaResidente({
         )}
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           Grau de dependência ({avaliacoes.length} avaliações)
         </summary>

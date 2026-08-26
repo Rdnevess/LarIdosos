@@ -352,6 +352,32 @@
   display: inline;
 }
 
+/**
+ * A superficie de cartao, compartilhada.
+ *
+ * Ela nao cabe num componente. O primitivo `Cartao` serve o caso comum — uma
+ * secao com titulo —, mas a mesma superficie veste dezenove `<details>`
+ * recolhiveis, formularios, cabecalhos e paragrafos de aviso. Trocar a tag
+ * deles por `<section>` apagaria o que a tag significa: um `<details>` que
+ * vira secao deixa de abrir e fechar.
+ *
+ * Entao o que se compartilha e o estilo, e nao o elemento. `Cartao` tambem usa
+ * esta classe: ha uma resposta so para "como e uma superficie", e ela vale para
+ * qualquer tag que precise dela.
+ *
+ * **Padding fica de fora.** Ele e escolha do lugar, nao da superficie: a mesma
+ * superficie veste cartao de conteudo (`p-4`), aviso compacto (`p-3`) e lista
+ * com divisorias, que nao tem padding nenhum porque quem o carrega e cada
+ * item. Assar `padding: 1rem` aqui obrigaria oito lugares a desfaze-lo.
+ */
+@layer components {
+  .cartao {
+    border-radius: 0.5rem;
+    border: 1px solid var(--cor-borda);
+    background-color: var(--cor-superficie);
+  }
+}
+
 body {
   background: var(--cor-fundo);
   color: var(--cor-forte);
