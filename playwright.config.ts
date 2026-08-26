@@ -17,7 +17,7 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'autenticado',
-      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts|administrativo\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts/,
+      testIgnore: /auth\.setup\.ts|login\.spec\.ts|saude\.spec\.ts|administrativo\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts|aparencia\.spec\.ts/,
       dependencies: ['setup'],
       use: { storageState: 'tests/e2e/.sessao.json' },
     },
@@ -41,12 +41,19 @@ export default defineConfig({
     },
     // O tema começa deslogado — a escolha é feita na tela de login e o teste
     // segue por ela adentro — então roda aqui, e não com sessão pronta.
-    { name: 'anonimo', testMatch: /login\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts/ },
+    { name: 'anonimo', testMatch: /login\.spec\.ts|tema\.spec\.ts|saude-do-sistema\.spec\.ts|aparencia\.spec\.ts/ },
   ],
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000/login',
-    reuseExistingServer: true,
+    // `true` incondicional fazia a suíte anexar-se em silêncio a qualquer
+    // coisa já respondendo na porta 3000 — inclusive um `next dev` órfão de
+    // sessão anterior, com código velho. Foi o que produziu três falsas
+    // regressões numa mesma sessão de revisão, até alguém notar o processo
+    // esquecido. `!process.env.CI` mantém o reaproveitamento útil (evita
+    // reiniciar o servidor a cada rodada local) sem esconder um servidor
+    // errado.
+    reuseExistingServer: !process.env.CI,
     // A primeira compilação do `/login` num clone limpo passa de um minuto em
     // máquina modesta; o prazo curto derrubava a suíte antes de ela começar.
     timeout: 180_000,

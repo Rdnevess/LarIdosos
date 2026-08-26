@@ -61,3 +61,9 @@ playwright-report/
 # local acumula caminhos desta máquina e permissões de sessão que não valem
 # para mais ninguém.
 .claude/settings.local.json
+
+# Material de referência visual (logo, fotos do Lar) enviado para orientar o
+# design. Não versionado: são imagens de baixa resolução, provisórias, e
+# algumas mostram residentes — foto de idoso em ILPI é dado pessoal, e o
+# repositório não é lugar para ela.
+exemplo/

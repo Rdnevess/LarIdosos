@@ -50,14 +50,14 @@ export default async function PaginaTurno({
         <div className="flex shrink-0 gap-2">
           <Link
             href={`/turno?passos=${passosValidos - 1}`}
-            className="rounded border border-borda px-4 py-2 text-sm text-firme"
+            className="min-h-11 inline-flex items-center rounded border border-borda px-4 py-2 text-sm text-firme"
           >
             Turno anterior
           </Link>
           {!ehTurnoCorrente && (
             <Link
               href={passosValidos + 1 === 0 ? '/turno' : `/turno?passos=${passosValidos + 1}`}
-              className="rounded border border-borda px-4 py-2 text-sm text-firme"
+              className="min-h-11 inline-flex items-center rounded border border-borda px-4 py-2 text-sm text-firme"
             >
               Turno seguinte
             </Link>

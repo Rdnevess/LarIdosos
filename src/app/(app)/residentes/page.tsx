@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarResidentes } from '@/modules/residents/residentes.service'
 import { formatarData } from '@/lib/ptbr'
+import { Botao } from '@/components/ui/botao'
 
 export default async function PaginaResidentes({
   searchParams,
@@ -24,7 +25,7 @@ export default async function PaginaResidentes({
         {podeCadastrar && (
           <Link
             href="/residentes/novo"
-            className="rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+            className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
           >
             Novo residente
           </Link>
@@ -49,9 +50,7 @@ export default async function PaginaResidentes({
           <option value="DESLIGADO">Desligados</option>
           <option value="FALECIDO">Falecidos</option>
         </select>
-        <button type="submit" className="rounded border border-borda px-3 py-2 text-sm">
-          Filtrar
-        </button>
+        <Botao variante="secundario">Filtrar</Botao>
       </form>
 
       {residentes.length === 0 ? (

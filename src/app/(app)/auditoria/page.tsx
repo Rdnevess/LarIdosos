@@ -8,6 +8,7 @@ import type { EntidadeAuditada } from '@/modules/audit/auditoria.service'
 import { formatarDiff } from '@/modules/audit/auditoria.formatacao'
 import { fimDoDia } from '@/lib/periodo'
 import { formatarDataHora } from '@/lib/ptbr'
+import { Botao } from '@/components/ui/botao'
 
 // Tipado contra o enum do Prisma de propósito: uma ação nova em
 // `AcaoAuditoria` sem rótulo aqui quebra o `typecheck`, em vez de vazar o
@@ -174,9 +175,7 @@ export default async function PaginaAuditoria({
           className="rounded border border-borda px-3 py-2 text-base"
         />
 
-        <button type="submit" className="rounded border border-borda px-3 py-2 text-sm">
-          Filtrar
-        </button>
+        <Botao variante="secundario">Filtrar</Botao>
       </form>
 
       <p className="text-sm text-apoio">
@@ -222,12 +221,18 @@ export default async function PaginaAuditoria({
 
       <div className="flex gap-2">
         {pagina > 1 && (
-          <Link href={parametros(pagina - 1)} className="rounded border px-3 py-2 text-sm">
+          <Link
+            href={parametros(pagina - 1)}
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+          >
             Anterior
           </Link>
         )}
         {pagina < resultado.paginas && (
-          <Link href={parametros(pagina + 1)} className="rounded border px-3 py-2 text-sm">
+          <Link
+            href={parametros(pagina + 1)}
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+          >
             Próxima
           </Link>
         )}

@@ -6,6 +6,7 @@ import {
 } from '@/modules/staff/funcionarios.service'
 import { formatarData } from '@/lib/ptbr'
 import { ROTULO_VINCULO } from '@/components/formulario-funcionario'
+import { Botao } from '@/components/ui/botao'
 
 export default async function PaginaFuncionarios({
   searchParams,
@@ -26,7 +27,7 @@ export default async function PaginaFuncionarios({
         <h1 className="text-lg font-semibold text-forte">Funcionários</h1>
         <Link
           href="/funcionarios/novo"
-          className="rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+          className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
         >
           Novo funcionário
         </Link>
@@ -64,9 +65,7 @@ export default async function PaginaFuncionarios({
           aria-label="Buscar por nome ou cargo"
           className="flex-1 rounded border border-borda px-3 py-2 text-base"
         />
-        <button type="submit" className="rounded border border-borda px-3 py-2 text-sm">
-          Filtrar
-        </button>
+        <Botao variante="secundario">Filtrar</Botao>
       </form>
 
       <ul className="divide-y rounded border bg-superficie">

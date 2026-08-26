@@ -62,6 +62,7 @@ export default async function PaginaDesligarResidente({
             acao={acaoDesligarResidente}
             ocultos={{ id: residente.id }}
             rotuloBotao="Registrar saída"
+            variante="perigo"
             campos={[
               {
                 nome: 'status',

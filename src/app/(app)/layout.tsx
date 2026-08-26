@@ -6,6 +6,7 @@ import { obterCtxOuNulo } from '@/modules/auth/sessao'
 import { signOut } from '@/modules/auth/config'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { BotaoTema } from '@/components/botao-tema'
+import { Botao } from '@/components/ui/botao'
 
 const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
   // Primeiro da lista: e a tela mais usada do sistema pela equipe de cuidado.
@@ -72,9 +73,7 @@ export default async function LayoutAutenticado({
                 await signOut({ redirectTo: '/login' })
               }}
             >
-              <button type="submit" className="text-sm text-medio underline">
-                Sair
-              </button>
+              <Botao variante="secundario">Sair</Botao>
             </form>
           </div>
         </div>
@@ -83,7 +82,7 @@ export default async function LayoutAutenticado({
             <Link
               key={item.href}
               href={item.href}
-              className="whitespace-nowrap rounded px-3 py-2 text-sm text-firme hover:bg-realce"
+              className="min-h-11 inline-flex items-center whitespace-nowrap rounded px-3 py-2 text-sm text-firme hover:bg-realce"
             >
               {item.rotulo}
             </Link>

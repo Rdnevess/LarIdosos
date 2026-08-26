@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import type { TipoDocumento } from '@prisma/client'
 import { ROTULO_TIPO_DOCUMENTO } from '@/lib/ptbr'
 import { acaoAnexarDocumento } from '@/app/(app)/residentes/acoes'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * Fica em arquivo próprio, e não junto dos demais formulários da ficha, porque
@@ -70,9 +71,9 @@ export function FormularioDocumento({
 
       {estado?.erro && <p role="alert" className="text-sm text-perigo">{estado.erro}</p>}
 
-      <button type="submit" disabled={enviando} className="rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60">
+      <Botao disabled={enviando}>
         {enviando ? 'Enviando…' : 'Anexar documento'}
-      </button>
+      </Botao>
     </form>
   )
 }

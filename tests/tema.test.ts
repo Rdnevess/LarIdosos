@@ -107,8 +107,12 @@ const DECORATIVOS = new Set(['tenue'])
 const AA = 4.5
 
 describe('os três blocos do globals.css', () => {
-  it('cobrem os mesmos 26 tokens', () => {
-    expect(Object.keys(claro)).toHaveLength(26)
+  it('cobrem os mesmos 27 tokens', () => {
+    // A contagem é cravada de propósito. As outras asserções deste teste só
+    // verificam que os três blocos concordam ENTRE SI — se alguém apagasse o
+    // mesmo token dos três, elas continuariam verdes. Este número é o que
+    // percebe um token que sumiu.
+    expect(Object.keys(claro)).toHaveLength(27)
     expect(Object.keys(escuroDoSistema).sort()).toEqual(Object.keys(claro).sort())
     expect(Object.keys(escuroEscolhido).sort()).toEqual(Object.keys(claro).sort())
   })
@@ -225,6 +229,46 @@ describe('guarda contra cor crua', () => {
       'border-borda-suave', 'hover:bg-suave', 'bg-alerta-realce', 'text-perigo-forte',
     ]) {
       expect(token.match(COR_CRUA), `não deveria barrar ${token}`).toBeNull()
+    }
+  })
+})
+
+// `\b` e não `[\s>]`: em JSX multilinha a tag abre sozinha na linha
+// (`      <button`), sem nada depois. O padrão anterior exigia um caractere
+// seguinte e era cego a 7 das 12 ocorrências que existiam — uma guarda que
+// aprovava justamente o formato dominante do repositório.
+const BOTAO_CRU = /<button\b/
+
+describe('guarda contra botão cru', () => {
+  it('nenhuma tela declara <button> fora do primitivo', () => {
+    // Mesmo motivo da guarda de cor: "como é um botão primário" precisa ter uma
+    // resposta só. O primitivo é o único lugar autorizado a escrever a tag.
+    const achados: string[] = []
+
+    for (const arquivo of arquivosDeCodigo(join(process.cwd(), 'src'))) {
+      if (arquivo.endsWith(join('ui', 'botao.tsx'))) continue
+      readFileSync(arquivo, 'utf8')
+        .split(/\r?\n/)
+        .forEach((linha, i) => {
+          if (BOTAO_CRU.test(linha)) {
+            const relativo = arquivo.slice(process.cwd().length + 1).replace(/\\/g, '/')
+            achados.push(`${relativo}:${i + 1}`)
+          }
+        })
+    }
+
+    expect(achados, `use <Botao> de @/components/ui/botao:\n${achados.join('\n')}`).toEqual([])
+  })
+
+  it('reconhece as formas de escrever a tag que deve barrar', () => {
+    for (const forma of ['<button>', '<button ', '<button\n', '      <button', '<button type="submit">']) {
+      expect(forma.match(BOTAO_CRU), `deveria barrar ${JSON.stringify(forma)}`).not.toBeNull()
+    }
+  })
+
+  it('não confunde o primitivo com a tag crua', () => {
+    for (const forma of ['<Botao>', '<Botao ', '<BotaoTema />', '<buttonish>']) {
+      expect(forma.match(BOTAO_CRU), `não deveria barrar ${forma}`).toBeNull()
     }
   })
 })

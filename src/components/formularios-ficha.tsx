@@ -172,6 +172,7 @@ export function FormularioRemoverResponsavel({
       colunas={1}
       prefixoId={`remover-responsavel-${responsavelId}`}
       rotuloBotao="Remover responsável"
+      variante="perigo"
       aviso="O responsável sai da ficha, mas o registro continua no banco e na trilha de auditoria. Use quando a pessoa deixou de ser responsável — não para corrigir um cadastro errado, que é caso de edição."
       campos={[]}
     />
@@ -200,6 +201,7 @@ export function FormularioExcluirDocumento({
       colunas={1}
       prefixoId={`excluir-documento-${documentoId}`}
       rotuloBotao="Excluir documento"
+      variante="perigo"
       aviso="O documento sai da ficha, mas o arquivo e o registro continuam guardados, e a exclusão é auditada com o nome de quem a fez."
       campos={[]}
     />

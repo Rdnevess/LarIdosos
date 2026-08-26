@@ -1,6 +1,7 @@
 'use client'
 
 import { cookieDeTema, lerTema, oposto, type Tema } from '@/lib/tema'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * O controle que alterna o tema, e que não depende de hidratação para mostrar
@@ -40,11 +41,12 @@ export function BotaoTema() {
   }
 
   return (
-    <button
-      type="button"
+    <Botao
+      tipo="button"
+      variante="secundario"
       onClick={alternar}
       aria-label="Alternar tema claro e escuro"
-      className="whitespace-nowrap rounded px-2 py-1 text-sm text-medio hover:bg-realce"
+      className="whitespace-nowrap"
     >
       <span aria-hidden data-oferta="escuro">
         ☾ Escuro
@@ -52,6 +54,6 @@ export function BotaoTema() {
       <span aria-hidden data-oferta="claro">
         ☀ Claro
       </span>
-    </button>
+    </Botao>
   )
 }

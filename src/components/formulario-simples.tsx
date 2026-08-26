@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { Campo, type PropsCampo } from './campo'
 import type { EstadoAcao } from '@/lib/acoes'
+import { Botao } from '@/components/ui/botao'
 
 export function FormularioSimples({
   acao,
@@ -12,6 +13,7 @@ export function FormularioSimples({
   colunas = 2,
   prefixoId,
   aviso,
+  variante,
 }: {
   acao: (estado: EstadoAcao | null, dados: FormData) => Promise<EstadoAcao>
   campos: PropsCampo[]
@@ -24,6 +26,9 @@ export function FormularioSimples({
   /** Aviso exibido antes dos campos, para consequência que o usuário não tem
    *  como adivinhar olhando o formulário. */
   aviso?: string
+  /** Repassado ao `Botao`. Sem valor, ele decide sozinho (`primario`) — é o
+   *  que preserva o comportamento de todo formulário que não é destrutivo. */
+  variante?: 'primario' | 'secundario' | 'perigo'
 }) {
   const [estado, enviar, enviando] = useActionState(acao, null)
 
@@ -57,13 +62,9 @@ export function FormularioSimples({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60 sm:w-auto"
-      >
+      <Botao variante={variante} disabled={enviando} className="w-full sm:w-auto">
         {enviando ? 'Salvando…' : rotuloBotao}
-      </button>
+      </Botao>
     </form>
   )
 }

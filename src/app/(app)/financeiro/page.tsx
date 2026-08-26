@@ -15,6 +15,7 @@ import {
   FormularioCancelarLancamento,
 } from '@/components/formularios-financeiro'
 import { fimDoDia } from '@/lib/periodo'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * Os lançamentos do mês.
@@ -188,12 +189,9 @@ export default async function PaginaFinanceiro({
             <option value="DESPESA">Despesas</option>
           </select>
         </div>
-        <button
-          type="submit"
-          className="rounded bg-acao px-4 py-2 text-sobre-acao sm:col-span-4 sm:w-auto"
-        >
+        <Botao variante="secundario" className="sm:col-span-4">
           Filtrar
-        </button>
+        </Botao>
       </form>
 
       <div className="grid gap-3 sm:grid-cols-3">

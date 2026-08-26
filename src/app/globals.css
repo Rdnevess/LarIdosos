@@ -23,7 +23,7 @@
  *
  * É o que os blocos abaixo fazem. As classes cruas do markup (`bg-white`,
  * `text-slate-800`, `border-slate-300`) viram papéis uma única vez, e o tema
- * escuro passa a ser um bloco que redefine os mesmos 26 tokens. Nenhuma tela
+ * escuro passa a ser um bloco que redefine os mesmos 27 tokens. Nenhuma tela
  * precisa saber que existem dois temas.
  *
  * A decisão é toda do CSS, em três blocos:
@@ -49,24 +49,38 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies e bordas */
-  --cor-fundo: #f8fafc;
+  /* Superfícies e bordas — neutro quente, derivado do creme #fdfaf7 da marca.
+     A luminância de cada degrau é a mesma da família slate que estava aqui, e
+     só a temperatura mudou: assim o ritmo visual que já funcionava sobrevive.
+     Um cinza azulado ao lado do creme da marca lê como erro de impressão. */
+  --cor-fundo: #fbfaf8;
   --cor-superficie: #ffffff;
-  --cor-suave: #f8fafc;
-  --cor-realce: #f1f5f9;
-  --cor-borda: #cbd5e1;
-  --cor-borda-suave: #e2e8f0;
+  --cor-suave: #fbfaf8;
+  --cor-realce: #f8f4f1;
+  --cor-borda: #d9d3cc;
+  --cor-borda-suave: #eae7e3;
 
-  /* Texto, cinco degraus */
-  --cor-forte: #1e293b;
-  --cor-firme: #334155;
-  --cor-medio: #475569;
-  --cor-apoio: #64748b;
-  --cor-tenue: #94a3b8;
+  /* Texto. `forte` carrega a marca — é o marinho do telhado da logo, medido em
+     #0b3e6f, com 10,86:1 sobre branco. Os quatro degraus abaixo dele recuam
+     para o neutro quente: se o título fosse marinho e o corpo cinza-azulado, as
+     duas temperaturas brigariam na mesma frase. */
+  --cor-forte: #0b3e6f;
+  --cor-firme: #463f39;
+  --cor-medio: #5b524a;
+  --cor-apoio: #7d7166;
+  --cor-tenue: #aaa197;
 
-  /* Ação */
-  --cor-acao: #1e293b;
+  /* Ação: o azul da fita e do wordmark, medido em #165c99. Passa 6,94:1 sobre
+     branco, então serve como texto e como fundo de botão sem ajuste — o que
+     raramente acontece com cor de marca. */
+  --cor-acao: #165c99;
   --cor-sobre-acao: #ffffff;
+
+  /* O dourado dos selos de categoria. **Só filete e anel** — nunca texto,
+     nunca fundo de caixa. Ele reprova AA (2,64:1 a 3,04:1 sobre branco), a logo
+     principal não o usa, e ao lado da família âmbar viraria a mesma cor para
+     quem passa os olhos numa tela de plantão. Ver §3 da spec. */
+  --cor-detalhe: #ae9050;
 
   /* Semânticos */
   --cor-alerta: #78350f;
@@ -88,25 +102,33 @@
   :root:not([data-tema="claro"]) {
     color-scheme: dark;
 
-    /* Superfícies e bordas */
-    --cor-fundo: #0f172a;
-    --cor-superficie: #1e293b;
-    --cor-suave: #253345;
-    --cor-realce: #475569;
-    --cor-borda: #475569;
-    --cor-borda-suave: #334155;
+    /* Superfícies e bordas: mesma luminância de antes, com a tinta marinha da
+       marca no lugar do slate. */
+    --cor-fundo: #0e1823;
+    --cor-superficie: #182a3c;
+    --cor-suave: #1e3349;
+    --cor-realce: #32567b;
+    --cor-borda: #32567b;
+    --cor-borda-suave: #27425e;
 
-    /* Texto, cinco degraus */
-    --cor-forte: #f1f5f9;
-    --cor-firme: #e2e8f0;
-    --cor-medio: #cbd5e1;
-    --cor-apoio: #94a3b8;
-    --cor-tenue: #64748b;
+    /* Texto: os cinco degraus, levemente frios para assentar sobre o marinho. */
+    --cor-forte: #f3f5f6;
+    --cor-firme: #e4e8eb;
+    --cor-medio: #cfd5da;
+    --cor-apoio: #97a4b0;
+    --cor-tenue: #647485;
 
-    /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
-       #0f172a seria quase invisível, e a inversão acontece num lugar só. */
-    --cor-acao: #e2e8f0;
-    --cor-sobre-acao: #0f172a;
+    /* No escuro o botão inverte: fundo azul claro, texto escuro. Não é gosto —
+       é a única saída de duas regras que puxam para lados opostos. Um azul
+       escuro o bastante para texto branco (4,5:1, WCAG 1.4.3) fica claro de
+       menos para se destacar do cartão escuro (3:1, WCAG 1.4.11): o valor
+       anterior dava 2,89:1 contra `superficie`. Assim são 5,74:1 para o texto,
+       5,41:1 contra o cartão e 6,61:1 contra a página. */
+    --cor-acao: #5ba3e0;
+    --cor-sobre-acao: #0b2540;
+
+    /* O dourado no escuro. Continua só filete e anel. */
+    --cor-detalhe: #c0a670;
 
     /* Semânticos */
     --cor-alerta: #fde68a;
@@ -128,25 +150,33 @@
 :root[data-tema="escuro"] {
   color-scheme: dark;
 
-  /* Superfícies e bordas */
-  --cor-fundo: #0f172a;
-  --cor-superficie: #1e293b;
-  --cor-suave: #253345;
-  --cor-realce: #475569;
-  --cor-borda: #475569;
-  --cor-borda-suave: #334155;
+  /* Superfícies e bordas: mesma luminância de antes, com a tinta marinha da
+     marca no lugar do slate. */
+  --cor-fundo: #0e1823;
+  --cor-superficie: #182a3c;
+  --cor-suave: #1e3349;
+  --cor-realce: #32567b;
+  --cor-borda: #32567b;
+  --cor-borda-suave: #27425e;
 
-  /* Texto, cinco degraus */
-  --cor-forte: #f1f5f9;
-  --cor-firme: #e2e8f0;
-  --cor-medio: #cbd5e1;
-  --cor-apoio: #94a3b8;
-  --cor-tenue: #64748b;
+  /* Texto: os cinco degraus, levemente frios para assentar sobre o marinho. */
+  --cor-forte: #f3f5f6;
+  --cor-firme: #e4e8eb;
+  --cor-medio: #cfd5da;
+  --cor-apoio: #97a4b0;
+  --cor-tenue: #647485;
 
-  /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
-     #0f172a seria quase invisível, e a inversão acontece num lugar só. */
-  --cor-acao: #e2e8f0;
-  --cor-sobre-acao: #0f172a;
+  /* No escuro o botão inverte: fundo azul claro, texto escuro. Não é gosto —
+     é a única saída de duas regras que puxam para lados opostos. Um azul
+     escuro o bastante para texto branco (4,5:1, WCAG 1.4.3) fica claro de
+     menos para se destacar do cartão escuro (3:1, WCAG 1.4.11): o valor
+     anterior dava 2,89:1 contra `superficie`. Assim são 5,74:1 para o texto,
+     5,41:1 contra o cartão e 6,61:1 contra a página. */
+  --cor-acao: #5ba3e0;
+  --cor-sobre-acao: #0b2540;
+
+  /* O dourado no escuro. Continua só filete e anel. */
+  --cor-detalhe: #c0a670;
 
   /* Semânticos */
   --cor-alerta: #fde68a;
@@ -186,6 +216,8 @@
   --color-acao: var(--cor-acao);
   --color-sobre-acao: var(--cor-sobre-acao);
 
+  --color-detalhe: var(--cor-detalhe);
+
   --color-alerta: var(--cor-alerta);
   --color-alerta-suave: var(--cor-alerta-suave);
   --color-alerta-fundo: var(--cor-alerta-fundo);
@@ -200,8 +232,40 @@
   --color-sucesso-forte: var(--cor-sucesso-forte);
   --color-sucesso-fundo: var(--cor-sucesso-fundo);
 
+  /* Cinco degraus, pelo mesmo motivo que a cor de texto tem cinco: o que não
+     tem nome vira decisão repetida em cada tela. Antes disto, `text-sm`
+     aparecia 155 vezes e `text-lg` 26 — a tela inteira falava no mesmo tom.
+     Em `rem` de propósito: assim, se a raiz mudar de novo — por dispositivo
+     ou por qualquer outro motivo —, a escala inteira acompanha numa regra só. */
+  --text-titulo: 1.5rem;
+  --text-titulo--line-height: 2rem;
+  --text-secao: 1.125rem;
+  --text-secao--line-height: 1.75rem;
+  --text-corpo: 1rem;
+  --text-corpo--line-height: 1.5rem;
+  /* `suporte`, e não `apoio`: `--color-apoio` já existe e gera a mesma classe
+     utilitária `text-apoio`. A cor venceria e o degrau de tamanho nasceria
+     morto — conferido compilando o CSS. */
+  --text-suporte: 0.875rem;
+  --text-suporte--line-height: 1.25rem;
+  --text-legenda: 0.75rem;
+  --text-legenda--line-height: 1rem;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/**
+ * A raiz em 16px, e a mesma em todo dispositivo.
+ *
+ * A densidade por dispositivo — 15px no desktop — foi tentada e revertida: ela
+ * só funciona depois que as telas adotarem a escala (`text-corpo`,
+ * `text-suporte`), e com 148 `text-sm` ainda no markup o efeito foi o oposto do
+ * pretendido, encolhendo o texto corrente de 14px para 13,1px. Volta quando a
+ * adoção acontecer, e não antes.
+ */
+:root {
+  font-size: 16px;
 }
 
 /**
@@ -220,13 +284,33 @@
  * da v3.
  *
  * Esta é a mudança visível no tema claro que o design aceitou de propósito: as
- * bordas sem cor deixam de ser quase pretas e passam a ser slate-300.
+ * bordas sem cor deixam de ser quase pretas e passam a ser `#d9d3cc`, o mesmo
+ * neutro quente do restante da paleta — e não um slate-300 genérico.
  */
 @layer base {
   *,
   ::before,
   ::after {
     border-color: var(--cor-borda);
+  }
+
+  /**
+   * Piso de toque. `2.75rem` e não `44px`: em `rem` ele acompanha a raiz —
+   * hoje 44px em qualquer dispositivo, porque a raiz é a mesma em qualquer
+   * dispositivo (ver o comentário da raiz, acima).
+   *
+   * `min-height` e não `height`: o controle pode crescer com o conteúdo, e um
+   * botão de duas linhas não deve ser espremido de volta.
+   *
+   * Checkbox e radio ficam de fora: o alvo de toque deles vem do `<label>` que
+   * os envolve (ver `campo.tsx`), não da caixinha em si — esticar a caixa para
+   * 44px a deixaria alta e estreita, deformada em vez de maior.
+   */
+  button,
+  select,
+  input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+  textarea {
+    min-height: 2.75rem;
   }
 }
 
@@ -271,7 +355,11 @@
 body {
   background: var(--cor-fundo);
   color: var(--cor-forte);
-  font-family: Arial, Helvetica, sans-serif;
+  /* A Geist já é carregada pelo `next/font` em `src/app/layout.tsx` e exposta
+     como `--font-sans` no `@theme inline` acima. A linha que estava aqui fixava
+     Arial e descartava as duas coisas — o sistema pagava o download da fonte e
+     renderizava com a de sistema. Era sobra do template inicial do Next. */
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 /**
