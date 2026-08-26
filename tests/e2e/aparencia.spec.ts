@@ -73,7 +73,7 @@ test('os links de navegação também alcançam 44px no celular', async ({ page 
   expect(pequenos, pequenos.join('\n')).toEqual([])
 })
 
-test('as três variantes de botão têm contraste de componente nos dois temas', async ({
+test('o botão primário tem contraste de componente nos dois temas', async ({
   page,
 }) => {
   // Duas regras, e a segunda é a que escapa: o texto sobre o botão precisa de
@@ -85,6 +85,13 @@ test('as três variantes de botão têm contraste de componente nos dois temas',
   // o botão do login vive dentro de um `form` com `bg-superficie`, que cobre a
   // página inteira atrás dele. Medir contra o `body` foi o defeito que deixou
   // passar um 2,89:1 no tema escuro dando 3,53:1 como resposta.
+  //
+  // Só o `primario` é medido aqui: a tela de login só tem esta variante. As
+  // outras duas — `secundario` e `perigo` — são verificadas por cálculo nos
+  // comentários de `src/components/ui/botao.tsx`, e não por este teste. Nelas
+  // o preenchimento é igual à superfície ao redor (razão ≈ 1,0) e quem carrega
+  // o contraste é o `borderColor`; a asserção abaixo, que mede o fundo, as
+  // reprovaria estando corretas.
   for (const tema of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: tema })
     await page.goto('/login')
