@@ -54,6 +54,25 @@ test('nenhum controle é menor que 44px no celular', async ({ page }) => {
   expect(pequenos, pequenos.join('\n')).toEqual([])
 })
 
+test('os links de navegação também alcançam 44px no celular', async ({ page }) => {
+  // O teste do piso roda em /login, que não tem link nenhum — passava por
+  // ausência de caso. A navegação do sistema inteiro é link, e era o que
+  // estava fora do piso: 36px em todos os itens.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/residentes/)
+
+  const pequenos: string[] = []
+  for (const link of await page.locator('nav a').all()) {
+    const caixa = await link.boundingBox()
+    if (caixa && caixa.height < 44) pequenos.push(`${await link.innerText()} ${caixa.height.toFixed(0)}px`)
+  }
+  expect(pequenos, pequenos.join('\n')).toEqual([])
+})
+
 test('as três variantes de botão têm contraste de componente nos dois temas', async ({
   page,
 }) => {

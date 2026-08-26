@@ -22,7 +22,7 @@ export default function NaoEncontrado() {
       </p>
       <Link
         href="/residentes"
-        className="inline-block rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
+        className="min-h-11 inline-flex items-center rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
       >
         Voltar aos residentes
       </Link>

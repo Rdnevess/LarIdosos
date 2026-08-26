@@ -221,12 +221,18 @@ export default async function PaginaAuditoria({
 
       <div className="flex gap-2">
         {pagina > 1 && (
-          <Link href={parametros(pagina - 1)} className="rounded border px-3 py-2 text-sm">
+          <Link
+            href={parametros(pagina - 1)}
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+          >
             Anterior
           </Link>
         )}
         {pagina < resultado.paginas && (
-          <Link href={parametros(pagina + 1)} className="rounded border px-3 py-2 text-sm">
+          <Link
+            href={parametros(pagina + 1)}
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+          >
             Próxima
           </Link>
         )}

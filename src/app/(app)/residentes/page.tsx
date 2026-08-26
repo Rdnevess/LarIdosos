@@ -25,7 +25,7 @@ export default async function PaginaResidentes({
         {podeCadastrar && (
           <Link
             href="/residentes/novo"
-            className="rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+            className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
           >
             Novo residente
           </Link>

@@ -48,7 +48,7 @@ export default function ErroNaTela({
         </Botao>
         <Link
           href="/residentes"
-          className="rounded border border-borda px-4 py-3 text-sm text-firme"
+          className="min-h-11 inline-flex items-center rounded border border-borda px-4 py-3 text-sm text-firme"
         >
           Voltar aos residentes
         </Link>

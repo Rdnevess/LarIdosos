@@ -27,7 +27,7 @@ export default async function PaginaFuncionarios({
         <h1 className="text-lg font-semibold text-forte">Funcionários</h1>
         <Link
           href="/funcionarios/novo"
-          className="rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+          className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
         >
           Novo funcionário
         </Link>

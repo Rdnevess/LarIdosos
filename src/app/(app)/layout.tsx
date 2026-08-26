@@ -82,7 +82,7 @@ export default async function LayoutAutenticado({
             <Link
               key={item.href}
               href={item.href}
-              className="whitespace-nowrap rounded px-3 py-2 text-sm text-firme hover:bg-realce"
+              className="min-h-11 inline-flex items-center whitespace-nowrap rounded px-3 py-2 text-sm text-firme hover:bg-realce"
             >
               {item.rotulo}
             </Link>
