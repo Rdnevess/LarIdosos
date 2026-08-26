@@ -11,17 +11,17 @@ describe('icones', () => {
     expect(Object.keys(CAMINHOS).sort()).toEqual([...esperados].sort())
   })
 
-  it('todo icone tem markup e nenhum vem vazio', () => {
-    // Markup vazio renderiza nada e nao quebra: o icone some da tela sem erro.
-    // E o tipo de defeito que so aparece quando alguem pergunta "cade o icone".
+  it('todo ícone tem markup e nenhum vem vazio', () => {
+    // Markup vazio renderiza nada e não quebra: o ícone some da tela sem erro.
+    // É o tipo de defeito que só aparece quando alguém pergunta "cadê o ícone".
     for (const [nome, markup] of Object.entries(CAMINHOS)) {
       expect(markup.length, `${nome} veio vazio`).toBeGreaterThan(10)
-      expect(markup, `${nome} nao parece markup SVG`).toMatch(/^<(path|circle|line|rect|polyline|polygon|ellipse)\b/)
+      expect(markup, `${nome} não parece markup SVG`).toMatch(/^<(path|circle|line|rect|polyline|polygon|ellipse)\b/)
     }
   })
 
-  it('nenhum icone carrega script', () => {
-    // Guarda da vendorizacao: se alguem colar markup de fora sem olhar, isto
+  it('nenhum ícone carrega script', () => {
+    // Guarda da vendorização: se alguém colar markup de fora sem olhar, isto
     // barra o caso que transformaria `dangerouslySetInnerHTML` em problema real.
     for (const markup of Object.values(CAMINHOS)) {
       expect(markup).not.toMatch(/<script|on[a-z]+=/i)
