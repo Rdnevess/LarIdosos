@@ -38,10 +38,10 @@ export function FormularioDocumento({
       <input type="hidden" name="residenteId" value={residenteId} />
 
       <div className="space-y-1">
-        <label htmlFor="tipo" className="text-sm font-medium text-firme">
+        <label htmlFor="tipo" className="text-suporte font-medium text-firme">
           Tipo do documento <span className="text-perigo">*</span>
         </label>
-        <select id="tipo" name="tipo" required className="w-full rounded border border-borda px-3 py-2 text-base">
+        <select id="tipo" name="tipo" required className="w-full rounded border border-borda px-3 py-2 text-corpo">
           {tipos.map((tipo) => (
             <option key={tipo} value={tipo}>
               {ROTULO_TIPO_DOCUMENTO[tipo]}
@@ -51,12 +51,12 @@ export function FormularioDocumento({
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="descricao" className="text-sm font-medium text-firme">Descrição</label>
-        <input id="descricao" name="descricao" className="w-full rounded border border-borda px-3 py-2 text-base" />
+        <label htmlFor="descricao" className="text-suporte font-medium text-firme">Descrição</label>
+        <input id="descricao" name="descricao" className="w-full rounded border border-borda px-3 py-2 text-corpo" />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="arquivo" className="text-sm font-medium text-firme">
+        <label htmlFor="arquivo" className="text-suporte font-medium text-firme">
           Arquivo (PDF, JPG, PNG ou WEBP, até 20 MB) <span className="text-perigo">*</span>
         </label>
         <input
@@ -65,11 +65,11 @@ export function FormularioDocumento({
           type="file"
           required
           accept="application/pdf,image/jpeg,image/png,image/webp"
-          className="w-full rounded border border-borda px-3 py-2 text-base"
+          className="w-full rounded border border-borda px-3 py-2 text-corpo"
         />
       </div>
 
-      {estado?.erro && <p role="alert" className="text-sm text-perigo">{estado.erro}</p>}
+      {estado?.erro && <p role="alert" className="text-suporte text-perigo">{estado.erro}</p>}
 
       <Botao disabled={enviando}>
         {enviando ? 'Enviando…' : 'Anexar documento'}

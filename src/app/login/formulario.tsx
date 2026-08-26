@@ -14,11 +14,16 @@ export function FormularioLogin({ destino }: { destino: string }) {
         {/* A única rota fora do grupo `(app)`, e por isso a única que precisa
             do botão por conta própria. É também a tela onde o tema escuro pela
             metade doía mais: o texto digitado sumia no campo. */}
+        {/* O único tamanho que a adoção da escala mudou de valor: este título
+            estava em 1,25rem, que cai entre dois degraus. Subiu para
+            `text-titulo` (1,5rem) em vez de descer para `text-secao` porque é
+            o `<h1>` da tela, e é aqui que quem abre o sistema reconhece o Lar.
+            A saída errada seria criar um sexto degrau para acomodar um caso. */}
         <div className="flex items-start justify-between gap-2">
-          <h1 className="text-xl font-semibold text-forte">Lar Dona Francisca</h1>
+          <h1 className="text-titulo font-semibold text-forte">Lar Dona Francisca</h1>
           <BotaoTema />
         </div>
-        <p className="text-sm text-apoio">Entre com suas credenciais</p>
+        <p className="text-suporte text-apoio">Entre com suas credenciais</p>
 
         {/* Viaja no formulário, e não na URL do POST: a Server Action recebe
             `FormData`, e é lá que `entrar` o lê — depois de `destinoSeguro`
@@ -26,7 +31,7 @@ export function FormularioLogin({ destino }: { destino: string }) {
         <input type="hidden" name="destino" value={destino} />
 
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium text-firme">E-mail</label>
+          <label htmlFor="email" className="text-suporte font-medium text-firme">E-mail</label>
           <input
             id="email"
             name="email"
@@ -38,7 +43,7 @@ export function FormularioLogin({ destino }: { destino: string }) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="senha" className="text-sm font-medium text-firme">Senha</label>
+          <label htmlFor="senha" className="text-suporte font-medium text-firme">Senha</label>
           <input
             id="senha"
             name="senha"
@@ -49,7 +54,7 @@ export function FormularioLogin({ destino }: { destino: string }) {
           />
         </div>
 
-        {erro && <p role="alert" className="text-sm text-perigo">{erro}</p>}
+        {erro && <p role="alert" className="text-suporte text-perigo">{erro}</p>}
 
         <Botao disabled={enviando} className="w-full">
           {enviando ? 'Entrando…' : 'Entrar'}

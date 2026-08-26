@@ -39,7 +39,7 @@ export function FormularioSimples({
       ))}
 
       {aviso && (
-        <p className="rounded border border-alerta-borda bg-alerta-fundo p-2 text-sm text-alerta">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-2 text-suporte text-alerta">
           {aviso}
         </p>
       )}
@@ -51,13 +51,13 @@ export function FormularioSimples({
       </div>
 
       {estado?.erro && (
-        <p role="alert" className="text-sm text-perigo">
+        <p role="alert" className="text-suporte text-perigo">
           {estado.erro}
         </p>
       )}
 
       {estado?.sucesso && (
-        <p role="status" className="text-sm text-sucesso">
+        <p role="status" className="text-suporte text-sucesso">
           Registro salvo.
         </p>
       )}

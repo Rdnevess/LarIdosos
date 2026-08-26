@@ -106,10 +106,10 @@ export default async function PaginaFinanceiro({
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-forte">Financeiro</h1>
-          <p className="text-sm text-apoio">Receitas e despesas do período.</p>
+          <h1 className="text-secao font-semibold text-forte">Financeiro</h1>
+          <p className="text-suporte text-apoio">Receitas e despesas do período.</p>
         </div>
-        <div className="flex gap-3 text-sm">
+        <div className="flex gap-3 text-suporte">
           <Link href="/financeiro/cadastros" className="underline">
             Cadastros
           </Link>
@@ -123,7 +123,7 @@ export default async function PaginaFinanceiro({
       </div>
 
       {contas.length === 0 && (
-        <p className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-sm text-alerta">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-suporte text-alerta">
           Nenhuma conta bancária cadastrada.{' '}
           <Link href="/financeiro/cadastros" className="underline">
             Cadastre uma conta
@@ -134,14 +134,14 @@ export default async function PaginaFinanceiro({
 
       <form className="grid gap-3 cartao p-4 sm:grid-cols-4">
         <div className="space-y-1">
-          <label htmlFor="conta" className="text-sm font-medium text-firme">
+          <label htmlFor="conta" className="text-suporte font-medium text-firme">
             Conta
           </label>
           <select
             id="conta"
             name="conta"
             defaultValue={filtros.conta ?? ''}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           >
             <option value="">Todas</option>
             {opcoesConta.map((opcao) => (
@@ -152,7 +152,7 @@ export default async function PaginaFinanceiro({
           </select>
         </div>
         <div className="space-y-1">
-          <label htmlFor="de" className="text-sm font-medium text-firme">
+          <label htmlFor="de" className="text-suporte font-medium text-firme">
             De
           </label>
           <input
@@ -160,11 +160,11 @@ export default async function PaginaFinanceiro({
             name="de"
             type="date"
             defaultValue={de}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="ate" className="text-sm font-medium text-firme">
+          <label htmlFor="ate" className="text-suporte font-medium text-firme">
             Até
           </label>
           <input
@@ -172,18 +172,18 @@ export default async function PaginaFinanceiro({
             name="ate"
             type="date"
             defaultValue={ate}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="natureza" className="text-sm font-medium text-firme">
+          <label htmlFor="natureza" className="text-suporte font-medium text-firme">
             Natureza
           </label>
           <select
             id="natureza"
             name="natureza"
             defaultValue={filtros.natureza ?? ''}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           >
             <option value="">Todas</option>
             <option value="RECEITA">Receitas</option>
@@ -196,17 +196,17 @@ export default async function PaginaFinanceiro({
       </form>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <p className="cartao p-3 text-sm">
+        <p className="cartao p-3 text-suporte">
           <span className="block text-apoio">Receitas no período</span>
-          <span className="text-lg font-semibold text-forte">{formatarMoeda(receitas)}</span>
+          <span className="text-secao font-semibold text-forte">{formatarMoeda(receitas)}</span>
         </p>
-        <p className="cartao p-3 text-sm">
+        <p className="cartao p-3 text-suporte">
           <span className="block text-apoio">Despesas no período</span>
-          <span className="text-lg font-semibold text-forte">{formatarMoeda(despesas)}</span>
+          <span className="text-secao font-semibold text-forte">{formatarMoeda(despesas)}</span>
         </p>
-        <p className="cartao p-3 text-sm">
+        <p className="cartao p-3 text-suporte">
           <span className="block text-apoio">Resultado</span>
-          <span className="text-lg font-semibold text-forte">
+          <span className="text-secao font-semibold text-forte">
             {formatarMoeda(Math.round((receitas - despesas) * 100) / 100)}
           </span>
         </p>
@@ -247,7 +247,7 @@ export default async function PaginaFinanceiro({
         </h2>
         <ul className="divide-y">
           {lancamentos.map((lancamento) => (
-            <li key={lancamento.id} className="py-3 text-sm">
+            <li key={lancamento.id} className="py-3 text-suporte">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-medium text-forte">{lancamento.descricao}</span>
                 <span
@@ -285,7 +285,7 @@ export default async function PaginaFinanceiro({
             </li>
           ))}
           {lancamentos.length === 0 && (
-            <li className="py-2 text-sm text-apoio">
+            <li className="py-2 text-suporte text-apoio">
               Nenhum lançamento no período filtrado.
             </li>
           )}

@@ -84,7 +84,7 @@ export function FormularioResidente({
       </div>
 
       {estado?.erro && (
-        <p role="alert" className="text-sm text-perigo">
+        <p role="alert" className="text-suporte text-perigo">
           {estado.erro}
         </p>
       )}
@@ -92,7 +92,7 @@ export function FormularioResidente({
       {/* A edição não redireciona: sem este aviso o usuário salva e não recebe
           sinal nenhum de que a correção foi gravada. */}
       {estado?.sucesso && (
-        <p role="status" className="text-sm text-sucesso">
+        <p role="status" className="text-suporte text-sucesso">
           Cadastro salvo.
         </p>
       )}

@@ -32,7 +32,7 @@ export default async function PaginaEditarFuncionario({
 
   return (
     <section className="space-y-6">
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         {funcionario.nomeCompleto}
       </h1>
 
@@ -52,7 +52,7 @@ export default async function PaginaEditarFuncionario({
       {funcionario.ativo ? (
         <Cartao>
           <h2 className="mb-1 font-medium text-forte">Desligamento</h2>
-          <p className="mb-3 text-sm text-apoio">
+          <p className="mb-3 text-suporte text-apoio">
             O registro é preservado; o funcionário deixa de aparecer nas listas e
             nos avisos de registro profissional.
           </p>
@@ -73,7 +73,7 @@ export default async function PaginaEditarFuncionario({
           />
         </Cartao>
       ) : (
-        <p className="rounded border bg-suave p-4 text-sm text-medio">
+        <p className="rounded border bg-suave p-4 text-suporte text-medio">
           Desligado em{' '}
           {funcionario.dataDesligamento
             ? formatarData(funcionario.dataDesligamento)

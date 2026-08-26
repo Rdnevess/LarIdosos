@@ -83,7 +83,7 @@ export default async function LayoutAutenticado({
             <Link
               key={item.href}
               href={item.href}
-              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-firme hover:bg-realce"
+              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-suporte text-firme hover:bg-realce"
             >
               {/* O ícone acompanha o rótulo, nunca o substitui: sozinho ele
                   vira adivinhação para quem está de plantão. Sem `rotulo`,

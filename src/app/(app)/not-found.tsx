@@ -14,16 +14,16 @@ import { Cartao } from '@/components/ui/cartao'
 export default function NaoEncontrado() {
   return (
     <Cartao className="space-y-4">
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         Registro não encontrado
       </h1>
-      <p className="text-sm text-medio">
+      <p className="text-suporte text-medio">
         O endereço não corresponde a nenhum cadastro. Ele pode ter sido
         digitado errado, ou o link pode estar desatualizado.
       </p>
       <Link
         href="/residentes"
-        className="min-h-11 inline-flex items-center rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
+        className="min-h-11 inline-flex items-center rounded bg-acao px-4 py-3 text-suporte text-sobre-acao"
       >
         Voltar aos residentes
       </Link>

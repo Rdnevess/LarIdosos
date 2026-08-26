@@ -129,14 +129,14 @@ export default async function PaginaAuditoria({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-lg font-semibold text-forte">Trilha de auditoria</h1>
+      <h1 className="text-secao font-semibold text-forte">Trilha de auditoria</h1>
 
       <form className="grid gap-2 sm:grid-cols-5">
         <select
           name="entidade"
           defaultValue={filtros.entidade ?? ''}
           aria-label="Entidade"
-          className="rounded border border-borda px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-corpo"
         >
           <option value="">Todas as entidades</option>
           {Object.entries(ROTULO_ENTIDADE).map(([valor, rotulo]) => (
@@ -150,7 +150,7 @@ export default async function PaginaAuditoria({
           name="usuarioId"
           defaultValue={filtros.usuarioId ?? ''}
           aria-label="Usuário"
-          className="rounded border border-borda px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-corpo"
         >
           <option value="">Todos os usuários</option>
           {usuarios.map((usuario) => (
@@ -165,25 +165,25 @@ export default async function PaginaAuditoria({
           name="de"
           defaultValue={filtros.de}
           aria-label="De"
-          className="rounded border border-borda px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-corpo"
         />
         <input
           type="date"
           name="ate"
           defaultValue={filtros.ate}
           aria-label="Até"
-          className="rounded border border-borda px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-corpo"
         />
 
         <Botao variante="secundario">Filtrar</Botao>
       </form>
 
-      <p className="text-sm text-apoio">
+      <p className="text-suporte text-apoio">
         {resultado.total} registro(s) · página {pagina} de {resultado.paginas}
       </p>
 
       <div className="overflow-x-auto cartao">
-        <table className="w-full text-left text-sm">
+        <table className="w-full text-left text-suporte">
           <thead className="border-b bg-suave">
             <tr>
               <th className="p-2">Data/hora</th>
@@ -202,7 +202,7 @@ export default async function PaginaAuditoria({
                 <td className="p-2">
                   {rotularEntidade(registro.entidade)}
                   {registro.entidadeId && (
-                    <span className="block text-xs text-apoio">{registro.entidadeId}</span>
+                    <span className="block text-legenda text-apoio">{registro.entidadeId}</span>
                   )}
                 </td>
                 <td className="p-2 text-medio">{formatarDiff(registro.diff)}</td>
@@ -223,7 +223,7 @@ export default async function PaginaAuditoria({
         {pagina > 1 && (
           <Link
             href={parametros(pagina - 1)}
-            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-suporte"
           >
             Anterior
           </Link>
@@ -231,7 +231,7 @@ export default async function PaginaAuditoria({
         {pagina < resultado.paginas && (
           <Link
             href={parametros(pagina + 1)}
-            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-sm"
+            className="min-h-11 inline-flex items-center rounded border px-3 py-2 text-suporte"
           >
             Próxima
           </Link>

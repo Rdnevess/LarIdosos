@@ -34,12 +34,12 @@ export default async function PaginaDesligarResidente({
   if (ctx.papel === 'SAUDE') {
     return (
       <section className="space-y-4">
-        <h1 className="text-lg font-semibold text-forte">{nome}</h1>
-        <p className="cartao p-4 text-sm text-medio">
+        <h1 className="text-secao font-semibold text-forte">{nome}</h1>
+        <p className="cartao p-4 text-suporte text-medio">
           O registro de desligamento ou óbito é feito pela coordenação ou pela
           equipe administrativa. Fale com a coordenação.
         </p>
-        <Link href={`/residentes/${id}`} className="text-sm text-medio underline">
+        <Link href={`/residentes/${id}`} className="text-suporte text-medio underline">
           Voltar à ficha
         </Link>
       </section>
@@ -48,13 +48,13 @@ export default async function PaginaDesligarResidente({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         Desligamento de {nome}
       </h1>
 
       {residente.status === 'ATIVO' ? (
         <Cartao>
-          <p className="mb-3 text-sm text-apoio">
+          <p className="mb-3 text-suporte text-apoio">
             O cadastro é preservado; o residente deixa de aparecer na lista de
             ativos e passa a ser encontrado pelo filtro de situação. Registre
             aqui também o falecimento.
@@ -81,7 +81,7 @@ export default async function PaginaDesligarResidente({
           />
         </Cartao>
       ) : (
-        <dl className="space-y-1 rounded border bg-suave p-4 text-sm text-firme">
+        <dl className="space-y-1 rounded border bg-suave p-4 text-suporte text-firme">
           <div className="flex gap-2">
             <dt className="text-apoio">Situação:</dt>
             <dd>{ROTULO_STATUS_RESIDENTE[residente.status]}</dd>
@@ -101,7 +101,7 @@ export default async function PaginaDesligarResidente({
         </dl>
       )}
 
-      <Link href={`/residentes/${id}`} className="text-sm text-medio underline">
+      <Link href={`/residentes/${id}`} className="text-suporte text-medio underline">
         Voltar à ficha
       </Link>
     </section>

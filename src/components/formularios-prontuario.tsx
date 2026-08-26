@@ -112,7 +112,7 @@ export function FormularioDesativar({
 }) {
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm text-medio underline">Retirar</summary>
+      <summary className="cursor-pointer text-suporte text-medio underline">Retirar</summary>
       <div className="mt-2">
         <FormularioSimples
           acao={ACOES_DESATIVAR[acao]}
@@ -303,7 +303,7 @@ export function FormularioAtualizarExame({
 }) {
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm text-medio underline">Atualizar</summary>
+      <summary className="cursor-pointer text-suporte text-medio underline">Atualizar</summary>
       <div className="mt-2">
         <FormularioSimples
           acao={acaoAtualizarExame}
@@ -364,7 +364,7 @@ export function FormularioAtualizarConsulta({
 }) {
   return (
     <details className="mt-1">
-      <summary className="cursor-pointer text-sm text-medio underline">Atualizar</summary>
+      <summary className="cursor-pointer text-suporte text-medio underline">Atualizar</summary>
       <div className="mt-2">
         <FormularioSimples
           acao={acaoAtualizarConsulta}
