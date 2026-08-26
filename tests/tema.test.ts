@@ -233,6 +233,12 @@ describe('guarda contra cor crua', () => {
   })
 })
 
+// `\b` e não `[\s>]`: em JSX multilinha a tag abre sozinha na linha
+// (`      <button`), sem nada depois. O padrão anterior exigia um caractere
+// seguinte e era cego a 7 das 12 ocorrências que existiam — uma guarda que
+// aprovava justamente o formato dominante do repositório.
+const BOTAO_CRU = /<button\b/
+
 describe('guarda contra botão cru', () => {
   it('nenhuma tela declara <button> fora do primitivo', () => {
     // Mesmo motivo da guarda de cor: "como é um botão primário" precisa ter uma
@@ -244,7 +250,7 @@ describe('guarda contra botão cru', () => {
       readFileSync(arquivo, 'utf8')
         .split(/\r?\n/)
         .forEach((linha, i) => {
-          if (/<button[\s>]/.test(linha)) {
+          if (BOTAO_CRU.test(linha)) {
             const relativo = arquivo.slice(process.cwd().length + 1).replace(/\\/g, '/')
             achados.push(`${relativo}:${i + 1}`)
           }
@@ -252,5 +258,17 @@ describe('guarda contra botão cru', () => {
     }
 
     expect(achados, `use <Botao> de @/components/ui/botao:\n${achados.join('\n')}`).toEqual([])
+  })
+
+  it('reconhece as formas de escrever a tag que deve barrar', () => {
+    for (const forma of ['<button>', '<button ', '<button\n', '      <button', '<button type="submit">']) {
+      expect(forma.match(BOTAO_CRU), `deveria barrar ${JSON.stringify(forma)}`).not.toBeNull()
+    }
+  })
+
+  it('não confunde o primitivo com a tag crua', () => {
+    for (const forma of ['<Botao>', '<Botao ', '<BotaoTema />', '<buttonish>']) {
+      expect(forma.match(BOTAO_CRU), `não deveria barrar ${forma}`).toBeNull()
+    }
   })
 })
