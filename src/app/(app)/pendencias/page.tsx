@@ -31,8 +31,8 @@ export default async function PaginaPendencias() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-forte">Pendências</h1>
-        <p className="text-sm text-apoio">
+        <h1 className="text-secao font-semibold text-forte">Pendências</h1>
+        <p className="text-suporte text-apoio">
           De todos os residentes, da mais antiga para a mais recente.
         </p>
       </div>
@@ -43,7 +43,7 @@ export default async function PaginaPendencias() {
         </h2>
         <ul className="divide-y">
           {exames.map((exame) => (
-            <li key={exame.id} className="py-2 text-sm">
+            <li key={exame.id} className="py-2 text-suporte">
               <Link
                 href={`/residentes/${exame.residenteId}/prontuario`}
                 className="font-medium text-forte underline"
@@ -62,7 +62,7 @@ export default async function PaginaPendencias() {
             </li>
           ))}
           {exames.length === 0 && (
-            <li className="py-2 text-sm text-apoio">
+            <li className="py-2 text-suporte text-apoio">
               Nenhum exame aguardando andamento.
             </li>
           )}
@@ -81,7 +81,7 @@ export default async function PaginaPendencias() {
             // escondida.
             const atrasada = consulta.dataHora < agora
             return (
-              <li key={consulta.id} className="py-2 text-sm">
+              <li key={consulta.id} className="py-2 text-suporte">
                 <Link
                   href={`/residentes/${consulta.residenteId}/prontuario`}
                   className="font-medium text-forte underline"
@@ -104,7 +104,7 @@ export default async function PaginaPendencias() {
             )
           })}
           {consultas.length === 0 && (
-            <li className="py-2 text-sm text-apoio">Nenhuma consulta agendada.</li>
+            <li className="py-2 text-suporte text-apoio">Nenhuma consulta agendada.</li>
           )}
         </ul>
       </Cartao>

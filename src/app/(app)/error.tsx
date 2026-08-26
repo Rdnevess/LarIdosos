@@ -34,10 +34,10 @@ export default function ErroNaTela({
 }) {
   return (
     <Cartao className="space-y-4">
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         Não foi possível abrir esta tela
       </h1>
-      <p className="text-sm text-medio">
+      <p className="text-suporte text-medio">
         Pode ser uma falha temporária, ou o seu perfil pode não ter permissão
         para esta parte do sistema. Tente de novo; se continuar, avise a
         coordenação.
@@ -49,14 +49,14 @@ export default function ErroNaTela({
         </Botao>
         <Link
           href="/residentes"
-          className="min-h-11 inline-flex items-center rounded border border-borda px-4 py-3 text-sm text-firme"
+          className="min-h-11 inline-flex items-center rounded border border-borda px-4 py-3 text-suporte text-firme"
         >
           Voltar aos residentes
         </Link>
       </div>
 
       {error.digest && (
-        <p className="text-xs text-medio">
+        <p className="text-legenda text-medio">
           Código para o suporte: {error.digest}
         </p>
       )}

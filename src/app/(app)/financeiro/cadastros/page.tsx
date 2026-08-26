@@ -46,7 +46,7 @@ function Secao({
       <summary className="cursor-pointer font-medium text-forte">
         <h2 className="inline">{titulo}</h2>
       </summary>
-      {descricao && <p className="mt-1 text-sm text-apoio">{descricao}</p>}
+      {descricao && <p className="mt-1 text-suporte text-apoio">{descricao}</p>}
       <div className="mt-4 space-y-4">{children}</div>
     </details>
   )
@@ -66,8 +66,8 @@ export default async function PaginaCadastrosFinanceiro() {
   return (
     <section className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-forte">Cadastros do financeiro</h1>
-        <p className="text-sm text-apoio">
+        <h1 className="text-secao font-semibold text-forte">Cadastros do financeiro</h1>
+        <p className="text-suporte text-apoio">
           O que precisa existir antes de lançar.{' '}
           <Link href="/financeiro" className="underline">
             Ir para os lançamentos
@@ -87,7 +87,7 @@ export default async function PaginaCadastrosFinanceiro() {
         titulo="Contas bancárias"
         descricao="Cada lançamento pertence a uma conta, e cada prestação cobre uma conta num mês."
       >
-        <ul className="divide-y text-sm">
+        <ul className="divide-y text-suporte">
           {contas.map((conta) => (
             <li key={conta.id} className="py-2">
               <span className="font-medium text-forte">
@@ -110,7 +110,7 @@ export default async function PaginaCadastrosFinanceiro() {
         titulo="Origens de receita"
         descricao="De onde o dinheiro vem. O rótulo da prestação é o que agrupa na conciliação — é por ele que a contribuição de um residente sai somada às demais como “Doação”, sem o nome dele."
       >
-        <ul className="divide-y text-sm">
+        <ul className="divide-y text-suporte">
           {origens.map((origem) => (
             <li key={origem.id} className="py-2">
               <span className="font-medium text-forte">{origem.nome}</span>
@@ -128,7 +128,7 @@ export default async function PaginaCadastrosFinanceiro() {
       </Secao>
 
       <Secao titulo="Categorias de despesa" descricao="Em que o dinheiro é gasto.">
-        <ul className="divide-y text-sm">
+        <ul className="divide-y text-suporte">
           {categorias.map((categoria) => (
             <li key={categoria.id} className="py-2 text-forte">
               {categoria.nome}
@@ -145,7 +145,7 @@ export default async function PaginaCadastrosFinanceiro() {
         titulo="Fornecedores"
         descricao="Para quem se paga. O documento é conferido conforme o tipo — este cadastro é o que substitui o XLOOKUP quebrado da planilha."
       >
-        <ul className="divide-y text-sm">
+        <ul className="divide-y text-suporte">
           {fornecedores.map((fornecedor) => (
             <li key={fornecedor.id} className="py-2">
               <span className="font-medium text-forte">{fornecedor.nome}</span>

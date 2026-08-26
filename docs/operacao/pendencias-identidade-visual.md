@@ -13,16 +13,23 @@ O item **2 foi revertido** e continua aqui em vez de sumir, pelo mesmo motivo do
 item 4 do documento da Fase 3: ele desfaz uma decisão que estava escrita e
 defendida na spec, e apagar o registro apagaria junto o motivo de ela ter caído.
 
+O item **1 foi resolvido no mesmo dia em que este documento nasceu**, e isso não
+é pressa: escrevê-lo foi o que tornou o tamanho do problema visível — 202
+lugares, contados — e um problema contado é um problema que cabe numa branch.
+
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. A escala tipográfica está declarada e não adotada | aberto | numa varredura dos 31 arquivos |
-| 2. Densidade por dispositivo — tentada e revertida | revertido | volta depois do 1, e não antes |
+| 1. A escala tipográfica está declarada e não adotada | resolvido | 26/08/2026 |
+| 2. Densidade por dispositivo — tentada e revertida | revertido, destravado | pode voltar; o item 1 era a trava |
 | 3. O dourado da marca não tem um único chamador | aberto | filete agora; anel na etapa 3 |
 | 4. Nove dos quinze ícones não têm chamador | aberto, esperado | conforme as telas pedirem |
 | 5. Logo e favicon — a etapa 3 está pela metade | aberto, bloqueado | quando os vetores da marca chegarem |
-| 6. Só existe guarda para o que já foi adotado | aberto | ao fechar o 1 e o 3 |
+| 6. Só existe guarda para o que já foi adotado | metade resolvido | a escala tem guarda; o dourado não |
 
-## 1. A escala tipográfica está declarada e não adotada
+## 1. A escala tipográfica está declarada e não adotada — resolvido
+
+**Resolvido em 26/08/2026.** O registro do problema fica abaixo, inteiro, porque
+o item 6 depende dele para fazer sentido.
 
 **Situação:** os cinco degraus existem em `globals.css` e o markup continua
 falando Tailwind cru. A contagem de hoje:
@@ -54,7 +61,7 @@ repetida em cada tela. Os 148 `text-sm` estão concentrados — seis arquivos
 carregam 72 deles, e a ficha do residente sozinha tem 19.
 
 **O único que exige decisão** é o `text-xl` do `<h1>` da tela de login
-(`src/app/login/formulario.tsx`, linha 18): 1,25rem, que cai entre `text-secao`
+(`src/app/login/formulario.tsx`): 1,25rem, que cai entre `text-secao`
 (1,125rem) e `text-titulo` (1,5rem). A escala tem cinco degraus de propósito, e
 acrescentar um sexto para acomodar um caso desfaz o motivo de ela existir — o
 título do login sobe para `text-titulo` ou desce para `text-secao`, e a única
@@ -64,6 +71,32 @@ resposta errada é criar o degrau.
 adoção é pior que nenhuma: deixa duas telas vizinhas dizendo a mesma coisa de
 dois jeitos, e ninguém consegue afirmar qual está certa. Ou se varre tudo com a
 guarda do item 6 atrás, ou não se começa.
+
+### Resolvido em 26/08/2026
+
+A varredura foi feita de uma vez, com a guarda escrita antes dela e vista
+falhando com a lista dos 202 lugares. Hoje o Tailwind cru tem zero usos e a
+escala tem 204 no markup: os 201 que a varredura trocou, mais os três que já
+viviam nos primitivos. O 202º achado era um comentário — o de `campo.tsx`, que
+citava o degrau pelo nome e foi renomeado junto, para não envelhecer.
+
+**Um único pixel mudou**, e foi o caso que este registro previa: o `<h1>` do
+login subiu de 1,25rem para `text-titulo` (1,5rem). O motivo está escrito ao
+lado dele no código — é o `<h1>` da tela, e é ali que quem abre o sistema
+reconhece o Lar. O sexto degrau que acomodaria os 1,25rem não foi criado.
+
+**A guarda pegou o primeiro infrator antes de qualquer tela:** o comentário que
+eu havia escrito no login para registrar a decisão citava a classe morta pelo
+nome, e a guarda — que é por linha, como as outras três — acusou. O comentário
+passou a falar pelo valor. É o comportamento certo, e as outras três guardas
+fariam o mesmo.
+
+**Uma armadilha ficou registrada em `campo.tsx`:** aquele degrau é o único que
+precisa valer 16px **absolutos**, e não relativos — abaixo disso o iOS dá zoom
+ao focar o campo. Quem baixar a raiz no celular quebra o campo sem quebrar teste
+nenhum. Vale para o item 2.
+
+**Verificado:** 568 testes de unidade, 73 E2E, `tsc` e `eslint` limpos.
 
 ## 2. A densidade por dispositivo foi tentada e revertida
 
@@ -81,7 +114,16 @@ legibilidade. A regra estava certa; a ordem é que estava errada.
 a condição de volta escrita ao lado. O `aparencia.spec.ts` passou a exigir 16px
 em qualquer dispositivo, e o teste foi renomeado para o que ele agora verifica.
 
-**Quando volta:** depois do item 1, e não antes.
+**Quando volta:** depois do item 1 — que fechou em 26/08/2026. **A trava saiu**,
+e a densidade por dispositivo pode voltar quando alguém quiser: hoje a escala
+inteira está em `rem` e adotada, então baixar a raiz no desktop encolhe tudo na
+proporção pretendida, que era o efeito original.
+
+**A condição que a volta tem de respeitar:** o campo de formulário precisa de
+16px absolutos no celular, ou o iOS dá zoom ao focar (está escrito em
+`campo.tsx`). O bloco revertido mexia só a partir de `min-width: 640px` e por
+isso não esbarrava nisso — se voltar assim, continua não esbarrando. Baixar a
+raiz no celular é que quebraria, e sem quebrar teste nenhum.
 
 **A verificação que a spec pediu e não existe:** a §9 previa um E2E conferindo
 que a tabela de auditoria mantém o mesmo número de linhas por tela no desktop. A
@@ -166,15 +208,23 @@ bg-superficie` escrito à mão). **As três estão adotadas até o fim** — `<B
 em 14 arquivos, a classe `.cartao` em 18 além do próprio primitivo, e nenhuma
 cor crua em lugar nenhum.
 
-Duas entraram sem guarda: a escala tipográfica e o dourado. **A escala só tem
+Duas entraram sem guarda: a escala tipográfica e o dourado. **A escala só tinha
 chamador dentro dos próprios primitivos; o dourado não tem nenhum.**
 
 Não é coincidência, e a lição é barata: o que não tem guarda não é adotado, por
-mais que o plano afirme que será. Ao fechar o item 1, a guarda contra `text-sm`
-e família entra na mesma branch — no mesmo arquivo e no mesmo formato das outras
-três, com o par de controles negativos que a guarda contra `<button>` cru só
-ganhou depois de nascer cega: um que confirma que ela barra a forma crua, outro
-que confirma que ela não barra o degrau da escala.
+mais que o plano afirme que será.
+
+**A metade da escala está fechada.** Em 26/08/2026 a guarda contra `text-sm` e
+família entrou na mesma branch que a varredura, e antes dela — no mesmo arquivo
+e no mesmo formato das outras três, com o par de controles negativos que a
+guarda contra `<button>` cru só ganhou depois de nascer cega: um confirma que
+ela barra a forma crua, outro que ela não barra nem o degrau da escala nem a
+cor. As cores entraram nesse controle de propósito, porque `text-` é prefixo de
+tamanho e de cor ao mesmo tempo, e uma guarda gulosa apagaria a paleta inteira.
+
+A prova de que ela não nasceu cega veio no mesmo dia: o primeiro achado dela
+não foi uma tela, foi um comentário recém-escrito que citava a classe morta pelo
+nome.
 
 **O dourado é o caso em que a guarda não serve.** Não se testa "alguém usou o
 filete" — ausência de uso não é defeito quando o uso é pontual por decisão. O

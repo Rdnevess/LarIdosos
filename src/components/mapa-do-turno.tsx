@@ -67,7 +67,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
       <section aria-label="Doses do turno" className="space-y-4">
         {grupos.map(([horario, doses]) => (
           <div key={horario} className="cartao p-4">
-            <h2 className="mb-3 text-lg font-semibold text-forte">{horario}</h2>
+            <h2 className="mb-3 text-secao font-semibold text-forte">{horario}</h2>
             <ul className="divide-y">
               {doses.map((dose) => (
                 <li
@@ -84,19 +84,19 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
                   >
                     {dose.residenteNome}
                   </Link>
-                  <p className="text-sm text-medio">
+                  <p className="text-suporte text-medio">
                     {dose.farmaco} · {dose.dose} · {dose.via.toLowerCase()}
                   </p>
                   {dose.instrucoes && (
-                    <p className="text-sm text-apoio">{dose.instrucoes}</p>
+                    <p className="text-suporte text-apoio">{dose.instrucoes}</p>
                   )}
-                  <p className={`text-sm ${CLASSE_ESTADO[dose.estado]}`}>
+                  <p className={`text-suporte ${CLASSE_ESTADO[dose.estado]}`}>
                     {ROTULO_ESTADO[dose.estado]}
                     {dose.motivo && ` — ${ROTULO_MOTIVO[dose.motivo] ?? dose.motivo}`}
                     {dose.registroTardio && ' · registro fora do turno'}
                   </p>
                   {dose.observacao && (
-                    <p className="text-sm text-apoio">{dose.observacao}</p>
+                    <p className="text-suporte text-apoio">{dose.observacao}</p>
                   )}
 
                   {dose.estado !== 'ADMINISTRADA' &&
@@ -125,7 +125,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
         ))}
 
         {grupos.length === 0 && (
-          <p className="cartao p-4 text-sm text-apoio">
+          <p className="cartao p-4 text-suporte text-apoio">
             Nenhuma dose de horário fixo neste turno.
           </p>
         )}
@@ -135,7 +135,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
         <h2 className="mb-1 font-medium text-forte">
           Se necessário ({mapa.seNecessario.length})
         </h2>
-        <p className="mb-3 text-sm text-apoio">
+        <p className="mb-3 text-suporte text-apoio">
           Não têm dose prevista: registram-se quando a necessidade aparece.
         </p>
         <ul className="divide-y">
@@ -147,11 +147,11 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
               >
                 {medicacao.residenteNome}
               </Link>
-              <p className="text-sm text-medio">
+              <p className="text-suporte text-medio">
                 {medicacao.farmaco} · {medicacao.dose} · {medicacao.via.toLowerCase()}
               </p>
               {medicacao.instrucoes && (
-                <p className="text-sm text-apoio">{medicacao.instrucoes}</p>
+                <p className="text-suporte text-apoio">{medicacao.instrucoes}</p>
               )}
               <FormularioRegistrarDose
                 medicacaoId={medicacao.medicacaoId}
@@ -162,7 +162,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
             </li>
           ))}
           {mapa.seNecessario.length === 0 && (
-            <li className="py-2 text-sm text-apoio">
+            <li className="py-2 text-suporte text-apoio">
               Nenhuma medicação de uso condicional prescrita.
             </li>
           )}
@@ -175,10 +175,10 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
 export function CabecalhoDoTurno({ mapa }: { mapa: Mapa }) {
   return (
     <div>
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         Turno da {ROTULO_TURNO[mapa.janela.turno].toLowerCase()}
       </h1>
-      <p className="text-sm text-apoio">
+      <p className="text-suporte text-apoio">
         {formatarData(mapa.janela.inicio)}, das {hora(mapa.janela.inicio)} às{' '}
         {hora(mapa.janela.fim)} · {mapa.doses.length} dose(s)
       </p>

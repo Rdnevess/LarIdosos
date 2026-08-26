@@ -182,14 +182,14 @@ export default async function PaginaProntuario({
       <header className="cartao p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold text-forte">Prontuário — {nome}</h1>
-            <p className="text-sm text-apoio">
+            <h1 className="text-secao font-semibold text-forte">Prontuário — {nome}</h1>
+            <p className="text-suporte text-apoio">
               Admissão em {formatarData(residente.dataAdmissao)}
             </p>
           </div>
           <Link
             href={`/residentes/${id}`}
-            className="shrink-0 whitespace-nowrap text-sm text-medio underline"
+            className="shrink-0 whitespace-nowrap text-suporte text-medio underline"
           >
             Ver cadastro
           </Link>
@@ -263,7 +263,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.alergias.map((alergia) => (
-            <li key={alergia.id} className="text-sm">
+            <li key={alergia.id} className="text-suporte">
               <span className="font-medium text-forte">{alergia.agente}</span>{' '}
               <span className="text-apoio">
                 — {alergia.gravidade.toLowerCase()}
@@ -289,7 +289,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.condicoes.map((condicao) => (
-            <li key={condicao.id} className="text-sm">
+            <li key={condicao.id} className="text-suporte">
               <span className="font-medium text-forte">{condicao.descricao}</span>
               {condicao.cid10 && <span className="text-apoio"> — {condicao.cid10}</span>}
               <FormularioDesativar
@@ -312,7 +312,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {dados.restricoes.map((restricao) => (
-            <li key={restricao.id} className="text-sm">
+            <li key={restricao.id} className="text-suporte">
               <span className="font-medium text-forte">{restricao.descricao}</span>
               <FormularioDesativar
                 acao="restricao"
@@ -334,7 +334,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-3">
           {anotacoes.map((anotacao) => (
-            <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3 text-sm">
+            <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3 text-suporte">
               <p className="text-apoio">
                 {formatarDataHora(anotacao.ocorridoEm)} ·{' '}
                 {ROTULO_CATEGORIA_SAUDE[anotacao.categoria]} · turno da{' '}
@@ -350,7 +350,7 @@ export default async function PaginaProntuario({
                 {anotacao.criadoPorId === ctx.usuarioId &&
                   anotacao.editavelAte > new Date() && (
                     <details>
-                      <summary className="cursor-pointer text-sm text-medio underline">
+                      <summary className="cursor-pointer text-suporte text-medio underline">
                         Editar
                       </summary>
                       <div className="mt-2">
@@ -363,7 +363,7 @@ export default async function PaginaProntuario({
                     </details>
                   )}
                 <details>
-                  <summary className="cursor-pointer text-sm text-medio underline">
+                  <summary className="cursor-pointer text-suporte text-medio underline">
                     Retificar
                   </summary>
                   <div className="mt-2">
@@ -392,7 +392,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {sinais.map((sinal) => (
-            <li key={sinal.id} className="text-sm">
+            <li key={sinal.id} className="text-suporte">
               <span className="text-apoio">{formatarDataHora(sinal.aferidoEm)}</span>{' '}
               <span className="text-forte">{resumirSinalVital(sinal)}</span>
               {sinal.observacao && (
@@ -412,7 +412,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {exames.map((exame) => (
-            <li key={exame.id} className="text-sm">
+            <li key={exame.id} className="text-suporte">
               <span className="font-medium text-forte">{exame.tipo}</span>{' '}
               <span className="text-apoio">
                 — {ROTULO_STATUS_EXAME[exame.status]}
@@ -442,7 +442,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {consultas.map((consulta) => (
-            <li key={consulta.id} className="text-sm">
+            <li key={consulta.id} className="text-suporte">
               <span className="font-medium text-forte">{consulta.especialidade}</span>{' '}
               <span className="text-apoio">
                 — {ROTULO_STATUS_CONSULTA[consulta.status]} ·{' '}
@@ -471,7 +471,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-2">
           {vacinas.map((vacina) => (
-            <li key={vacina.id} className="text-sm">
+            <li key={vacina.id} className="text-suporte">
               <span className="font-medium text-forte">{vacina.imunizante}</span>{' '}
               <span className="text-apoio">
                 — {vacina.dose} · {formatarData(vacina.dataAplicacao)}
@@ -491,7 +491,7 @@ export default async function PaginaProntuario({
         </summary>
         <ul className="mt-3 space-y-3">
           {medicacoes.map((medicacao) => (
-            <li key={medicacao.id} className="text-sm">
+            <li key={medicacao.id} className="text-suporte">
               <span className="font-medium text-forte">{medicacao.farmaco}</span>{' '}
               <span className="text-apoio">
                 {medicacao.concentracao ? `${medicacao.concentracao} · ` : ''}

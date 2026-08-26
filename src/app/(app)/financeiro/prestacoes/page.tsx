@@ -110,10 +110,10 @@ export default async function PaginaPrestacoes({
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-forte">Prestações de contas</h1>
-          <p className="text-sm text-apoio">Uma por conta bancária, por mês.</p>
+          <h1 className="text-secao font-semibold text-forte">Prestações de contas</h1>
+          <p className="text-suporte text-apoio">Uma por conta bancária, por mês.</p>
         </div>
-        <Link href="/financeiro" className="text-sm underline">
+        <Link href="/financeiro" className="text-suporte underline">
           Voltar aos lançamentos
         </Link>
       </div>
@@ -150,13 +150,13 @@ export default async function PaginaPrestacoes({
                 </Etiqueta>
               </div>
 
-              <dl className="grid gap-2 text-sm sm:grid-cols-4">
+              <dl className="grid gap-2 text-suporte sm:grid-cols-4">
                 <div>
                   <dt className="text-apoio">Saldo anterior</dt>
                   <dd className="font-semibold text-forte">
                     {formatarMoeda(saldoAnterior)}
                     {ajustado && (
-                      <span className="block text-xs font-normal text-alerta-suave">
+                      <span className="block text-legenda font-normal text-alerta-suave">
                         ajustado (derivado: {formatarMoeda(derivado)})
                       </span>
                     )}
@@ -179,18 +179,18 @@ export default async function PaginaPrestacoes({
               </dl>
 
               {prestacao.justificativaAjuste && (
-                <p className="text-sm text-medio">
+                <p className="text-suporte text-medio">
                   Ajuste do saldo: {prestacao.justificativaAjuste}
                 </p>
               )}
               {prestacao.motivoReabertura && (
-                <p className="text-sm text-medio">
+                <p className="text-suporte text-medio">
                   Reaberta: {prestacao.motivoReabertura}
                 </p>
               )}
 
               {!aberta && (
-                <p className="flex flex-wrap gap-3 text-sm">
+                <p className="flex flex-wrap gap-3 text-suporte">
                   <Link
                     href={`/api/prestacoes/${prestacao.id}/xlsx`}
                     className="underline"
@@ -220,7 +220,7 @@ export default async function PaginaPrestacoes({
               {aberta ? (
                 <div className="space-y-2">
                   <details>
-                    <summary className="cursor-pointer text-sm text-medio underline">
+                    <summary className="cursor-pointer text-suporte text-medio underline">
                       Observações do mês
                     </summary>
                     <div className="mt-2">
@@ -228,7 +228,7 @@ export default async function PaginaPrestacoes({
                     </div>
                   </details>
                   <details>
-                    <summary className="cursor-pointer text-sm text-medio underline">
+                    <summary className="cursor-pointer text-suporte text-medio underline">
                       Ajustar saldo anterior
                     </summary>
                     <div className="mt-2">
@@ -239,7 +239,7 @@ export default async function PaginaPrestacoes({
                 </div>
               ) : (
                 <details>
-                  <summary className="cursor-pointer text-sm text-medio underline">
+                  <summary className="cursor-pointer text-suporte text-medio underline">
                     Reabrir esta prestação
                   </summary>
                   <div className="mt-2">
@@ -253,7 +253,7 @@ export default async function PaginaPrestacoes({
       )}
 
       {cartoes.length === 0 && (
-        <p className="cartao p-4 text-sm text-apoio">
+        <p className="cartao p-4 text-suporte text-apoio">
           Nenhuma prestação aberta ainda.
         </p>
       )}

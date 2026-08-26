@@ -304,3 +304,54 @@ describe('guarda contra botão cru', () => {
     }
   })
 })
+
+// `[2-9]?xl` cobre `xl` e de `2xl` a `9xl` numa alternativa só. O `\b` final
+// impede que `text-smart` ou `text-based` sejam confundidos com um degrau cru,
+// e o prefixo opcional pega a forma com variante (`sm:text-sm`) — hoje não há
+// nenhuma no repositório, e a guarda existe justamente para o dia em que
+// alguém escrever a primeira.
+const TAMANHO_CRU = /(?:[a-z-]+:)?text-(?:xs|sm|base|lg|[2-9]?xl)\b/g
+
+describe('guarda contra tamanho de texto cru', () => {
+  it('nenhuma tela declara tamanho fora da escala', () => {
+    // Mesmo motivo das outras três: "que tamanho tem um rótulo de apoio"
+    // precisa ter uma resposta só, e ela mora em `globals.css`. Enquanto o
+    // markup escolhe o tamanho à mão, a raiz não pode mudar — foi o que
+    // derrubou a densidade por dispositivo (`198a720`).
+    const achados: string[] = []
+
+    for (const arquivo of arquivosDeCodigo(join(process.cwd(), 'src'))) {
+      readFileSync(arquivo, 'utf8')
+        .split(/\r?\n/)
+        .forEach((linha, i) => {
+          for (const tamanho of linha.match(TAMANHO_CRU) ?? []) {
+            const relativo = arquivo.slice(process.cwd().length + 1).replace(/\\/g, '/')
+            achados.push(`${relativo}:${i + 1}  ${tamanho}`)
+          }
+        })
+    }
+
+    expect(achados, `use um degrau da escala de \`globals.css\`:\n${achados.join('\n')}`).toEqual([])
+  })
+
+  it('reconhece os tamanhos que deve barrar', () => {
+    for (const cru of [
+      'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl',
+      'text-3xl', 'text-9xl', 'sm:text-sm', 'hover:text-lg',
+    ]) {
+      expect(cru.match(TAMANHO_CRU), `deveria barrar ${cru}`).not.toBeNull()
+    }
+  })
+
+  it('não confunde degrau da escala, nem cor, com tamanho cru', () => {
+    // As cores entram nesta lista de propósito: `text-` é prefixo de tamanho e
+    // de cor ao mesmo tempo, e uma guarda gulosa apagaria a paleta inteira.
+    for (const bom of [
+      'text-titulo', 'text-secao', 'text-corpo', 'text-suporte', 'text-legenda',
+      'text-forte', 'text-apoio', 'text-medio', 'text-sobre-acao', 'text-perigo-forte',
+      'text-smart', 'text-based',
+    ]) {
+      expect(bom.match(TAMANHO_CRU), `não deveria barrar ${bom}`).toBeNull()
+    }
+  })
+})

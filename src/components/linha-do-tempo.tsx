@@ -46,7 +46,7 @@ export function LinhaDoTempo({
             name="tipo"
             defaultValue={tipoSelecionado ?? ''}
             aria-label="Tipo de evento"
-            className="rounded border border-borda px-3 py-2 text-base"
+            className="rounded border border-borda px-3 py-2 text-corpo"
           >
             <option value="">Todos os tipos</option>
             {TIPOS.map((tipo) => (
@@ -59,22 +59,22 @@ export function LinhaDoTempo({
         </form>
       </div>
 
-      <p className="text-sm text-apoio">
+      <p className="text-suporte text-apoio">
         Últimos 90 dias · {eventos.length} evento(s)
       </p>
 
       <ul className="space-y-3">
         {eventos.map((evento) => (
           <li key={`${evento.tipo}-${evento.id}`} className="border-l-2 border-borda-suave pl-3">
-            <p className="text-sm text-apoio">
+            <p className="text-suporte text-apoio">
               {formatarDataHora(evento.ocorridoEm)} · {ROTULO_TIPO_EVENTO[evento.tipo]}
             </p>
             <p className="font-medium text-forte">{evento.titulo}</p>
-            {evento.detalhe && <p className="text-sm text-medio">{evento.detalhe}</p>}
+            {evento.detalhe && <p className="text-suporte text-medio">{evento.detalhe}</p>}
           </li>
         ))}
         {eventos.length === 0 && (
-          <li className="text-sm text-apoio">
+          <li className="text-suporte text-apoio">
             Nada registrado no período e no filtro selecionados.
           </li>
         )}

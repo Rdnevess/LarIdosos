@@ -53,21 +53,21 @@ export default async function PaginaContribuicoes({
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-forte">
+          <h1 className="text-secao font-semibold text-forte">
             Contribuições de {mesPorExtenso(mes)} de {ano}
           </h1>
-          <p className="text-sm text-apoio">
+          <p className="text-suporte text-apoio">
             O sistema calcula; quem lança é você, depois de conferir o extrato.
           </p>
         </div>
-        <Link href="/financeiro" className="text-sm underline">
+        <Link href="/financeiro" className="text-suporte underline">
           Voltar aos lançamentos
         </Link>
       </div>
 
       <form className="grid gap-3 cartao p-4 sm:grid-cols-3">
         <div className="space-y-1">
-          <label htmlFor="ano" className="text-sm font-medium text-firme">
+          <label htmlFor="ano" className="text-suporte font-medium text-firme">
             Ano
           </label>
           <input
@@ -75,18 +75,18 @@ export default async function PaginaContribuicoes({
             name="ano"
             type="number"
             defaultValue={ano}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="mes" className="text-sm font-medium text-firme">
+          <label htmlFor="mes" className="text-suporte font-medium text-firme">
             Mês
           </label>
           <select
             id="mes"
             name="mes"
             defaultValue={String(mes)}
-            className="w-full rounded border border-borda px-3 py-2 text-base"
+            className="w-full rounded border border-borda px-3 py-2 text-corpo"
           >
             {Array.from({ length: 12 }, (_, indice) => (
               <option key={indice + 1} value={indice + 1}>
@@ -101,7 +101,7 @@ export default async function PaginaContribuicoes({
       </form>
 
       {!origem && (
-        <p className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-sm text-alerta">
+        <p className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-suporte text-alerta">
           Nenhuma origem de receita marcada como “exige informar o residente”.{' '}
           <Link href="/financeiro/cadastros" className="underline">
             Cadastre uma
@@ -111,16 +111,16 @@ export default async function PaginaContribuicoes({
         </p>
       )}
 
-      <p className="cartao p-3 text-sm">
+      <p className="cartao p-3 text-suporte">
         <span className="block text-apoio">Ainda a lançar ({aLancar.length})</span>
-        <span className="text-lg font-semibold text-forte">
+        <span className="text-secao font-semibold text-forte">
           {formatarMoeda(Math.round(total * 100) / 100)}
         </span>
       </p>
 
       <ul className="divide-y cartao">
         {proposta.map((linha) => (
-          <li key={linha.residenteId} className="space-y-2 p-4 text-sm">
+          <li key={linha.residenteId} className="space-y-2 p-4 text-suporte">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <Link
                 href={`/residentes/${linha.residenteId}`}
@@ -156,7 +156,7 @@ export default async function PaginaContribuicoes({
           </li>
         ))}
         {proposta.length === 0 && (
-          <li className="p-4 text-sm text-apoio">
+          <li className="p-4 text-suporte text-apoio">
             Nenhum residente com contribuição vigente nesta competência.
           </li>
         )}

@@ -122,7 +122,7 @@ export default async function FichaResidente({
     <section className="space-y-4">
       <header className="cartao p-4">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-lg font-semibold text-forte">
+          <h1 className="text-secao font-semibold text-forte">
             {residente.nomeSocial || residente.nomeCompleto}
           </h1>
           {/* Sem este link não havia tela nenhuma que atribuísse DESLIGADO ou
@@ -134,7 +134,7 @@ export default async function FichaResidente({
             {podeVerProntuario && (
               <Link
                 href={`/residentes/${residente.id}/prontuario`}
-                className="whitespace-nowrap text-sm font-medium text-forte underline"
+                className="whitespace-nowrap text-suporte font-medium text-forte underline"
               >
                 Prontuário
               </Link>
@@ -144,13 +144,13 @@ export default async function FichaResidente({
             <div className="flex shrink-0 flex-col items-end gap-1">
               <Link
                 href={`/residentes/${residente.id}/editar`}
-                className="whitespace-nowrap text-sm text-medio underline"
+                className="whitespace-nowrap text-suporte text-medio underline"
               >
                 Editar cadastro
               </Link>
               <Link
                 href={`/residentes/${residente.id}/desligar`}
-                className="whitespace-nowrap text-sm text-medio underline"
+                className="whitespace-nowrap text-suporte text-medio underline"
               >
                 {residente.status === 'ATIVO'
                   ? 'Registrar saída ou óbito'
@@ -159,7 +159,7 @@ export default async function FichaResidente({
             </div>
           )}
         </div>
-        <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+        <dl className="mt-2 grid gap-x-4 gap-y-1 text-suporte sm:grid-cols-2">
           {/* Só aparece quando não é "Ativo": sem isto, a ficha de quem
               faleceu é visualmente idêntica à de quem está no Lar. */}
           {residente.status !== 'ATIVO' && (
@@ -221,7 +221,7 @@ export default async function FichaResidente({
 
             return (
               <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3">
-                <p className="text-sm text-apoio">
+                <p className="text-suporte text-apoio">
                   {formatarDataHora(anotacao.criadoEm)} ·{' '}
                   {ROTULO_CATEGORIA[anotacao.categoria] ?? anotacao.categoria}
                   {anotacao.retificaAnotacaoId && ' · retificação'}
@@ -232,7 +232,7 @@ export default async function FichaResidente({
                 <div className="mt-1 space-y-1">
                   {podeEditar && (
                     <details>
-                      <summary className="cursor-pointer text-sm text-medio underline">
+                      <summary className="cursor-pointer text-suporte text-medio underline">
                         Editar
                       </summary>
                       <div className="mt-2">
@@ -247,7 +247,7 @@ export default async function FichaResidente({
                   {/* Retificar não tem janela nem exigência de autoria: é o
                       caminho que continua aberto depois que a edição fecha. */}
                   <details>
-                    <summary className="cursor-pointer text-sm text-medio underline">
+                    <summary className="cursor-pointer text-suporte text-medio underline">
                       Retificar
                     </summary>
                     <div className="mt-2">
@@ -262,7 +262,7 @@ export default async function FichaResidente({
             )
           })}
           {anotacoes.length === 0 && (
-            <li className="text-sm text-apoio">Nenhuma anotação registrada.</li>
+            <li className="text-suporte text-apoio">Nenhuma anotação registrada.</li>
           )}
         </ul>
         <div className="mt-4 border-t pt-4">
@@ -276,7 +276,7 @@ export default async function FichaResidente({
         </summary>
         <ul className="mt-3 space-y-2">
           {responsaveis.map((responsavel) => (
-            <li key={responsavel.id} className="text-sm">
+            <li key={responsavel.id} className="text-suporte">
               <span className="font-medium text-forte">{responsavel.nome}</span>{' '}
               <span className="text-apoio">
                 — {responsavel.parentesco} · {responsavel.telefonePrincipal}
@@ -293,7 +293,7 @@ export default async function FichaResidente({
               {podeCadastrar && (
                 <div className="mt-1 space-y-1">
                   <details>
-                    <summary className="cursor-pointer text-sm text-medio underline">
+                    <summary className="cursor-pointer text-suporte text-medio underline">
                       Editar
                     </summary>
                     <div className="mt-2">
@@ -304,7 +304,7 @@ export default async function FichaResidente({
                     </div>
                   </details>
                   <details>
-                    <summary className="cursor-pointer text-sm text-medio underline">
+                    <summary className="cursor-pointer text-suporte text-medio underline">
                       Remover
                     </summary>
                     <div className="mt-2">
@@ -319,7 +319,7 @@ export default async function FichaResidente({
             </li>
           ))}
           {responsaveis.length === 0 && (
-            <li className="text-sm text-apoio">Nenhum responsável cadastrado.</li>
+            <li className="text-suporte text-apoio">Nenhum responsável cadastrado.</li>
           )}
         </ul>
         {podeCadastrar && (
@@ -339,7 +339,7 @@ export default async function FichaResidente({
           </summary>
           <div className="mt-3 space-y-3">
             {contribuicao ? (
-              <p className="text-sm text-firme">
+              <p className="text-suporte text-firme">
                 <span className="font-medium">
                   {Number(contribuicao.percentual)}% de{' '}
                   {formatarMoeda(Number(contribuicao.valorBaseBeneficio))}
@@ -355,7 +355,7 @@ export default async function FichaResidente({
                 </span>
               </p>
             ) : (
-              <p className="text-sm text-apoio">
+              <p className="text-suporte text-apoio">
                 Nenhuma contribuição definida para este residente.
               </p>
             )}
@@ -372,7 +372,7 @@ export default async function FichaResidente({
         </summary>
         <ul className="mt-3 space-y-2">
           {documentos.map((documento) => (
-            <li key={documento.id} className="text-sm">
+            <li key={documento.id} className="text-suporte">
               <a
                 href={`/api/documentos/${documento.id}`}
                 target="_blank"
@@ -388,7 +388,7 @@ export default async function FichaResidente({
 
               <div className="mt-1">
                 <details>
-                  <summary className="cursor-pointer text-sm text-medio underline">
+                  <summary className="cursor-pointer text-suporte text-medio underline">
                     Excluir
                   </summary>
                   <div className="mt-2">
@@ -402,7 +402,7 @@ export default async function FichaResidente({
             </li>
           ))}
           {documentos.length === 0 && (
-            <li className="text-sm text-apoio">Nenhum documento anexado.</li>
+            <li className="text-suporte text-apoio">Nenhum documento anexado.</li>
           )}
         </ul>
         {tiposAnexaveis.length > 0 && (
@@ -418,7 +418,7 @@ export default async function FichaResidente({
         </summary>
         <ul className="mt-3 space-y-2">
           {avaliacoes.map((avaliacao) => (
-            <li key={avaliacao.id} className="text-sm">
+            <li key={avaliacao.id} className="text-suporte">
               <span className="font-medium">Grau {avaliacao.grau}</span>{' '}
               <span className="text-apoio">
                 em {formatarData(avaliacao.dataAvaliacao)} por {avaliacao.avaliadorNome}
@@ -426,7 +426,7 @@ export default async function FichaResidente({
             </li>
           ))}
           {avaliacoes.length === 0 && (
-            <li className="text-sm text-apoio">Nenhuma avaliação registrada.</li>
+            <li className="text-suporte text-apoio">Nenhuma avaliação registrada.</li>
           )}
         </ul>
         {podeAvaliar && (

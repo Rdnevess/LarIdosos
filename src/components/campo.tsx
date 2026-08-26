@@ -32,10 +32,16 @@ export function Campo({
   prefixoId,
 }: PropsCampo) {
   const id = prefixoId ? `${prefixoId}-${nome}` : nome
-  // `text-base` (16px) é deliberado: em iOS, fonte menor faz o navegador dar
+  // `text-corpo` (16px) é deliberado: em iOS, fonte menor faz o navegador dar
   // zoom automático ao focar o campo — atrapalha justamente quem está com o
   // celular na mão, em pé no corredor.
-  const classe = 'w-full rounded border border-borda px-3 py-2 text-base'
+  //
+  // Este é o único lugar onde o degrau precisa valer 16px *absolutos*, e não
+  // relativos: quem baixar a raiz no celular quebra o campo sem quebrar teste
+  // nenhum. A densidade por dispositivo que foi revertida mexia só no desktop
+  // (`min-width: 640px`), e por isso não esbarrava aqui — se ela voltar, tem
+  // de continuar não esbarrando.
+  const classe = 'w-full rounded border border-borda px-3 py-2 text-corpo'
 
   // A caixa de seleção não usa o mesmo layout dos demais: rótulo à direita,
   // caixinha visível em `h-5 w-5` (20px, pequena de propósito — ver abaixo),
@@ -54,14 +60,14 @@ export function Campo({
           defaultChecked={marcadoInicial}
           className="h-5 w-5 rounded border-borda"
         />
-        <span className="text-sm font-medium text-firme">{rotulo}</span>
+        <span className="text-suporte font-medium text-firme">{rotulo}</span>
       </label>
     )
   }
 
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="text-sm font-medium text-firme">
+      <label htmlFor={id} className="text-suporte font-medium text-firme">
         {rotulo}
         {obrigatorio && <span className="text-perigo"> *</span>}
       </label>

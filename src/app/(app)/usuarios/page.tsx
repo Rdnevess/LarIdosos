@@ -33,7 +33,7 @@ export default async function PaginaUsuarios() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-lg font-semibold text-forte">Usuários</h1>
+      <h1 className="text-secao font-semibold text-forte">Usuários</h1>
 
       {/* Região nomeada porque a lista abaixo passou a ter um formulário de
           edição por linha, com os mesmos rótulos "Nome" e "Papel". Sem o nome
@@ -67,7 +67,7 @@ export default async function PaginaUsuarios() {
               <span className="block font-medium text-forte">
                 {usuario.nome} {!usuario.ativo && '(inativo)'}
               </span>
-              <span className="block text-sm text-apoio">
+              <span className="block text-suporte text-apoio">
                 {usuario.email} · {ROTULO_PAPEL[usuario.papel]} · último acesso:{' '}
                 {usuario.ultimoAcessoEm ? formatarDataHora(usuario.ultimoAcessoEm) : 'nunca'}
               </span>
@@ -99,7 +99,7 @@ export default async function PaginaUsuarios() {
             */}
             {usuario.ativo && (
               <details>
-                <summary className="cursor-pointer text-sm text-medio underline">
+                <summary className="cursor-pointer text-suporte text-medio underline">
                   Editar
                 </summary>
                 <div className="mt-2">

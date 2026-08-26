@@ -21,11 +21,11 @@ export default async function PaginaResidentes({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-forte">Residentes</h1>
+        <h1 className="text-secao font-semibold text-forte">Residentes</h1>
         {podeCadastrar && (
           <Link
             href="/residentes/novo"
-            className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+            className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-suporte text-sobre-acao"
           >
             Novo residente
           </Link>
@@ -38,13 +38,13 @@ export default async function PaginaResidentes({
           defaultValue={busca}
           placeholder="Buscar por nome"
           aria-label="Buscar por nome"
-          className="flex-1 rounded border border-borda px-3 py-2 text-base"
+          className="flex-1 rounded border border-borda px-3 py-2 text-corpo"
         />
         <select
           name="status"
           defaultValue={status ?? 'ATIVO'}
           aria-label="Situação"
-          className="rounded border border-borda px-3 py-2 text-base"
+          className="rounded border border-borda px-3 py-2 text-corpo"
         >
           <option value="ATIVO">Ativos</option>
           <option value="DESLIGADO">Desligados</option>
@@ -54,7 +54,7 @@ export default async function PaginaResidentes({
       </form>
 
       {residentes.length === 0 ? (
-        <p className="text-sm text-apoio">Nenhum residente encontrado.</p>
+        <p className="text-suporte text-apoio">Nenhum residente encontrado.</p>
       ) : (
         <ul className="divide-y cartao">
           {residentes.map((residente) => (
@@ -67,7 +67,7 @@ export default async function PaginaResidentes({
                   <span className="block font-medium text-forte">
                     {residente.nomeSocial || residente.nomeCompleto}
                   </span>
-                  <span className="block text-sm text-apoio">
+                  <span className="block text-suporte text-apoio">
                     Quarto {residente.quarto ?? '—'} · Admissão em{' '}
                     {formatarData(residente.dataAdmissao)}
                   </span>

@@ -35,10 +35,10 @@ function Bloco({
 }) {
   return (
     <div className="space-y-1">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-apoio">
+      <h3 className="text-legenda font-semibold uppercase tracking-wide text-apoio">
         {titulo}
       </h3>
-      {temConteudo ? children : <p className="text-sm text-apoio">{vazio}</p>}
+      {temConteudo ? children : <p className="text-suporte text-apoio">{vazio}</p>}
     </div>
   )
 }
@@ -84,8 +84,8 @@ function BlocosDeCuidado({ dados }: { dados: Dados }) {
               key={alergia.id}
               className={
                 alergia.gravidade === 'GRAVE'
-                  ? 'rounded border border-perigo-borda bg-perigo-fundo px-2 py-1 text-sm font-medium text-perigo-forte'
-                  : 'text-sm text-forte'
+                  ? 'rounded border border-perigo-borda bg-perigo-fundo px-2 py-1 text-suporte font-medium text-perigo-forte'
+                  : 'text-suporte text-forte'
               }
             >
               {alergia.agente}{' '}
@@ -105,7 +105,7 @@ function BlocosDeCuidado({ dados }: { dados: Dados }) {
       >
         <ul className="space-y-1">
           {dados.condicoes.map((condicao) => (
-            <li key={condicao.id} className="text-sm text-forte">
+            <li key={condicao.id} className="text-suporte text-forte">
               {condicao.descricao}
               {condicao.cid10 && <span className="text-apoio"> ({condicao.cid10})</span>}
               {condicao.dataDiagnostico && (
@@ -126,7 +126,7 @@ function BlocosDeCuidado({ dados }: { dados: Dados }) {
       >
         <ul className="space-y-1">
           {dados.restricoes.map((restricao) => (
-            <li key={restricao.id} className="text-sm text-forte">
+            <li key={restricao.id} className="text-suporte text-forte">
               {restricao.descricao}
             </li>
           ))}
@@ -171,7 +171,7 @@ export function CabecalhoClinico({
       className="grid gap-4 cartao p-4 sm:grid-cols-2"
     >
       <Bloco titulo="Grau de dependência" vazio="Não avaliado" temConteudo={grau !== null}>
-        <p className="text-sm text-forte">Grau {grau}</p>
+        <p className="text-suporte text-forte">Grau {grau}</p>
       </Bloco>
 
       <BlocosDeCuidado dados={dados} />
@@ -183,7 +183,7 @@ export function CabecalhoClinico({
       >
         <ul className="space-y-1">
           {medicacoesAtivas.map((medicacao) => (
-            <li key={medicacao.id} className="text-sm text-forte">
+            <li key={medicacao.id} className="text-suporte text-forte">
               {medicacao.farmaco}{' '}
               <span className="text-apoio">
                 {medicacao.dose}
@@ -202,7 +202,7 @@ export function CabecalhoClinico({
           vazio="Nenhuma aferição registrada."
           temConteudo={ultimoSinalVital !== null}
         >
-          <p className="text-sm text-forte">
+          <p className="text-suporte text-forte">
             {ultimoSinalVital && resumirSinalVital(ultimoSinalVital)}
             <span className="text-apoio">
               {' '}

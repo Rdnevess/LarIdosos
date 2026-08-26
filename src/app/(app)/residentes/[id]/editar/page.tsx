@@ -23,7 +23,7 @@ export default async function PaginaEditarResidente({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-lg font-semibold text-forte">
+      <h1 className="text-secao font-semibold text-forte">
         Editar {residente.nomeSocial || residente.nomeCompleto}
       </h1>
       <FormularioResidente

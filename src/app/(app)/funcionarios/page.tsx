@@ -24,10 +24,10 @@ export default async function PaginaFuncionarios({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-forte">Funcionários</h1>
+        <h1 className="text-secao font-semibold text-forte">Funcionários</h1>
         <Link
           href="/funcionarios/novo"
-          className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-sm text-sobre-acao"
+          className="min-h-11 inline-flex items-center rounded bg-acao px-3 py-2 text-suporte text-sobre-acao"
         >
           Novo funcionário
         </Link>
@@ -39,7 +39,7 @@ export default async function PaginaFuncionarios({
         vencendo que precisa se destacar.
       */}
       {vencendo.length > 0 && (
-        <div role="status" className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-sm">
+        <div role="status" className="rounded border border-alerta-borda bg-alerta-fundo p-3 text-suporte">
           <p className="font-medium text-alerta">
             {vencendo.length} registro(s) profissional(is) vencendo nos próximos 60 dias
           </p>
@@ -63,7 +63,7 @@ export default async function PaginaFuncionarios({
           defaultValue={busca}
           placeholder="Buscar por nome ou cargo"
           aria-label="Buscar por nome ou cargo"
-          className="flex-1 rounded border border-borda px-3 py-2 text-base"
+          className="flex-1 rounded border border-borda px-3 py-2 text-corpo"
         />
         <Botao variante="secundario">Filtrar</Botao>
       </form>
@@ -79,7 +79,7 @@ export default async function PaginaFuncionarios({
                 <span className="block font-medium text-forte">
                   {funcionario.nomeCompleto}
                 </span>
-                <span className="block text-sm text-apoio">
+                <span className="block text-suporte text-apoio">
                   {funcionario.cargo} · {ROTULO_VINCULO[funcionario.vinculo]} · desde{' '}
                   {formatarData(funcionario.dataAdmissao)}
                 </span>
@@ -89,7 +89,7 @@ export default async function PaginaFuncionarios({
           </li>
         ))}
         {funcionarios.length === 0 && (
-          <li className="p-3 text-sm text-apoio">Nenhum funcionário encontrado.</li>
+          <li className="p-3 text-suporte text-apoio">Nenhum funcionário encontrado.</li>
         )}
       </ul>
     </section>
