@@ -16,6 +16,7 @@ import {
 } from '@/components/formularios-financeiro'
 import { fimDoDia } from '@/lib/periodo'
 import { Botao } from '@/components/ui/botao'
+import { Cartao } from '@/components/ui/cartao'
 
 /**
  * Os lançamentos do mês.
@@ -240,7 +241,7 @@ export default async function PaginaFinanceiro({
         </div>
       </details>
 
-      <div className="rounded border bg-superficie p-4">
+      <Cartao>
         <h2 className="mb-3 font-medium text-forte">
           Lançamentos ({lancamentos.length})
         </h2>
@@ -289,7 +290,7 @@ export default async function PaginaFinanceiro({
             </li>
           )}
         </ul>
-      </div>
+      </Cartao>
     </section>
   )
 }

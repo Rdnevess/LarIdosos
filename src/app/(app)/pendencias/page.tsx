@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarPendencias } from '@/modules/health/pendencias'
 import { formatarData, formatarDataHora } from '@/lib/ptbr'
+import { Cartao } from '@/components/ui/cartao'
 
 /**
  * A tela que atravessa residentes.
@@ -36,7 +37,7 @@ export default async function PaginaPendencias() {
         </p>
       </div>
 
-      <div className="rounded border bg-superficie p-4">
+      <Cartao>
         <h2 className="mb-3 font-medium text-forte">
           Exames em aberto ({exames.length})
         </h2>
@@ -66,9 +67,9 @@ export default async function PaginaPendencias() {
             </li>
           )}
         </ul>
-      </div>
+      </Cartao>
 
-      <div className="rounded border bg-superficie p-4">
+      <Cartao>
         <h2 className="mb-3 font-medium text-forte">
           Consultas agendadas ({consultas.length})
         </h2>
@@ -106,7 +107,7 @@ export default async function PaginaPendencias() {
             <li className="py-2 text-sm text-apoio">Nenhuma consulta agendada.</li>
           )}
         </ul>
-      </div>
+      </Cartao>
     </section>
   )
 }
