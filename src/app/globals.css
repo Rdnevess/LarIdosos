@@ -211,8 +211,11 @@
   --text-secao--line-height: 1.75rem;
   --text-corpo: 1rem;
   --text-corpo--line-height: 1.5rem;
-  --text-apoio: 0.875rem;
-  --text-apoio--line-height: 1.25rem;
+  /* `suporte`, e não `apoio`: `--color-apoio` já existe e gera a mesma classe
+     utilitária `text-apoio`. A cor venceria e o degrau de tamanho nasceria
+     morto — conferido compilando o CSS. */
+  --text-suporte: 0.875rem;
+  --text-suporte--line-height: 1.25rem;
   --text-legenda: 0.75rem;
   --text-legenda--line-height: 1rem;
 
@@ -220,13 +223,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
-:root {
-  /* As variáveis de fonte são definidas aqui em nível global para que possam ser
-     usadas no CSS base. O `next/font` injeta `--font-geist-sans` no `body` como
-     atributo de estilo; aqui definimos `--font-sans` como uma variável CSS global
-     com o valor da fonte Geist que será usada no body e outros elementos. */
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+@layer base {
+  /* As variáveis de fonte também são definidas aqui para que possam ser acessíveis
+     no CSS base enquanto respeitam a cascata de layers. O next/font injeta
+     `--font-geist-sans` no body via className; este valor é o fallback que o
+     CSS compilado receberá. */
+  :root {
+    --font-sans: 'Geist', 'Geist Fallback';
+    --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  }
 }
 
 /**
