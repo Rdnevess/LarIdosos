@@ -232,3 +232,25 @@ describe('guarda contra cor crua', () => {
     }
   })
 })
+
+describe('guarda contra botão cru', () => {
+  it('nenhuma tela declara <button> fora do primitivo', () => {
+    // Mesmo motivo da guarda de cor: "como é um botão primário" precisa ter uma
+    // resposta só. O primitivo é o único lugar autorizado a escrever a tag.
+    const achados: string[] = []
+
+    for (const arquivo of arquivosDeCodigo(join(process.cwd(), 'src'))) {
+      if (arquivo.endsWith(join('ui', 'botao.tsx'))) continue
+      readFileSync(arquivo, 'utf8')
+        .split(/\r?\n/)
+        .forEach((linha, i) => {
+          if (/<button[\s>]/.test(linha)) {
+            const relativo = arquivo.slice(process.cwd().length + 1).replace(/\\/g, '/')
+            achados.push(`${relativo}:${i + 1}`)
+          }
+        })
+    }
+
+    expect(achados, `use <Botao> de @/components/ui/botao:\n${achados.join('\n')}`).toEqual([])
+  })
+})

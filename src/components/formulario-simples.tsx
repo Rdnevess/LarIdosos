@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { Campo, type PropsCampo } from './campo'
 import type { EstadoAcao } from '@/lib/acoes'
+import { Botao } from '@/components/ui/botao'
 
 export function FormularioSimples({
   acao,
@@ -57,13 +58,9 @@ export function FormularioSimples({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded bg-acao px-4 py-3 text-sobre-acao disabled:opacity-60 sm:w-auto"
-      >
+      <Botao disabled={enviando} className="w-full sm:w-auto">
         {enviando ? 'Salvando…' : rotuloBotao}
-      </button>
+      </Botao>
     </form>
   )
 }

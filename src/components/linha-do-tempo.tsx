@@ -4,6 +4,7 @@ import type {
 } from '@/modules/health/linha-do-tempo'
 import { ROTULO_TIPO_EVENTO } from '@/modules/health/linha-do-tempo'
 import { formatarDataHora } from '@/lib/ptbr'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * O fluxo cronológico único do prontuário.
@@ -54,12 +55,7 @@ export function LinhaDoTempo({
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="rounded border border-borda px-4 py-2 text-sm text-firme"
-          >
-            Filtrar
-          </button>
+          <Botao variante="secundario">Filtrar</Botao>
         </form>
       </div>
 

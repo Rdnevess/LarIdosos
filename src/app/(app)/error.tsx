@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * Fronteira de erro das telas autenticadas. Sem ela, qualquer exceção que
@@ -42,13 +43,9 @@ export default function ErroNaTela({
       </p>
 
       <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded bg-acao px-4 py-3 text-sm text-sobre-acao"
-        >
+        <Botao tipo="button" onClick={reset}>
           Tentar de novo
-        </button>
+        </Botao>
         <Link
           href="/residentes"
           className="rounded border border-borda px-4 py-3 text-sm text-firme"

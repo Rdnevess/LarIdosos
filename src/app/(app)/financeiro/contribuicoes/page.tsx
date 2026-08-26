@@ -6,6 +6,7 @@ import { montarPropostaMensal } from '@/modules/financeiro/contribuicoes.service
 import { formatarMoeda } from '@/lib/ptbr'
 import { mesPorExtenso } from '@/modules/financeiro/textos-prestacao'
 import { FormularioLancarContribuicao } from '@/components/formularios-financeiro'
+import { Botao } from '@/components/ui/botao'
 
 /**
  * A proposta de contribuições do mês.
@@ -94,12 +95,9 @@ export default async function PaginaContribuicoes({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="self-end rounded bg-acao px-4 py-2 text-sobre-acao sm:w-auto"
-        >
+        <Botao variante="secundario" className="self-end sm:w-auto">
           Ver competência
-        </button>
+        </Botao>
       </form>
 
       {!origem && (
