@@ -102,25 +102,32 @@
   :root:not([data-tema="claro"]) {
     color-scheme: dark;
 
-    /* Superfícies e bordas */
-    --cor-fundo: #0f172a;
-    --cor-superficie: #1e293b;
-    --cor-suave: #253345;
-    --cor-realce: #475569;
-    --cor-borda: #475569;
-    --cor-borda-suave: #334155;
+    /* Superfícies e bordas: mesma luminância de antes, com a tinta marinha da
+       marca no lugar do slate. */
+    --cor-fundo: #0e1823;
+    --cor-superficie: #182a3c;
+    --cor-suave: #1e3349;
+    --cor-realce: #32567b;
+    --cor-borda: #32567b;
+    --cor-borda-suave: #27425e;
 
-    /* Texto, cinco degraus */
-    --cor-forte: #f1f5f9;
-    --cor-firme: #e2e8f0;
-    --cor-medio: #cbd5e1;
-    --cor-apoio: #94a3b8;
-    --cor-tenue: #64748b;
+    /* Texto: os cinco degraus, levemente frios para assentar sobre o marinho. */
+    --cor-forte: #f3f5f6;
+    --cor-firme: #e4e8eb;
+    --cor-medio: #cfd5da;
+    --cor-apoio: #97a4b0;
+    --cor-tenue: #647485;
 
-    /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
-       #0f172a seria quase invisível, e a inversão acontece num lugar só. */
-    --cor-acao: #e2e8f0;
-    --cor-sobre-acao: #0f172a;
+    /* Ação: no escuro o botão deixa de inverter e passa a ser azul de marca,
+       clareado. O valor tem de satisfazer DUAS regras que puxam para lados
+       opostos — texto branco sobre ele ≥ 4,5:1 (WCAG 1.4.3) e o próprio botão
+       ≥ 3:1 contra o fundo (WCAG 1.4.11, contraste de componente). A janela vai
+       de #1d66af a #2175ca; #1f70c1 fica no meio, com 5,07:1 e 3,53:1. */
+    --cor-acao: #1f70c1;
+    --cor-sobre-acao: #ffffff;
+
+    /* O dourado no escuro. Continua só filete e anel. */
+    --cor-detalhe: #c0a670;
 
     /* Semânticos */
     --cor-alerta: #fde68a;
@@ -142,25 +149,32 @@
 :root[data-tema="escuro"] {
   color-scheme: dark;
 
-  /* Superfícies e bordas */
-  --cor-fundo: #0f172a;
-  --cor-superficie: #1e293b;
-  --cor-suave: #253345;
-  --cor-realce: #475569;
-  --cor-borda: #475569;
-  --cor-borda-suave: #334155;
+  /* Superfícies e bordas: mesma luminância de antes, com a tinta marinha da
+     marca no lugar do slate. */
+  --cor-fundo: #0e1823;
+  --cor-superficie: #182a3c;
+  --cor-suave: #1e3349;
+  --cor-realce: #32567b;
+  --cor-borda: #32567b;
+  --cor-borda-suave: #27425e;
 
-  /* Texto, cinco degraus */
-  --cor-forte: #f1f5f9;
-  --cor-firme: #e2e8f0;
-  --cor-medio: #cbd5e1;
-  --cor-apoio: #94a3b8;
-  --cor-tenue: #64748b;
+  /* Texto: os cinco degraus, levemente frios para assentar sobre o marinho. */
+  --cor-forte: #f3f5f6;
+  --cor-firme: #e4e8eb;
+  --cor-medio: #cfd5da;
+  --cor-apoio: #97a4b0;
+  --cor-tenue: #647485;
 
-  /* Ação: o botão primário inverte. Um botão slate-800 sobre uma página
-     #0f172a seria quase invisível, e a inversão acontece num lugar só. */
-  --cor-acao: #e2e8f0;
-  --cor-sobre-acao: #0f172a;
+  /* Ação: no escuro o botão deixa de inverter e passa a ser azul de marca,
+     clareado. O valor tem de satisfazer DUAS regras que puxam para lados
+     opostos — texto branco sobre ele ≥ 4,5:1 (WCAG 1.4.3) e o próprio botão
+     ≥ 3:1 contra o fundo (WCAG 1.4.11, contraste de componente). A janela vai
+     de #1d66af a #2175ca; #1f70c1 fica no meio, com 5,07:1 e 3,53:1. */
+  --cor-acao: #1f70c1;
+  --cor-sobre-acao: #ffffff;
+
+  /* O dourado no escuro. Continua só filete e anel. */
+  --cor-detalhe: #c0a670;
 
   /* Semânticos */
   --cor-alerta: #fde68a;
