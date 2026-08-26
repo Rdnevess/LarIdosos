@@ -107,8 +107,12 @@ const DECORATIVOS = new Set(['tenue'])
 const AA = 4.5
 
 describe('os três blocos do globals.css', () => {
-  it('cobrem os mesmos 26 tokens', () => {
-    expect(Object.keys(claro)).toHaveLength(26)
+  it('cobrem os mesmos 27 tokens', () => {
+    // A contagem é cravada de propósito. As outras asserções deste teste só
+    // verificam que os três blocos concordam ENTRE SI — se alguém apagasse o
+    // mesmo token dos três, elas continuariam verdes. Este número é o que
+    // percebe um token que sumiu.
+    expect(Object.keys(claro)).toHaveLength(27)
     expect(Object.keys(escuroDoSistema).sort()).toEqual(Object.keys(claro).sort())
     expect(Object.keys(escuroEscolhido).sort()).toEqual(Object.keys(claro).sort())
   })

@@ -49,24 +49,38 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies e bordas */
-  --cor-fundo: #f8fafc;
+  /* Superfícies e bordas — neutro quente, derivado do creme #fdfaf7 da marca.
+     A luminância de cada degrau é a mesma da família slate que estava aqui, e
+     só a temperatura mudou: assim o ritmo visual que já funcionava sobrevive.
+     Um cinza azulado ao lado do creme da marca lê como erro de impressão. */
+  --cor-fundo: #fbfaf8;
   --cor-superficie: #ffffff;
-  --cor-suave: #f8fafc;
-  --cor-realce: #f1f5f9;
-  --cor-borda: #cbd5e1;
-  --cor-borda-suave: #e2e8f0;
+  --cor-suave: #fbfaf8;
+  --cor-realce: #f8f4f1;
+  --cor-borda: #d9d3cc;
+  --cor-borda-suave: #eae7e3;
 
-  /* Texto, cinco degraus */
-  --cor-forte: #1e293b;
-  --cor-firme: #334155;
-  --cor-medio: #475569;
-  --cor-apoio: #64748b;
-  --cor-tenue: #94a3b8;
+  /* Texto. `forte` carrega a marca — é o marinho do telhado da logo, medido em
+     #0b3e6f, com 10,86:1 sobre branco. Os quatro degraus abaixo dele recuam
+     para o neutro quente: se o título fosse marinho e o corpo cinza-azulado, as
+     duas temperaturas brigariam na mesma frase. */
+  --cor-forte: #0b3e6f;
+  --cor-firme: #463f39;
+  --cor-medio: #5b524a;
+  --cor-apoio: #7d7166;
+  --cor-tenue: #aaa197;
 
-  /* Ação */
-  --cor-acao: #1e293b;
+  /* Ação: o azul da fita e do wordmark, medido em #165c99. Passa 6,94:1 sobre
+     branco, então serve como texto e como fundo de botão sem ajuste — o que
+     raramente acontece com cor de marca. */
+  --cor-acao: #165c99;
   --cor-sobre-acao: #ffffff;
+
+  /* O dourado dos selos de categoria. **Só filete e anel** — nunca texto,
+     nunca fundo de caixa. Ele reprova AA (2,64:1 a 3,04:1 sobre branco), a logo
+     principal não o usa, e ao lado da família âmbar viraria a mesma cor para
+     quem passa os olhos numa tela de plantão. Ver §3 da spec. */
+  --cor-detalhe: #ae9050;
 
   /* Semânticos */
   --cor-alerta: #78350f;
@@ -185,6 +199,8 @@
 
   --color-acao: var(--cor-acao);
   --color-sobre-acao: var(--cor-sobre-acao);
+
+  --color-detalhe: var(--cor-detalhe);
 
   --color-alerta: var(--cor-alerta);
   --color-alerta-suave: var(--cor-alerta-suave);
