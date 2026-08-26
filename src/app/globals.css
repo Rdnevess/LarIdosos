@@ -300,6 +300,25 @@
   ::after {
     border-color: var(--cor-borda);
   }
+
+  /**
+   * Piso de toque. `2.75rem` e não `44px`: em `rem` ele acompanha a raiz, então
+   * fica em 44px no celular e afrouxa para ~41px no desktop, onde o alvo é um
+   * ponteiro e não um dedo.
+   *
+   * `min-height` e não `height`: o controle pode crescer com o conteúdo, e um
+   * botão de duas linhas não deve ser espremido de volta.
+   *
+   * Checkbox e radio ficam de fora: o alvo de toque deles vem do `<label>` que
+   * os envolve (ver `campo.tsx`), não da caixinha em si — esticar a caixa para
+   * 44px a deixaria alta e estreita, deformada em vez de maior.
+   */
+  button,
+  select,
+  input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+  textarea {
+    min-height: 2.75rem;
+  }
 }
 
 /**
