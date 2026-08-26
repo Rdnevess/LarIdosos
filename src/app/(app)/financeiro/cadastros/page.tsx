@@ -42,7 +42,7 @@ function Secao({
   children: React.ReactNode
 }) {
   return (
-    <details className="rounded border bg-superficie p-4">
+    <details className="cartao p-4">
       <summary className="cursor-pointer font-medium text-forte">
         <h2 className="inline">{titulo}</h2>
       </summary>

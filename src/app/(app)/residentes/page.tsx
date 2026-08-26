@@ -56,7 +56,7 @@ export default async function PaginaResidentes({
       {residentes.length === 0 ? (
         <p className="text-sm text-apoio">Nenhum residente encontrado.</p>
       ) : (
-        <ul className="divide-y rounded border bg-superficie">
+        <ul className="divide-y cartao">
           {residentes.map((residente) => (
             <li key={residente.id}>
               <Link

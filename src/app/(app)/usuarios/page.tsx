@@ -39,7 +39,7 @@ export default async function PaginaUsuarios() {
           edição por linha, com os mesmos rótulos "Nome" e "Papel". Sem o nome
           acessível, nem o leitor de tela nem o teste conseguem dizer de qual
           formulário se está falando. */}
-      <section aria-labelledby="titulo-novo-usuario" className="rounded border bg-superficie p-4">
+      <section aria-labelledby="titulo-novo-usuario" className="cartao p-4">
         <h2 id="titulo-novo-usuario" className="mb-3 font-medium text-forte">
           Novo usuário
         </h2>
@@ -60,7 +60,7 @@ export default async function PaginaUsuarios() {
         />
       </section>
 
-      <ul className="divide-y rounded border bg-superficie">
+      <ul className="divide-y cartao">
         {usuarios.map((usuario) => (
           <li key={usuario.id} className="space-y-2 p-3">
             <div>

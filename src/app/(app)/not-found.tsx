@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Cartao } from '@/components/ui/cartao'
 
 /**
  * Tela de "não encontrado" das rotas autenticadas. Alcançada quando uma
@@ -12,7 +13,7 @@ import Link from 'next/link'
  */
 export default function NaoEncontrado() {
   return (
-    <section className="space-y-4 rounded border bg-superficie p-4">
+    <Cartao className="space-y-4">
       <h1 className="text-lg font-semibold text-forte">
         Registro não encontrado
       </h1>
@@ -26,6 +27,6 @@ export default function NaoEncontrado() {
       >
         Voltar aos residentes
       </Link>
-    </section>
+    </Cartao>
   )
 }

@@ -6,6 +6,7 @@ import { ErroNaoEncontrado } from '@/lib/erros'
 import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarData, ROTULO_STATUS_RESIDENTE } from '@/lib/ptbr'
 import { acaoDesligarResidente } from '../../acoes'
+import { Cartao } from '@/components/ui/cartao'
 
 export default async function PaginaDesligarResidente({
   params,
@@ -34,7 +35,7 @@ export default async function PaginaDesligarResidente({
     return (
       <section className="space-y-4">
         <h1 className="text-lg font-semibold text-forte">{nome}</h1>
-        <p className="rounded border bg-superficie p-4 text-sm text-medio">
+        <p className="cartao p-4 text-sm text-medio">
           O registro de desligamento ou óbito é feito pela coordenação ou pela
           equipe administrativa. Fale com a coordenação.
         </p>
@@ -52,7 +53,7 @@ export default async function PaginaDesligarResidente({
       </h1>
 
       {residente.status === 'ATIVO' ? (
-        <div className="rounded border bg-superficie p-4">
+        <Cartao>
           <p className="mb-3 text-sm text-apoio">
             O cadastro é preservado; o residente deixa de aparecer na lista de
             ativos e passa a ser encontrado pelo filtro de situação. Registre
@@ -78,7 +79,7 @@ export default async function PaginaDesligarResidente({
               { nome: 'observacaoSaida', rotulo: 'Observação' },
             ]}
           />
-        </div>
+        </Cartao>
       ) : (
         <dl className="space-y-1 rounded border bg-suave p-4 text-sm text-firme">
           <div className="flex gap-2">

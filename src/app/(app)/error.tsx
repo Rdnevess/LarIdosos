@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Botao } from '@/components/ui/botao'
+import { Cartao } from '@/components/ui/cartao'
 
 /**
  * Fronteira de erro das telas autenticadas. Sem ela, qualquer exceção que
@@ -32,7 +33,7 @@ export default function ErroNaTela({
   reset: () => void
 }) {
   return (
-    <section className="space-y-4 rounded border bg-superficie p-4">
+    <Cartao className="space-y-4">
       <h1 className="text-lg font-semibold text-forte">
         Não foi possível abrir esta tela
       </h1>
@@ -59,6 +60,6 @@ export default function ErroNaTela({
           Código para o suporte: {error.digest}
         </p>
       )}
-    </section>
+    </Cartao>
   )
 }

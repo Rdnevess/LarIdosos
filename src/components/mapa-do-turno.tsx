@@ -66,7 +66,7 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
     <div className="space-y-6">
       <section aria-label="Doses do turno" className="space-y-4">
         {grupos.map(([horario, doses]) => (
-          <div key={horario} className="rounded border bg-superficie p-4">
+          <div key={horario} className="cartao p-4">
             <h2 className="mb-3 text-lg font-semibold text-forte">{horario}</h2>
             <ul className="divide-y">
               {doses.map((dose) => (
@@ -125,13 +125,13 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
         ))}
 
         {grupos.length === 0 && (
-          <p className="rounded border bg-superficie p-4 text-sm text-apoio">
+          <p className="cartao p-4 text-sm text-apoio">
             Nenhuma dose de horário fixo neste turno.
           </p>
         )}
       </section>
 
-      <section aria-label="Se necessário" className="rounded border bg-superficie p-4">
+      <section aria-label="Se necessário" className="cartao p-4">
         <h2 className="mb-1 font-medium text-forte">
           Se necessário ({mapa.seNecessario.length})
         </h2>

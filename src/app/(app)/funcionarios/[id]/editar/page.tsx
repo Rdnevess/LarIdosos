@@ -6,6 +6,7 @@ import { FormularioSimples } from '@/components/formulario-simples'
 import { CAMPOS_FUNCIONARIO } from '@/components/formulario-funcionario'
 import { formatarData } from '@/lib/ptbr'
 import { acaoAtualizarFuncionario, acaoDesligarFuncionario } from '../../acoes'
+import { Cartao } from '@/components/ui/cartao'
 
 export default async function PaginaEditarFuncionario({
   params,
@@ -35,7 +36,7 @@ export default async function PaginaEditarFuncionario({
         {funcionario.nomeCompleto}
       </h1>
 
-      <div className="rounded border bg-superficie p-4">
+      <Cartao>
         <h2 className="mb-3 font-medium text-forte">Dados cadastrais</h2>
         <FormularioSimples
           acao={acaoAtualizarFuncionario}
@@ -46,10 +47,10 @@ export default async function PaginaEditarFuncionario({
             valorInicial: valorInicial(campo.nome),
           }))}
         />
-      </div>
+      </Cartao>
 
       {funcionario.ativo ? (
-        <div className="rounded border bg-superficie p-4">
+        <Cartao>
           <h2 className="mb-1 font-medium text-forte">Desligamento</h2>
           <p className="mb-3 text-sm text-apoio">
             O registro é preservado; o funcionário deixa de aparecer nas listas e
@@ -70,7 +71,7 @@ export default async function PaginaEditarFuncionario({
               { nome: 'motivoDesligamento', rotulo: 'Motivo', obrigatorio: true },
             ]}
           />
-        </div>
+        </Cartao>
       ) : (
         <p className="rounded border bg-suave p-4 text-sm text-medio">
           Desligado em{' '}

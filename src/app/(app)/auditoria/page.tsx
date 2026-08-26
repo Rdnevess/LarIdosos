@@ -182,7 +182,7 @@ export default async function PaginaAuditoria({
         {resultado.total} registro(s) · página {pagina} de {resultado.paginas}
       </p>
 
-      <div className="overflow-x-auto rounded border bg-superficie">
+      <div className="overflow-x-auto cartao">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-suave">
             <tr>

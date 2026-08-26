@@ -16,6 +16,7 @@ import {
 } from '@/components/formularios-financeiro'
 import { fimDoDia } from '@/lib/periodo'
 import { Botao } from '@/components/ui/botao'
+import { Cartao } from '@/components/ui/cartao'
 
 /**
  * Os lançamentos do mês.
@@ -131,7 +132,7 @@ export default async function PaginaFinanceiro({
         </p>
       )}
 
-      <form className="grid gap-3 rounded border bg-superficie p-4 sm:grid-cols-4">
+      <form className="grid gap-3 cartao p-4 sm:grid-cols-4">
         <div className="space-y-1">
           <label htmlFor="conta" className="text-sm font-medium text-firme">
             Conta
@@ -195,15 +196,15 @@ export default async function PaginaFinanceiro({
       </form>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <p className="rounded border bg-superficie p-3 text-sm">
+        <p className="cartao p-3 text-sm">
           <span className="block text-apoio">Receitas no período</span>
           <span className="text-lg font-semibold text-forte">{formatarMoeda(receitas)}</span>
         </p>
-        <p className="rounded border bg-superficie p-3 text-sm">
+        <p className="cartao p-3 text-sm">
           <span className="block text-apoio">Despesas no período</span>
           <span className="text-lg font-semibold text-forte">{formatarMoeda(despesas)}</span>
         </p>
-        <p className="rounded border bg-superficie p-3 text-sm">
+        <p className="cartao p-3 text-sm">
           <span className="block text-apoio">Resultado</span>
           <span className="text-lg font-semibold text-forte">
             {formatarMoeda(Math.round((receitas - despesas) * 100) / 100)}
@@ -211,7 +212,7 @@ export default async function PaginaFinanceiro({
         </p>
       </div>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Lançar receita</h2>
         </summary>
@@ -227,7 +228,7 @@ export default async function PaginaFinanceiro({
         </div>
       </details>
 
-      <details className="rounded border bg-superficie p-4">
+      <details className="cartao p-4">
         <summary className="cursor-pointer font-medium text-forte">
           <h2 className="inline">Lançar despesa</h2>
         </summary>
@@ -240,7 +241,7 @@ export default async function PaginaFinanceiro({
         </div>
       </details>
 
-      <div className="rounded border bg-superficie p-4">
+      <Cartao>
         <h2 className="mb-3 font-medium text-forte">
           Lançamentos ({lancamentos.length})
         </h2>
@@ -289,7 +290,7 @@ export default async function PaginaFinanceiro({
             </li>
           )}
         </ul>
-      </div>
+      </Cartao>
     </section>
   )
 }

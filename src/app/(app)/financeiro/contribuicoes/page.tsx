@@ -65,7 +65,7 @@ export default async function PaginaContribuicoes({
         </Link>
       </div>
 
-      <form className="grid gap-3 rounded border bg-superficie p-4 sm:grid-cols-3">
+      <form className="grid gap-3 cartao p-4 sm:grid-cols-3">
         <div className="space-y-1">
           <label htmlFor="ano" className="text-sm font-medium text-firme">
             Ano
@@ -111,14 +111,14 @@ export default async function PaginaContribuicoes({
         </p>
       )}
 
-      <p className="rounded border bg-superficie p-3 text-sm">
+      <p className="cartao p-3 text-sm">
         <span className="block text-apoio">Ainda a lançar ({aLancar.length})</span>
         <span className="text-lg font-semibold text-forte">
           {formatarMoeda(Math.round(total * 100) / 100)}
         </span>
       </p>
 
-      <ul className="divide-y rounded border bg-superficie">
+      <ul className="divide-y cartao">
         {proposta.map((linha) => (
           <li key={linha.residenteId} className="space-y-2 p-4 text-sm">
             <div className="flex flex-wrap items-baseline justify-between gap-2">

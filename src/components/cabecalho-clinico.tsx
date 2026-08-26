@@ -147,7 +147,7 @@ export function AlertasDeCuidado({ dados }: { dados: Dados }) {
   return (
     <section
       aria-label="Alertas de cuidado"
-      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
+      className="grid gap-4 cartao p-4 sm:grid-cols-2"
     >
       <BlocosDeCuidado dados={dados} />
     </section>
@@ -168,7 +168,7 @@ export function CabecalhoClinico({
   return (
     <section
       aria-label="Cabeçalho clínico"
-      className="grid gap-4 rounded border bg-superficie p-4 sm:grid-cols-2"
+      className="grid gap-4 cartao p-4 sm:grid-cols-2"
     >
       <Bloco titulo="Grau de dependência" vazio="Não avaliado" temConteudo={grau !== null}>
         <p className="text-sm text-forte">Grau {grau}</p>

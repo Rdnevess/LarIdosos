@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lar de Idosos",
-  description: "Sistema de gestão para Lar de Idosos",
+  title: "Lar Dona Francisca",
+  description: "Sistema de gestão do Lar Dona Francisca",
 };
 
 /**
