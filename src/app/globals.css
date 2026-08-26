@@ -118,13 +118,14 @@
     --cor-apoio: #97a4b0;
     --cor-tenue: #647485;
 
-    /* Ação: no escuro o botão deixa de inverter e passa a ser azul de marca,
-       clareado. O valor tem de satisfazer DUAS regras que puxam para lados
-       opostos — texto branco sobre ele ≥ 4,5:1 (WCAG 1.4.3) e o próprio botão
-       ≥ 3:1 contra o fundo (WCAG 1.4.11, contraste de componente). A janela vai
-       de #1d66af a #2175ca; #1f70c1 fica no meio, com 5,07:1 e 3,53:1. */
-    --cor-acao: #1f70c1;
-    --cor-sobre-acao: #ffffff;
+    /* No escuro o botão inverte: fundo azul claro, texto escuro. Não é gosto —
+       é a única saída de duas regras que puxam para lados opostos. Um azul
+       escuro o bastante para texto branco (4,5:1, WCAG 1.4.3) fica claro de
+       menos para se destacar do cartão escuro (3:1, WCAG 1.4.11): o valor
+       anterior dava 2,89:1 contra `superficie`. Assim são 5,74:1 para o texto,
+       5,41:1 contra o cartão e 6,61:1 contra a página. */
+    --cor-acao: #5ba3e0;
+    --cor-sobre-acao: #0b2540;
 
     /* O dourado no escuro. Continua só filete e anel. */
     --cor-detalhe: #c0a670;
@@ -165,13 +166,14 @@
   --cor-apoio: #97a4b0;
   --cor-tenue: #647485;
 
-  /* Ação: no escuro o botão deixa de inverter e passa a ser azul de marca,
-     clareado. O valor tem de satisfazer DUAS regras que puxam para lados
-     opostos — texto branco sobre ele ≥ 4,5:1 (WCAG 1.4.3) e o próprio botão
-     ≥ 3:1 contra o fundo (WCAG 1.4.11, contraste de componente). A janela vai
-     de #1d66af a #2175ca; #1f70c1 fica no meio, com 5,07:1 e 3,53:1. */
-  --cor-acao: #1f70c1;
-  --cor-sobre-acao: #ffffff;
+  /* No escuro o botão inverte: fundo azul claro, texto escuro. Não é gosto —
+     é a única saída de duas regras que puxam para lados opostos. Um azul
+     escuro o bastante para texto branco (4,5:1, WCAG 1.4.3) fica claro de
+     menos para se destacar do cartão escuro (3:1, WCAG 1.4.11): o valor
+     anterior dava 2,89:1 contra `superficie`. Assim são 5,74:1 para o texto,
+     5,41:1 contra o cartão e 6,61:1 contra a página. */
+  --cor-acao: #5ba3e0;
+  --cor-sobre-acao: #0b2540;
 
   /* O dourado no escuro. Continua só filete e anel. */
   --cor-detalhe: #c0a670;

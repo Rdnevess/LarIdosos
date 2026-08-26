@@ -14,8 +14,13 @@ import { Icone, type NomeIcone } from '@/components/icones'
  */
 const VARIANTES = {
   primario: 'bg-acao text-sobre-acao hover:opacity-90',
-  secundario: 'border border-borda bg-superficie text-firme hover:bg-realce',
-  perigo: 'border border-perigo-borda bg-perigo-fundo text-perigo-forte hover:opacity-90',
+  // `border-acao` e não `border-borda`: a borda neutra dá 1,49:1 contra o
+  // cartão, ou seja, um botão sem contorno visível. O azul da marca dá 6,94:1
+  // no claro e 5,41:1 no escuro.
+  secundario: 'border border-acao bg-superficie text-firme hover:bg-realce',
+  // `border-perigo` e não `border-perigo-borda`: aquela reprovava no escuro
+  // (2,26:1). Esta dá 4,83:1 no claro e 5,29:1 no escuro.
+  perigo: 'border border-perigo bg-perigo-fundo text-perigo-forte hover:opacity-90',
 } as const
 
 export function Botao({

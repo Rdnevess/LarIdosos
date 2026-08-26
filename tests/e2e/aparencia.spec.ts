@@ -54,33 +54,57 @@ test('nenhum controle é menor que 44px no celular', async ({ page }) => {
   expect(pequenos, pequenos.join('\n')).toEqual([])
 })
 
-test('o botão primário usa a cor da marca e tem contraste de componente', async ({ page }) => {
-  // Duas regras, e a segunda é a que costuma escapar: o texto sobre o botão
-  // precisa de 4,5:1 (WCAG 1.4.3), e o próprio botão precisa de 3:1 contra o
-  // fundo (WCAG 1.4.11). Um botão legível por dentro e invisível por fora
+test('as três variantes de botão têm contraste de componente nos dois temas', async ({
+  page,
+}) => {
+  // Duas regras, e a segunda é a que escapa: o texto sobre o botão precisa de
+  // 4,5:1 (WCAG 1.4.3) e o próprio botão precisa de 3:1 contra o fundo
+  // adjacente (WCAG 1.4.11). Um botão legível por dentro e invisível por fora
   // passa no primeiro e reprova no segundo.
-  await page.goto('/login')
-  const botao = page.getByRole('button', { name: 'Entrar' })
+  //
+  // O fundo adjacente é o do ancestral opaco mais próximo, e NÃO o do `body`:
+  // o botão do login vive dentro de um `form` com `bg-superficie`, que cobre a
+  // página inteira atrás dele. Medir contra o `body` foi o defeito que deixou
+  // passar um 2,89:1 no tema escuro dando 3,53:1 como resposta.
+  for (const tema of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: tema })
+    await page.goto('/login')
 
-  const cores = await botao.evaluate((el) => ({
-    fundo: getComputedStyle(el).backgroundColor,
-    texto: getComputedStyle(el).color,
-    pagina: getComputedStyle(document.body).backgroundColor,
-  }))
+    const medidas = await page
+      .getByRole('button', { name: 'Entrar' })
+      .evaluate((el) => {
+        const opaco = (no: Element | null): string => {
+          while (no) {
+            const cor = getComputedStyle(no).backgroundColor
+            const alfa = cor.match(/[\d.]+/g)?.[3]
+            if (cor !== 'transparent' && alfa !== '0') return cor
+            no = no.parentElement
+          }
+          return 'rgb(255, 255, 255)'
+        }
+        return {
+          fundo: getComputedStyle(el).backgroundColor,
+          texto: getComputedStyle(el).color,
+          atras: opaco(el.parentElement),
+        }
+      })
 
-  const lum = (cor: string) => {
-    const [r, g, b] = (cor.match(/\d+/g) ?? []).slice(0, 3).map(Number)
-    const c = (v: number) => {
-      const s = v / 255
-      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    const lum = (cor: string) => {
+      const [r, g, b] = (cor.match(/\d+/g) ?? []).slice(0, 3).map(Number)
+      const canal = (v: number) => {
+        const s = v / 255
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+      }
+      return 0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b)
     }
-    return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b)
-  }
-  const razao = (a: string, b: string) => {
-    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p)
-    return (x + 0.05) / (y + 0.05)
-  }
+    const razao = (a: string, b: string) => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p)
+      return (x + 0.05) / (y + 0.05)
+    }
 
-  expect(razao(cores.texto, cores.fundo)).toBeGreaterThanOrEqual(4.5)
-  expect(razao(cores.fundo, cores.pagina)).toBeGreaterThanOrEqual(3)
+    expect(razao(medidas.texto, medidas.fundo), `texto do botão no tema ${tema}`)
+      .toBeGreaterThanOrEqual(4.5)
+    expect(razao(medidas.fundo, medidas.atras), `botão contra o fundo no tema ${tema}`)
+      .toBeGreaterThanOrEqual(3)
+  }
 })
