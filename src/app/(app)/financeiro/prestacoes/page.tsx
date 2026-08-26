@@ -16,6 +16,7 @@ import {
   FormularioReabrirPrestacao,
 } from '@/components/formularios-financeiro'
 import { fimDoMes } from '@/lib/periodo'
+import { Etiqueta } from '@/components/ui/etiqueta'
 
 /**
  * As prestações de contas, por conta e competência.
@@ -144,13 +145,9 @@ export default async function PaginaPrestacoes({
                   {mesPorExtenso(prestacao.mesCompetencia)} de {prestacao.anoCompetencia}
                   {conta && ` — ${conta.banco} ${conta.numeroConta}`}
                 </h2>
-                <span
-                  className={`rounded px-2 py-1 text-xs font-medium ${
-                    aberta ? 'bg-alerta-realce text-alerta' : 'bg-sucesso-fundo text-sucesso-forte'
-                  }`}
-                >
+                <Etiqueta tom={aberta ? 'alerta' : 'sucesso'}>
                   {aberta ? 'Aberta' : 'Fechada'}
-                </span>
+                </Etiqueta>
               </div>
 
               <dl className="grid gap-2 text-sm sm:grid-cols-4">
