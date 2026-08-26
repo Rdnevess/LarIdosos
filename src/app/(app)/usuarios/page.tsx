@@ -177,6 +177,7 @@ export default async function PaginaUsuarios() {
                     colunas={1}
                     prefixoId={`usuario-${usuario.id}`}
                     rotuloBotao="Desativar acesso"
+                    variante="perigo"
                     campos={[]}
                   />
                 )}

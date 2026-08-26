@@ -13,6 +13,7 @@ export function FormularioSimples({
   colunas = 2,
   prefixoId,
   aviso,
+  variante,
 }: {
   acao: (estado: EstadoAcao | null, dados: FormData) => Promise<EstadoAcao>
   campos: PropsCampo[]
@@ -25,6 +26,9 @@ export function FormularioSimples({
   /** Aviso exibido antes dos campos, para consequência que o usuário não tem
    *  como adivinhar olhando o formulário. */
   aviso?: string
+  /** Repassado ao `Botao`. Sem valor, ele decide sozinho (`primario`) — é o
+   *  que preserva o comportamento de todo formulário que não é destrutivo. */
+  variante?: 'primario' | 'secundario' | 'perigo'
 }) {
   const [estado, enviar, enviando] = useActionState(acao, null)
 
@@ -58,7 +62,7 @@ export function FormularioSimples({
         </p>
       )}
 
-      <Botao disabled={enviando} className="w-full sm:w-auto">
+      <Botao variante={variante} disabled={enviando} className="w-full sm:w-auto">
         {enviando ? 'Salvando…' : rotuloBotao}
       </Botao>
     </form>

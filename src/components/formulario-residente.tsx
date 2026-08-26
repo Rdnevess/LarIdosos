@@ -54,10 +54,14 @@ export function FormularioResidente({
   acao,
   residente,
   rotuloBotao,
+  variante,
 }: {
   acao: (estado: EstadoAcao | null, dados: FormData) => Promise<EstadoAcao>
   residente?: Residente
   rotuloBotao: string
+  /** Repassado ao `Botao`. Sem valor, ele decide sozinho (`primario`) — é o
+   *  que preserva o comportamento de todo formulário que não é destrutivo. */
+  variante?: 'primario' | 'secundario' | 'perigo'
 }) {
   const [estado, enviar, enviando] = useActionState(acao, null)
 
@@ -93,7 +97,7 @@ export function FormularioResidente({
         </p>
       )}
 
-      <Botao disabled={enviando} className="w-full sm:w-auto">
+      <Botao variante={variante} disabled={enviando} className="w-full sm:w-auto">
         {enviando ? 'Salvando…' : rotuloBotao}
       </Botao>
     </form>

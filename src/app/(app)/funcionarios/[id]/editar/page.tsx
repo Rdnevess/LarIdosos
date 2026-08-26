@@ -59,6 +59,7 @@ export default async function PaginaEditarFuncionario({
             acao={acaoDesligarFuncionario}
             ocultos={{ id: funcionario.id }}
             rotuloBotao="Registrar desligamento"
+            variante="perigo"
             campos={[
               {
                 nome: 'dataDesligamento',

@@ -252,6 +252,7 @@ export function FormularioCancelarLancamento({ id }: { id: string }) {
       prefixoId={`cancelar-${id}`}
       colunas={1}
       rotuloBotao="Cancelar lançamento"
+      variante="perigo"
       aviso="O lançamento não é apagado: fica registrado como cancelado, com o motivo. Um lançamento apagado é um buraco no extrato que ninguém explica depois."
       campos={[{ nome: 'motivo', rotulo: 'Motivo do cancelamento', obrigatorio: true }]}
     />
