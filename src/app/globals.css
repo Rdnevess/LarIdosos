@@ -204,6 +204,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  /* As variáveis de fonte são definidas aqui em nível global para que possam ser
+     usadas no CSS base. O `next/font` injeta `--font-geist-sans` no `body` como
+     atributo de estilo; aqui definimos `--font-sans` como uma variável CSS global
+     com o valor da fonte Geist que será usada no body e outros elementos. */
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+}
+
 /**
  * As bordas sem cor.
  *
@@ -271,7 +280,11 @@
 body {
   background: var(--cor-fundo);
   color: var(--cor-forte);
-  font-family: Arial, Helvetica, sans-serif;
+  /* A Geist já é carregada pelo `next/font` em `src/app/layout.tsx` e exposta
+     como `--font-sans` no `@theme inline` acima. A linha que estava aqui fixava
+     Arial e descartava as duas coisas — o sistema pagava o download da fonte e
+     renderizava com a de sistema. Era sobra do template inicial do Next. */
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 /**
