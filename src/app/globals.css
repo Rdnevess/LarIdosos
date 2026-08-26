@@ -200,6 +200,22 @@
   --color-sucesso-forte: var(--cor-sucesso-forte);
   --color-sucesso-fundo: var(--cor-sucesso-fundo);
 
+  /* Cinco degraus, pelo mesmo motivo que a cor de texto tem cinco: o que não
+     tem nome vira decisão repetida em cada tela. Antes disto, `text-sm`
+     aparecia 155 vezes e `text-lg` 26 — a tela inteira falava no mesmo tom.
+     Em `rem` de propósito: é o que faz a densidade por dispositivo caber numa
+     regra só. */
+  --text-titulo: 1.5rem;
+  --text-titulo--line-height: 2rem;
+  --text-secao: 1.125rem;
+  --text-secao--line-height: 1.75rem;
+  --text-corpo: 1rem;
+  --text-corpo--line-height: 1.5rem;
+  --text-apoio: 0.875rem;
+  --text-apoio--line-height: 1.25rem;
+  --text-legenda: 0.75rem;
+  --text-legenda--line-height: 1rem;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -211,6 +227,29 @@
      com o valor da fonte Geist que será usada no body e outros elementos. */
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+}
+
+/**
+ * A densidade do sistema inteiro, em duas linhas.
+ *
+ * Toda medida da escala é `rem`, então mudar o tamanho da raiz reescala texto,
+ * espaçamento e alvo de toque de uma vez. No celular a raiz fica em 16px — o
+ * tamanho que se lê em pé, no corredor, com o aparelho na mão. A partir de
+ * 640px cai para 15px, o que devolve à tabela de auditoria e à de lançamentos
+ * a densidade que a §9 do design promete a quem confere duzentas linhas.
+ *
+ * Fazer isso por breakpoint, e não por preferência da pessoa, é deliberado: um
+ * seletor de densidade dobraria a matriz de teste visual (dois temas × duas
+ * densidades) para resolver um problema que o dispositivo já responde.
+ */
+:root {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    font-size: 15px;
+  }
 }
 
 /**
