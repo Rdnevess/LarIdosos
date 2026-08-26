@@ -7,18 +7,19 @@ import { signOut } from '@/modules/auth/config'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { BotaoTema } from '@/components/botao-tema'
 import { Botao } from '@/components/ui/botao'
+import { Icone, type NomeIcone } from '@/components/icones'
 
-const ITENS: { href: string; rotulo: string; papeis: Papel[] }[] = [
+const ITENS: { href: string; rotulo: string; icone: NomeIcone; papeis: Papel[] }[] = [
   // Primeiro da lista: e a tela mais usada do sistema pela equipe de cuidado.
-  { href: '/turno', rotulo: 'Turno', papeis: ['COORDENACAO', 'SAUDE'] },
-  { href: '/residentes', rotulo: 'Residentes', papeis: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
+  { href: '/turno', rotulo: 'Turno', icone: 'turno', papeis: ['COORDENACAO', 'SAUDE'] },
+  { href: '/residentes', rotulo: 'Residentes', icone: 'residente', papeis: ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] },
   // Antes de "Funcionários" de propósito: é tela de rotina diária, e as de
   // rotina ficam no topo.
-  { href: '/pendencias', rotulo: 'Pendências', papeis: ['COORDENACAO', 'SAUDE'] },
-  { href: '/funcionarios', rotulo: 'Funcionários', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
-  { href: '/financeiro', rotulo: 'Financeiro', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
-  { href: '/usuarios', rotulo: 'Usuários', papeis: ['COORDENACAO'] },
-  { href: '/auditoria', rotulo: 'Auditoria', papeis: ['COORDENACAO'] },
+  { href: '/pendencias', rotulo: 'Pendências', icone: 'alerta', papeis: ['COORDENACAO', 'SAUDE'] },
+  { href: '/funcionarios', rotulo: 'Funcionários', icone: 'funcionario', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
+  { href: '/financeiro', rotulo: 'Financeiro', icone: 'financeiro', papeis: ['COORDENACAO', 'ADMINISTRATIVO'] },
+  { href: '/usuarios', rotulo: 'Usuários', icone: 'residente', papeis: ['COORDENACAO'] },
+  { href: '/auditoria', rotulo: 'Auditoria', icone: 'auditoria', papeis: ['COORDENACAO'] },
 ]
 
 export default async function LayoutAutenticado({
@@ -38,7 +39,7 @@ export default async function LayoutAutenticado({
     <div className="min-h-screen bg-fundo">
       <header className="border-b bg-superficie">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 p-3">
-          <span className="font-semibold text-forte">Lar de Idosos</span>
+          <span className="font-semibold text-forte">Lar Dona Francisca</span>
           {/* Uma colocação só cobre todas as telas autenticadas, e ainda o
               `error.tsx` e o `not-found.tsx`, que renderizam dentro deste
               layout. */}
@@ -82,8 +83,13 @@ export default async function LayoutAutenticado({
             <Link
               key={item.href}
               href={item.href}
-              className="min-h-11 inline-flex items-center whitespace-nowrap rounded px-3 py-2 text-sm text-firme hover:bg-realce"
+              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-firme hover:bg-realce"
             >
+              {/* O ícone acompanha o rótulo, nunca o substitui: sozinho ele
+                  vira adivinhação para quem está de plantão. Sem `rotulo`,
+                  ele sai da árvore de acessibilidade — o texto ao lado já
+                  diz o que ele significa. */}
+              <Icone nome={item.icone} className="size-4" />
               {item.rotulo}
             </Link>
           ))}

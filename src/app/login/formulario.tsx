@@ -15,7 +15,7 @@ export function FormularioLogin({ destino }: { destino: string }) {
             do botão por conta própria. É também a tela onde o tema escuro pela
             metade doía mais: o texto digitado sumia no campo. */}
         <div className="flex items-start justify-between gap-2">
-          <h1 className="text-xl font-semibold text-forte">Lar de Idosos</h1>
+          <h1 className="text-xl font-semibold text-forte">Lar Dona Francisca</h1>
           <BotaoTema />
         </div>
         <p className="text-sm text-apoio">Entre com suas credenciais</p>

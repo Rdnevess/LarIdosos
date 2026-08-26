@@ -133,3 +133,40 @@ test('o botão primário tem contraste de componente nos dois temas', async ({
       .toBeGreaterThanOrEqual(3)
   }
 })
+
+test('o sistema se chama pelo nome do Lar', async ({ page }) => {
+  // O sistema nasceu com o nome do template — "Lar de Idosos" — e ficou assim
+  // no título da aba e no cabeçalho de toda tela. O Lar se chama Dona
+  // Francisca, e quem abre o sistema tem de reconhecê-lo.
+  await page.goto('/login')
+
+  await expect(page).toHaveTitle(/Lar Dona Francisca/)
+  await expect(page.getByRole('heading', { name: 'Lar Dona Francisca' })).toBeVisible()
+})
+
+test('cada item da navegação leva ícone, e nenhum deles é anunciado sozinho', async ({
+  page,
+}) => {
+  // Os quinze ícones foram vendorizados e ficaram sem uso nenhum. Aqui eles
+  // entram — e entram com regra: acompanham o rótulo, nunca o substituem.
+  // Ícone sozinho vira adivinhação para quem está de plantão.
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/residentes/)
+
+  const itens = page.locator('nav a')
+  const total = await itens.count()
+  expect(total).toBeGreaterThan(0)
+
+  for (let i = 0; i < total; i += 1) {
+    const item = itens.nth(i)
+    await expect(item.locator('svg')).toHaveCount(1)
+    // O texto continua lá: o ícone soma, não troca.
+    expect((await item.innerText()).trim().length).toBeGreaterThan(0)
+    // E o SVG sai da árvore de acessibilidade, senão o leitor de tela
+    // anunciaria o nome do ícone antes do rótulo.
+    await expect(item.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+  }
+})
