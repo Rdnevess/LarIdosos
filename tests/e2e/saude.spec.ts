@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { NOME_RESIDENTE_SAUDE } from './credenciais'
+import { horarioDoTurnoCorrente, inicioDoTurnoCorrente } from './turno-corrente'
 
 /**
  * A interface vista pelo papel SAUDE. Até a Tarefa 19 nenhum teste, de
@@ -220,17 +221,8 @@ test('a enfermeira percorre o plantao: prescreve, administra e ve a aderencia', 
   const antes = await lerAderencia(page)
 
   const farmaco = `Losartana ${Date.now()}`
-  const agora = new Date()
-  const hora = agora.getHours()
-  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
-  const doisDigitos = (n: number) => String(n).padStart(2, '0')
-  const horario = `${doisDigitos(hora > piso ? hora - 1 : hora)}:00`
-  const inicio = new Date(agora)
-  if (piso === 22 && hora < 6) inicio.setDate(inicio.getDate() - 1)
-  inicio.setHours(piso, 0, 0, 0)
-  const vigencia =
-    `${inicio.getFullYear()}-${doisDigitos(inicio.getMonth() + 1)}-` +
-    `${doisDigitos(inicio.getDate())}T${doisDigitos(inicio.getHours())}:00`
+  const horario = horarioDoTurnoCorrente()
+  const vigencia = inicioDoTurnoCorrente()
 
   const secao = page.locator('details').filter({ hasText: 'Medicações' })
   await secao.locator('summary').first().click()

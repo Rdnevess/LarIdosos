@@ -1,35 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-
-/**
- * Um horário dentro da janela em curso, para a dose aparecer sem navegação.
- * Sem isto o teste dependeria de a suíte rodar num turno específico — e
- * falharia sozinho às 22h.
- */
-function horarioDoTurnoCorrente(): string {
-  const agora = new Date()
-  const hora = agora.getHours()
-  // Uma hora antes da atual, dentro do mesmo turno: manhã 6–14, tarde 14–22,
-  // noite 22–6. A borda de baixo de cada turno é o piso.
-  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
-  const escolhida = hora > piso ? hora - 1 : hora
-  return `${String(escolhida).padStart(2, '0')}:00`
-}
-
-/** O começo da janela em curso, no formato que o `datetime-local` aceita. */
-function inicioDoTurnoCorrente(): string {
-  const agora = new Date()
-  const hora = agora.getHours()
-  const piso = hora >= 6 && hora < 14 ? 6 : hora >= 14 && hora < 22 ? 14 : 22
-  const inicio = new Date(agora)
-  if (piso === 22 && hora < 6) inicio.setDate(inicio.getDate() - 1)
-  inicio.setHours(piso, 0, 0, 0)
-
-  const doisDigitos = (n: number) => String(n).padStart(2, '0')
-  return (
-    `${inicio.getFullYear()}-${doisDigitos(inicio.getMonth() + 1)}-` +
-    `${doisDigitos(inicio.getDate())}T${doisDigitos(inicio.getHours())}:00`
-  )
-}
+import { horarioDoTurnoCorrente, inicioDoTurnoCorrente } from './turno-corrente'
 
 async function cadastrarEAbrirProntuario(page: Page, nome: string): Promise<void> {
   await page.goto('/residentes/novo')
