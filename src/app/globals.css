@@ -259,10 +259,17 @@
  * A raiz em 16px, e a mesma em todo dispositivo.
  *
  * A densidade por dispositivo — 15px no desktop — foi tentada e revertida: ela
- * só funciona depois que as telas adotarem a escala (`text-corpo`,
- * `text-suporte`), e com 148 `text-sm` ainda no markup o efeito foi o oposto do
- * pretendido, encolhendo o texto corrente de 14px para 13,1px. Volta quando a
- * adoção acontecer, e não antes.
+ * só funciona depois que as telas adotarem a escala, e com 148 `text-sm` ainda
+ * no markup o efeito foi o oposto do pretendido, encolhendo o texto corrente de
+ * 14px para 13,1px.
+ *
+ * **A adoção aconteceu** (26/08/2026): o markup não tem mais um único tamanho
+ * cru, e há guarda em `tests/tema.test.ts` que o mantém assim. A trava saiu, e
+ * a densidade por dispositivo pode voltar — com uma condição, que é o único
+ * motivo de este parágrafo existir: o campo de formulário precisa de 16px
+ * absolutos no celular, ou o iOS dá zoom ao focar (ver `campo.tsx`). O bloco
+ * revertido mexia só a partir de `min-width: 640px` e por isso não esbarrava
+ * nisso. Quem baixar a raiz no celular quebra o campo sem quebrar teste nenhum.
  */
 :root {
   font-size: 16px;
