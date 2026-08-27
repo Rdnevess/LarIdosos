@@ -128,3 +128,56 @@ describe('listarPendencias', () => {
     await expect(listarPendencias(ctx)).rejects.toThrow(ErroPermissao)
   })
 })
+
+describe('listarPendencias — paginação', () => {
+  it('o limite vale para a tela toda: exames enchem a página e consultas caem para a seguinte', async () => {
+    // A decisão é do dono do sistema, e a consequência é esta: com um limite
+    // só para as duas listas, consultas somem da primeira página assim que
+    // exames passarem do limite. Está aqui escrito como asserção para que
+    // ninguém a descubra como se fosse defeito.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    for (let i = 0; i < 25; i++) {
+      await registrarExame(ctx, {
+        residenteId: residente.id,
+        tipo: `Exame ${String(i).padStart(3, '0')}`,
+        dataSolicitacao: new Date(`2026-07-${String((i % 28) + 1).padStart(2, '0')}`),
+      })
+    }
+    for (let i = 0; i < 5; i++) {
+      await registrarConsulta(ctx, {
+        residenteId: residente.id,
+        especialidade: `Especialidade ${i}`,
+        dataHora: new Date(`2026-09-0${i + 1}T10:00:00`),
+      })
+    }
+
+    const primeira = await listarPendencias(ctx, { pagina: 1, por: 20 })
+    expect(primeira.exames).toHaveLength(20)
+    expect(primeira.consultas).toHaveLength(0)
+    expect(primeira.total).toBe(30)
+    expect(primeira.paginas).toBe(2)
+
+    // A página seguinte pega o resto dos exames e emenda as consultas na
+    // mesma fatia — é a fronteira entre as duas listas, e é onde um cálculo
+    // de deslocamento erra.
+    const segunda = await listarPendencias(ctx, { pagina: 2, por: 20 })
+    expect(segunda.exames).toHaveLength(5)
+    expect(segunda.consultas).toHaveLength(5)
+  })
+
+  it('sem paginação pedida, devolve tudo — é o que a tela fazia antes', async () => {
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    await registrarExame(ctx, {
+      residenteId: residente.id,
+      tipo: 'Hemograma',
+      dataSolicitacao: new Date('2026-07-01'),
+    })
+
+    const tudo = await listarPendencias(ctx)
+    expect(tudo.exames).toHaveLength(1)
+    expect(tudo.total).toBe(1)
+  })
+})

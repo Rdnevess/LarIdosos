@@ -11,6 +11,7 @@ import {
 import {
   criarUsuario,
   listarUsuarios,
+  consultarUsuarios,
   atualizarUsuario,
   definirSenha,
   desativarUsuario,
@@ -253,5 +254,78 @@ describe('desativarUsuario', () => {
     const ctx = await ctxComPapel('SAUDE')
 
     await expect(desativarUsuario(ctx, alvo.id)).rejects.toThrow(ErroPermissao)
+  })
+})
+
+describe('consultarUsuarios', () => {
+  it('acha o nome acentuado por quem digita sem acento, e o contrário', async () => {
+    // Mesma regra dos residentes e funcionários: a coluna `busca` é gerada
+    // pelo banco sem acento, e o termo passa pela mesma normalização. Sem
+    // isso, procurar "conceicao" não acharia "Conceição" — e o sistema teria
+    // duas respostas diferentes para "como se procura um nome aqui".
+    const ctx = await ctxComPapel('COORDENACAO')
+    await criarUsuario(ctx, { ...dadosValidos, nome: 'Maria Conceição', email: 'mc@lar.local' })
+    await criarUsuario(ctx, { ...dadosValidos, nome: 'Joao Antonio', email: 'ja@lar.local' })
+
+    expect((await consultarUsuarios(ctx, { nome: 'conceicao' })).itens).toHaveLength(1)
+    expect((await consultarUsuarios(ctx, { nome: 'João' })).itens).toHaveLength(1)
+  })
+
+  it('acha também pelo e-mail, que é como a coordenação identifica a conta', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    await criarUsuario(ctx, { ...dadosValidos, nome: 'Ana Paula', email: 'ana.paula@lar.local' })
+
+    expect((await consultarUsuarios(ctx, { nome: 'ana.paula@' })).itens).toHaveLength(1)
+  })
+
+  it('filtra por papel', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    await criarUsuario(ctx, { ...dadosValidos, papel: 'SAUDE', email: 's@lar.local' })
+    await criarUsuario(ctx, { ...dadosValidos, papel: 'ADMINISTRATIVO', email: 'a@lar.local' })
+
+    const saude = await consultarUsuarios(ctx, { papel: 'SAUDE' })
+    expect(saude.itens.every((u) => u.papel === 'SAUDE')).toBe(true)
+    expect(saude.itens.map((u) => u.email)).toContain('s@lar.local')
+    expect(saude.itens.map((u) => u.email)).not.toContain('a@lar.local')
+  })
+
+  it('combina nome e papel, em vez de escolher um dos dois', async () => {
+    // O caso que um `OR` acidental deixaria passar: com os dois filtros, quem
+    // bate só no nome não pode entrar.
+    const ctx = await ctxComPapel('COORDENACAO')
+    await criarUsuario(ctx, { ...dadosValidos, nome: 'Rita Souza', papel: 'SAUDE', email: 'rs@lar.local' })
+    await criarUsuario(ctx, { ...dadosValidos, nome: 'Rita Alves', papel: 'ADMINISTRATIVO', email: 'ra@lar.local' })
+
+    const achados = await consultarUsuarios(ctx, { nome: 'rita', papel: 'SAUDE' })
+
+    expect(achados.itens.map((u) => u.email)).toEqual(['rs@lar.local'])
+    expect(achados.total).toBe(1)
+  })
+
+  it('pagina, e conta com o filtro aplicado', async () => {
+    const ctx = await ctxComPapel('COORDENACAO')
+    for (let i = 0; i < 22; i++) {
+      await criarUsuario(ctx, {
+        ...dadosValidos,
+        nome: `Pessoa ${String(i).padStart(3, '0')}`,
+        email: `p${i}@lar.local`,
+        papel: 'SAUDE',
+      })
+    }
+
+    const primeira = await consultarUsuarios(ctx, { papel: 'SAUDE', pagina: 1, por: 20 })
+    const segunda = await consultarUsuarios(ctx, { papel: 'SAUDE', pagina: 2, por: 20 })
+
+    expect(primeira.itens).toHaveLength(20)
+    expect(primeira.total).toBe(22)
+    expect(primeira.paginas).toBe(2)
+    expect(segunda.itens).toHaveLength(2)
+    const ids = [...primeira.itens, ...segunda.itens].map((u) => u.id)
+    expect(new Set(ids).size, 'houve repetição entre as páginas').toBe(22)
+  })
+
+  it('nega a leitura a quem não é coordenação', async () => {
+    const ctx = await ctxComPapel('SAUDE')
+    await expect(consultarUsuarios(ctx, {})).rejects.toThrow(ErroPermissao)
   })
 })

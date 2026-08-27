@@ -1,8 +1,11 @@
 import type { Papel } from '@prisma/client'
 import { obterCtx } from '@/modules/auth/sessao'
-import { listarUsuarios } from '@/modules/auth/usuarios.service'
+import { consultarUsuarios } from '@/modules/auth/usuarios.service'
 import { FormularioSimples } from '@/components/formulario-simples'
 import { formatarDataHora } from '@/lib/ptbr'
+import { comParametros, numeroDaPagina, tamanhoDePagina } from '@/lib/paginacao'
+import { Botao } from '@/components/ui/botao'
+import { Paginacao } from '@/components/ui/paginacao'
 import {
   acaoCriarUsuario,
   acaoAtualizarUsuario,
@@ -27,9 +30,25 @@ const OPCOES_PAPEL = (Object.keys(ROTULO_PAPEL) as Papel[]).map((papel) => ({
   rotulo: ROTULO_PAPEL[papel],
 }))
 
-export default async function PaginaUsuarios() {
+export default async function PaginaUsuarios({
+  searchParams,
+}: {
+  searchParams: Promise<{ nome?: string; papel?: string; pagina?: string; por?: string }>
+}) {
+  const filtros = await searchParams
   const ctx = await obterCtx()
-  const usuarios = await listarUsuarios(ctx)
+  const pagina = numeroDaPagina(filtros.pagina)
+  const por = tamanhoDePagina(filtros.por)
+
+  // O papel vem da barra de endereço e pode ser qualquer coisa. Só passa
+  // adiante se for um dos três do enum — um valor estranho vira "sem filtro",
+  // e não uma consulta com papel inventado.
+  const papel = filtros.papel && filtros.papel in ROTULO_PAPEL
+    ? (filtros.papel as Papel)
+    : undefined
+
+  const resultado = await consultarUsuarios(ctx, { nome: filtros.nome, papel, pagina, por })
+  const usuarios = resultado.itens
 
   return (
     <section className="space-y-6">
@@ -60,7 +79,36 @@ export default async function PaginaUsuarios() {
         />
       </section>
 
+      {/* Sem `pagina` escondida: filtrar volta à primeira página, senão quem
+          está na página 3 e filtra vê uma lista vazia. */}
+      <form className="flex flex-wrap gap-2">
+        <input
+          name="nome"
+          defaultValue={filtros.nome}
+          placeholder="Buscar por nome ou e-mail"
+          aria-label="Buscar por nome ou e-mail"
+          className="min-w-48 flex-1 rounded border border-borda px-3 py-2 text-corpo"
+        />
+        <select
+          name="papel"
+          defaultValue={papel ?? ''}
+          aria-label="Papel"
+          className="rounded border border-borda px-3 py-2 text-corpo"
+        >
+          <option value="">Todos os papéis</option>
+          {OPCOES_PAPEL.map((opcao) => (
+            <option key={opcao.valor} value={opcao.valor}>
+              {opcao.rotulo}
+            </option>
+          ))}
+        </select>
+        <Botao variante="secundario">Filtrar</Botao>
+      </form>
+
       <ul className="divide-y cartao">
+        {usuarios.length === 0 && (
+          <li className="p-3 text-suporte text-apoio">Nenhum usuário encontrado.</li>
+        )}
         {usuarios.map((usuario) => (
           <li key={usuario.id} className="space-y-2 p-3">
             <div>
@@ -186,6 +234,15 @@ export default async function PaginaUsuarios() {
           </li>
         ))}
       </ul>
+
+      <Paginacao
+        pagina={resultado.pagina}
+        paginas={resultado.paginas}
+        total={resultado.total}
+        por={resultado.por}
+        rotulo="usuário(s)"
+        url={(mudancas) => comParametros(filtros, mudancas)}
+      />
     </section>
   )
 }

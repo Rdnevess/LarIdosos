@@ -6,6 +6,7 @@ import { listarUsuarios } from '@/modules/auth/usuarios.service'
 import { consultarAuditoria } from '@/modules/audit/auditoria.consulta'
 import type { EntidadeAuditada } from '@/modules/audit/auditoria.service'
 import { formatarDiff } from '@/modules/audit/auditoria.formatacao'
+import { comParametros, numeroDaPagina } from '@/lib/paginacao'
 import { fimDoDia } from '@/lib/periodo'
 import { formatarDataHora } from '@/lib/ptbr'
 import { Botao } from '@/components/ui/botao'
@@ -72,15 +73,6 @@ function rotularEntidade(entidade: string): string {
 // ação/entidade da linha. Ficou num módulo puro à parte para poder ser
 // testada sem carregar esta página inteira.
 
-// `Number('abc')` é `NaN`, e `?pagina=` é digitável à mão na barra de
-// endereço. Sem este resguardo, uma página inválida chegaria a
-// `consultarAuditoria` como `NaN` e faria o `skip` do Prisma quebrar em vez
-// de simplesmente cair na primeira página.
-function numeroPagina(valor: string | undefined): number {
-  const numero = Number(valor)
-  return Number.isInteger(numero) && numero > 0 ? numero : 1
-}
-
 export default async function PaginaAuditoria({
   searchParams,
 }: {
@@ -94,7 +86,7 @@ export default async function PaginaAuditoria({
 }) {
   const filtros = await searchParams
   const ctx = await obterCtx()
-  const pagina = numeroPagina(filtros.pagina)
+  const pagina = numeroDaPagina(filtros.pagina)
 
   const [usuarios, resultado] = await Promise.all([
     listarUsuarios(ctx),
@@ -107,14 +99,7 @@ export default async function PaginaAuditoria({
     }),
   ])
 
-  const parametros = (novaPagina: number) => {
-    const busca = new URLSearchParams()
-    for (const [chave, valor] of Object.entries(filtros)) {
-      if (valor && chave !== 'pagina') busca.set(chave, valor)
-    }
-    busca.set('pagina', String(novaPagina))
-    return `?${busca.toString()}`
-  }
+  const parametros = (novaPagina: number) => comParametros(filtros, { pagina: novaPagina })
 
   // O excesso só é detectável depois da consulta, porque é ela quem sabe
   // quantas páginas existem. Sem isto, pedir a página 9999 de 12 mostrava o

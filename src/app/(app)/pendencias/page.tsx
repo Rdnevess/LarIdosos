@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import { listarPendencias } from '@/modules/health/pendencias'
 import { formatarData, formatarDataHora } from '@/lib/ptbr'
+import { comParametros, numeroDaPagina, tamanhoDePagina } from '@/lib/paginacao'
 import { Cartao } from '@/components/ui/cartao'
+import { Paginacao } from '@/components/ui/paginacao'
 
 /**
  * A tela que atravessa residentes.
@@ -22,9 +24,22 @@ function nomeDe(residente: { nomeCompleto: string; nomeSocial: string | null }):
   return residente.nomeSocial || residente.nomeCompleto
 }
 
-export default async function PaginaPendencias() {
+export default async function PaginaPendencias({
+  searchParams,
+}: {
+  searchParams: Promise<{ pagina?: string; por?: string }>
+}) {
+  const filtros = await searchParams
   const ctx = await obterCtx()
-  const { exames, consultas } = await listarPendencias(ctx)
+  const pagina = numeroDaPagina(filtros.pagina)
+  const por = tamanhoDePagina(filtros.por)
+
+  // **Um limite para a tela toda**, e não um por lista: as duas são fatiadas
+  // como uma sequência só, exames primeiro. A consequência foi escolhida e
+  // está fixada em teste — quando os exames passarem do tamanho da página, as
+  // consultas caem para a página seguinte.
+  const resultado = await listarPendencias(ctx, { pagina, por })
+  const { exames, consultas } = resultado
 
   const agora = new Date()
 
@@ -39,7 +54,7 @@ export default async function PaginaPendencias() {
 
       <Cartao>
         <h2 className="mb-3 font-medium text-forte">
-          Exames em aberto ({exames.length})
+          Exames em aberto ({exames.length} de {resultado.totalExames})
         </h2>
         <ul className="divide-y">
           {exames.map((exame) => (
@@ -71,7 +86,7 @@ export default async function PaginaPendencias() {
 
       <Cartao>
         <h2 className="mb-3 font-medium text-forte">
-          Consultas agendadas ({consultas.length})
+          Consultas agendadas ({consultas.length} de {resultado.totalConsultas})
         </h2>
         <ul className="divide-y">
           {consultas.map((consulta) => {
@@ -108,6 +123,15 @@ export default async function PaginaPendencias() {
           )}
         </ul>
       </Cartao>
+
+      <Paginacao
+        pagina={pagina}
+        paginas={resultado.paginas}
+        total={resultado.total}
+        por={por}
+        rotulo="pendência(s)"
+        url={(mudancas) => comParametros(filtros, mudancas)}
+      />
     </section>
   )
 }

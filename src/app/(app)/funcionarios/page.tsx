@@ -1,25 +1,34 @@
 import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
 import {
-  listarFuncionarios,
+  consultarFuncionarios,
   listarConselhosVencendo,
 } from '@/modules/staff/funcionarios.service'
 import { formatarData } from '@/lib/ptbr'
+import { comParametros, numeroDaPagina, tamanhoDePagina } from '@/lib/paginacao'
 import { ROTULO_VINCULO } from '@/components/formulario-funcionario'
 import { Botao } from '@/components/ui/botao'
+import { Paginacao } from '@/components/ui/paginacao'
 
 export default async function PaginaFuncionarios({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string }>
+  searchParams: Promise<{ busca?: string; pagina?: string; por?: string }>
 }) {
-  const { busca } = await searchParams
+  const filtros = await searchParams
+  const { busca } = filtros
   const ctx = await obterCtx()
+  const pagina = numeroDaPagina(filtros.pagina)
+  const por = tamanhoDePagina(filtros.por)
 
-  const [funcionarios, vencendo] = await Promise.all([
-    listarFuncionarios(ctx, { busca, apenasAtivos: true }),
+  // O aviso de conselho vencendo fica **fora** da paginacao de proposito: ele
+  // conta o Lar inteiro, e um aviso que mudasse conforme a pagina aberta nao
+  // seria aviso nenhum.
+  const [resultado, vencendo] = await Promise.all([
+    consultarFuncionarios(ctx, { busca, apenasAtivos: true, pagina, por }),
     listarConselhosVencendo(ctx, 60),
   ])
+  const funcionarios = resultado.itens
 
   return (
     <section className="space-y-4">
@@ -92,6 +101,15 @@ export default async function PaginaFuncionarios({
           <li className="p-3 text-suporte text-apoio">Nenhum funcionário encontrado.</li>
         )}
       </ul>
+
+      <Paginacao
+        pagina={resultado.pagina}
+        paginas={resultado.paginas}
+        total={resultado.total}
+        por={resultado.por}
+        rotulo="funcionário(s) ativo(s)"
+        url={(mudancas) => comParametros(filtros, mudancas)}
+      />
     </section>
   )
 }

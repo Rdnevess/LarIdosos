@@ -2,6 +2,7 @@ import type { Funcionario, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { normalizarBusca } from '@/lib/busca'
+import { TAMANHO_PADRAO, totalDePaginas, type Pagina, type Tamanho } from '@/lib/paginacao'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -80,10 +81,17 @@ export type FuncionarioResumo = Pick<
   'id' | 'nomeCompleto' | 'cargo' | 'vinculo' | 'dataAdmissao' | 'dataDesligamento' | 'ativo'
 >
 
-export async function listarFuncionarios(
+export type FiltroFuncionarios = {
+  busca?: string
+  apenasAtivos?: boolean
+  pagina?: number
+  por?: Tamanho
+}
+
+export async function consultarFuncionarios(
   ctx: Ctx,
-  filtro: { busca?: string; apenasAtivos?: boolean } = {}
-): Promise<FuncionarioResumo[]> {
+  filtro: FiltroFuncionarios = {}
+): Promise<Pagina<FuncionarioResumo>> {
   exigirPapel(ctx, 'Funcionario', 'COORDENACAO', 'ADMINISTRATIVO')
 
   const where: Prisma.FuncionarioWhereInput = {}
@@ -94,11 +102,24 @@ export async function listarFuncionarios(
     where.busca = { contains: normalizarBusca(filtro.busca) }
   }
 
-  return prisma.funcionario.findMany({
-    where,
-    select: CAMPOS_LISTA_FUNCIONARIO,
-    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
-  })
+  const por = filtro.por ?? TAMANHO_PADRAO
+  const pagina = Math.max(1, filtro.pagina ?? 1)
+
+  const [itens, total] = await Promise.all([
+    prisma.funcionario.findMany({
+      where,
+      select: CAMPOS_LISTA_FUNCIONARIO,
+      // Desempate por `id` pelo mesmo motivo dos residentes: dois homonimos
+      // sem criterio estavel trocam de lugar entre consultas, e sob
+      // `skip`/`take` um deles some da paginacao inteira.
+      orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+      skip: (pagina - 1) * por,
+      take: por,
+    }),
+    prisma.funcionario.count({ where }),
+  ])
+
+  return { itens, total, pagina, por, paginas: totalDePaginas(total, por) }
 }
 
 export async function atualizarFuncionario(

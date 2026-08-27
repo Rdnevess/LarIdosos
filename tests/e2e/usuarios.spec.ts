@@ -18,6 +18,27 @@ async function criarUsuario(
   await novoUsuario.getByLabel('Papel').selectOption(papel)
   await novoUsuario.getByLabel('Senha inicial (mínimo 8 caracteres)').fill('senha-de-teste-123')
   await novoUsuario.getByRole('button', { name: 'Criar usuário' }).click()
+  // Esperar a confirmação, e não só clicar: quem navega em seguida corre
+  // contra a Server Action, e a conta ainda não existe quando a próxima tela
+  // carrega. Antes da paginação isto não aparecia — a asserção seguinte
+  // ficava na mesma página e esperava sozinha.
+  await expect(novoUsuario.getByRole('status')).toHaveText('Registro salvo.')
+}
+
+/**
+ * Filtra a lista até sobrar a conta recém-criada.
+ *
+ * A lista passou a mostrar vinte por página, e o banco de desenvolvimento
+ * carrega mais de cem contas de execuções anteriores — a conta que este teste
+ * acabou de criar quase nunca cai na primeira página. Procurá-la é o que uma
+ * pessoa de verdade faz numa lista longa, e de quebra exercita o filtro por
+ * e-mail em todos os testes desta tela.
+ */
+async function acharUsuario(page: Page, email: string) {
+  await page.goto(`/usuarios?nome=${encodeURIComponent(email)}`)
+  const linha = page.locator('li', { hasText: email })
+  await expect(linha).toBeVisible()
+  return linha
 }
 
 /**
@@ -37,8 +58,7 @@ test('só troca a senha de outra conta com a senha de quem troca', async ({ page
   await page.goto('/usuarios')
   await criarUsuario(page, nome, email, 'ADMINISTRATIVO')
 
-  const linha = page.locator('li', { hasText: nome })
-  await expect(linha).toBeVisible()
+  const linha = await acharUsuario(page, email)
 
   await linha.getByLabel('Sua senha atual').fill('chute-errado')
   await linha.getByLabel('Nova senha').fill('outra-senha-forte-456')
@@ -63,7 +83,7 @@ test('corrige o papel de um usuário, sem desativar e recriar a conta', async ({
   await page.goto('/usuarios')
   await criarUsuario(page, nome, email, 'SAUDE')
 
-  const linha = page.locator('li', { hasText: nome })
+  const linha = await acharUsuario(page, email)
   await expect(linha).toContainText('Saúde')
 
   await linha.locator('summary').filter({ hasText: 'Editar' }).click()
@@ -73,7 +93,7 @@ test('corrige o papel de um usuário, sem desativar e recriar a conta', async ({
   // Pela linha descritiva, e não pelo `li` inteiro: o seletor de papel do
   // formulário de edição carrega "Saúde" e "Coordenação" como opções, então
   // procurar o rótulo solto acharia a opção em vez do papel em vigor.
-  await expect(page.locator('li', { hasText: nome })).toContainText(
+  await expect(page.locator('li', { hasText: email })).toContainText(
     `${email} · Administrativo`
   )
 })
@@ -84,8 +104,7 @@ test('não oferece troca do próprio papel, e ainda deixa corrigir o próprio no
   // Rebaixar a única conta de coordenação deixaria o sistema sem ninguém capaz
   // de abrir esta tela, e sem caminho de volta que não fosse o banco. O
   // serviço recusa; a tela nem oferece.
-  await page.goto('/usuarios')
-  const propria = page.locator('li', { hasText: EMAIL_SEMENTE })
+  const propria = await acharUsuario(page, EMAIL_SEMENTE)
   await propria.locator('summary').filter({ hasText: 'Editar' }).click()
 
   await expect(propria.getByLabel('Nome')).toBeVisible()
