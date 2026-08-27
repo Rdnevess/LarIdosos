@@ -247,9 +247,10 @@ plataforma serverless. Os documentos anexados ficam num volume
   e os problemas comuns.
 - **`docs/operacao/backup.md`** — backup criptografado, envio para
   armazenamento remoto, alerta de falha e o procedimento de restauração.
-- **`docs/operacao/pendencias-fase-*.md`** — o que ficou em aberto ao fechar
-  cada fase, com o estado de cada item e onde ele se resolve. Nenhum impede o
-  uso; estão escritos para não dependerem da memória de ninguém.
+- **`docs/operacao/pendencias-*.md`** — o que ficou em aberto ao fechar cada
+  fase ou travessia, com o estado de cada item e onde ele se resolve. Nenhum
+  impede o uso; estão escritos para não dependerem da memória de ninguém. Hoje
+  são seis: as Fases 1, 2A, 2B e 3, a identidade visual e as listas e turnos.
 
 **Não considere o sistema pronto para uso real antes de configurar e
 testar o backup.**
