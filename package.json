@@ -16,6 +16,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:limpar-teste": "tsx scripts/limpar-dados-de-teste.ts",
+    "pdf:rascunho": "tsx scripts/pdf-rascunho.ts",
     "test": "npm run db:migrate:test && dotenv -e .env.test -- vitest run",
     "test:watch": "dotenv -e .env.test -- vitest",
     "test:e2e": "playwright test",
