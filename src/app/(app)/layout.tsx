@@ -37,7 +37,16 @@ export default async function LayoutAutenticado({
 
   return (
     <div className="min-h-screen bg-fundo">
-      <header className="border-b bg-superficie">
+      {/* O filete dourado. É o primeiro e, por ora, o único uso de
+          `--cor-detalhe`: a §3 do design deixa o dourado entrar como filete e
+          como anel da marca, e mais nada — nunca texto, botão, etiqueta ou
+          fundo de aviso. O anel espera os vetores da marca; o filete não
+          esperava nada.
+
+          Um pixel, e não dois: o dourado sobre o neutro quente já é mudança de
+          matiz, não só de valor, e a essa espessura ele assina sem gritar numa
+          tela que a equipe olha o dia inteiro. */}
+      <header className="border-b border-detalhe bg-superficie">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 p-3">
           <span className="font-semibold text-forte">Lar Dona Francisca</span>
           {/* Uma colocação só cobre todas as telas autenticadas, e ainda o

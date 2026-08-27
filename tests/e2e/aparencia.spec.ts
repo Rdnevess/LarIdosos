@@ -17,8 +17,12 @@ test('a interface usa a Geist, e não a Arial de sobra do template', async ({ pa
 
 test('a raiz fica em 16px em qualquer dispositivo', async ({ page }) => {
   // A densidade por dispositivo (15px no desktop) foi revertida: com 148
-  // `text-sm` ainda fora da escala, ela encolhia o texto corrente para
-  // 13,1px. A raiz volta a ser uma constante, não uma variável por breakpoint.
+  // `text-sm` ainda fora da escala, ela encolhia o texto corrente para 13,1px.
+  // A raiz é uma constante, não uma variável por breakpoint.
+  //
+  // A escala já foi adotada e a trava saiu, então este teste é hoje o que
+  // segura a decisão de *não* ter voltado ainda: mudá-la é mudar este teste
+  // junto, de propósito e não por descuido.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/login')
   const celular = await page
@@ -132,6 +136,60 @@ test('o botão primário tem contraste de componente nos dois temas', async ({
     expect(razao(medidas.fundo, medidas.atras), `botão contra o fundo no tema ${tema}`)
       .toBeGreaterThanOrEqual(3)
   }
+})
+
+test('o cabeçalho leva o filete dourado, nos dois temas', async ({ page }) => {
+  // O dourado é a cor de assinatura da marca e entrou como token sem um único
+  // chamador. A §3 da spec restringe onde ele pode aparecer — filete e anel,
+  // nunca texto, botão ou fundo de aviso —, e o filete sob o cabeçalho é o
+  // único dos dois que não depende dos vetores da marca.
+  //
+  // A asserção compara com o valor do token, e não com um hexadecimal escrito
+  // aqui: assim ela vale nos dois temas sem duplicar literal, e o dia em que
+  // alguém reafinar o dourado é o dia em que este teste continua certo. O que
+  // ele prende é a ligação — o filete usa `--cor-detalhe` e não a borda comum.
+  // A entrada acontece uma vez, fora do laço: o cabeçalho só existe em tela
+  // autenticada, e uma segunda passagem por `/login` já logado é redirecionada
+  // para `/residentes` — o formulário não estaria lá para ser preenchido.
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/residentes/)
+
+  const filetePorTema: Record<string, string> = {}
+
+  for (const tema of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: tema })
+
+    const medidas = await page.locator('header').evaluate((el) => {
+      const raiz = getComputedStyle(document.documentElement)
+      const paraRgb = (valor: string) => {
+        const hex = valor.trim().replace('#', '')
+        const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16))
+        return `rgb(${r}, ${g}, ${b})`
+      }
+      const estilo = getComputedStyle(el)
+      return {
+        filete: estilo.borderBottomColor,
+        espessura: estilo.borderBottomWidth,
+        detalhe: paraRgb(raiz.getPropertyValue('--cor-detalhe')),
+        comum: paraRgb(raiz.getPropertyValue('--cor-borda')),
+      }
+    })
+
+    expect(medidas.filete, `filete do cabeçalho no tema ${tema}`).toBe(medidas.detalhe)
+    expect(medidas.filete, `filete não pode ser a borda comum (${tema})`).not.toBe(medidas.comum)
+    expect(parseFloat(medidas.espessura), `filete visível no tema ${tema}`).toBeGreaterThan(0)
+    filetePorTema[tema] = medidas.filete
+  }
+
+  // Sem isto o teste seria cego: se a troca de tema não surtisse efeito, ele
+  // mediria o tema claro duas vezes e passaria nas três asserções acima. Os
+  // dois dourados são medidos e diferentes de propósito — o do escuro é mais
+  // claro, porque o do claro sobre superfície escura perderia o filete.
+  expect(filetePorTema.light, 'os dois temas têm de dar dourados diferentes')
+    .not.toBe(filetePorTema.dark)
 })
 
 test('o sistema se chama pelo nome do Lar', async ({ page }) => {

@@ -21,10 +21,10 @@ lugares, contados — e um problema contado é um problema que cabe numa branch.
 |---|---|---|
 | 1. A escala tipográfica está declarada e não adotada | resolvido | 26/08/2026 |
 | 2. Densidade por dispositivo — tentada e revertida | revertido, destravado | pode voltar; o item 1 era a trava |
-| 3. O dourado da marca não tem um único chamador | aberto | filete agora; anel na etapa 3 |
+| 3. O dourado da marca não tem um único chamador | metade resolvido | filete em 27/08/2026; anel na etapa 3 |
 | 4. Nove dos quinze ícones não têm chamador | aberto, esperado | conforme as telas pedirem |
 | 5. Logo e favicon — a etapa 3 está pela metade | aberto, bloqueado | quando os vetores da marca chegarem |
-| 6. Só existe guarda para o que já foi adotado | metade resolvido | a escala tem guarda; o dourado não |
+| 6. Só existe guarda para o que já foi adotado | resolvido | 26 e 27/08/2026, por dois meios diferentes |
 
 ## 1. A escala tipográfica está declarada e não adotada — resolvido
 
@@ -132,7 +132,7 @@ da raiz, que é a **causa** da densidade, e não a contagem de linhas, que depen
 do conteúdo do banco e tornaria o teste frágil. A decisão continua valendo
 quando a densidade voltar.
 
-## 3. O dourado da marca não tem um único chamador
+## 3. O dourado da marca não tem um único chamador — metade resolvido
 
 **Situação:** `--cor-detalhe` está nos três blocos do tema — `#ae9050` no claro,
 `#c0a670` nos dois escuros — e exposto a Tailwind como `--color-detalhe`. Não há
@@ -153,6 +153,26 @@ para a restrição, e o terceiro é o que decide: o sistema já tem uma família
 âmbar que significa "atenção" — caixa de aviso, etiqueta de prestação aberta,
 filete do mapa do turno. Dourado e âmbar lado a lado numa tela de plantão são a
 mesma cor para quem passa os olhos.
+
+### O filete entrou em 27/08/2026
+
+O `<header>` do layout autenticado passou a levar `border-detalhe`. Um pixel, e
+não dois: o dourado sobre o neutro quente já é mudança de matiz, e não só de
+valor, e a essa espessura ele assina sem gritar numa tela que a equipe olha o
+dia inteiro. O motivo está escrito ao lado dele no código.
+
+**O teste não compara com hexadecimal escrito à mão:** ele lê `--cor-detalhe` da
+raiz e exige que a borda do cabeçalho seja exatamente aquilo, nos dois temas.
+Assim vale para os dois sem duplicar literal, e continua certo no dia em que
+alguém reafinar o dourado — o que ele prende é a ligação, não o valor.
+
+**E ele traz o controle que o impede de ser cego:** os dois temas são medidos e
+os dourados têm de sair diferentes. Sem isso, uma emulação de tema que não
+surtisse efeito faria o teste medir o claro duas vezes e passar nas três
+asserções — o mesmo defeito que a guarda contra `<button>` cru teve ao nascer.
+
+**O que continua aberto:** o anel da marca, que é o outro lugar onde a §3
+autoriza o dourado. Esse depende dos vetores (item 5).
 
 ## 4. Nove dos quinze ícones não têm chamador
 
@@ -209,7 +229,7 @@ em 14 arquivos, a classe `.cartao` em 18 além do próprio primitivo, e nenhuma
 cor crua em lugar nenhum.
 
 Duas entraram sem guarda: a escala tipográfica e o dourado. **A escala só tinha
-chamador dentro dos próprios primitivos; o dourado não tem nenhum.**
+chamador dentro dos próprios primitivos, e o dourado não tinha nenhum.**
 
 Não é coincidência, e a lição é barata: o que não tem guarda não é adotado, por
 mais que o plano afirme que será.
@@ -226,7 +246,16 @@ A prova de que ela não nasceu cega veio no mesmo dia: o primeiro achado dela
 não foi uma tela, foi um comentário recém-escrito que citava a classe morta pelo
 nome.
 
-**O dourado é o caso em que a guarda não serve.** Não se testa "alguém usou o
-filete" — ausência de uso não é defeito quando o uso é pontual por decisão. O
-que o protege é o inverso, e já existe: o teste de contraste barraria o dourado
-como texto no dia em que alguém tentasse.
+**O dourado é o caso em que a guarda não serve** — e por isso ele precisou de
+outra coisa. Guarda é varredura: procura uma forma proibida em todo lugar e
+acusa onde ela aparece. Não se varre "alguém usou o filete", porque ausência de
+uso não é defeito quando o uso é pontual por decisão; uma guarda assim acusaria
+as 30 telas que corretamente não têm dourado nenhum.
+
+O que o dourado ganhou em 27/08/2026 é o oposto de uma guarda: um teste que
+**prende um uso nomeado**, o filete do cabeçalho, e exige que ele venha do
+token nos dois temas. Guarda proíbe uma forma em toda parte; este teste fixa uma
+forma num lugar. Os dois protegem, e não se substituem.
+
+E os dois lados do dourado continuam cobertos pelo inverso, que já existia: o
+teste de contraste barraria o dourado como texto no dia em que alguém tentasse.
