@@ -182,12 +182,20 @@ export default async function PaginaProntuario({
               Admissão em {formatarData(residente.dataAdmissao)}
             </p>
           </div>
-          <Link
-            href={`/residentes/${id}`}
-            className="shrink-0 whitespace-nowrap text-suporte text-medio underline"
-          >
-            Ver cadastro
-          </Link>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Link
+              href={`/residentes/${id}`}
+              className="whitespace-nowrap text-suporte text-medio underline"
+            >
+              Ver cadastro
+            </Link>
+            <Link
+              href={`/residentes/${id}/faixas`}
+              className="whitespace-nowrap text-suporte text-medio underline"
+            >
+              Faixas de referência
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -59,3 +59,29 @@ test('o alerta aparece nas pendências e some ao ser dispensado', async ({ page 
 
   await expect(page.locator('li', { hasText: `${PREFIXO} Maria` })).toHaveCount(0)
 })
+
+test('ajustar a faixa do residente tira o alerta dele', async ({ page }) => {
+  // O hipertenso conhecido: a coordenação sobe a faixa dele e o alerta diário
+  // some, sem afrouxar a faixa de todo mundo. É o ciclo inteiro da
+  // funcionalidade, e o único lugar onde ele é exercitado de ponta a ponta.
+  const residente = await prisma.residente.findFirstOrThrow({
+    where: { nomeCompleto: { startsWith: PREFIXO } },
+  })
+
+  // Uma aferição nova, porque a do primeiro teste foi dispensada.
+  await prisma.sinalVital.create({
+    data: { residenteId: residente.id, aferidoEm: new Date(), pressaoSistolica: 205 },
+  })
+
+  await page.goto('/pendencias')
+  await expect(page.locator('li', { hasText: `${PREFIXO} Maria` })).toHaveCount(1)
+
+  await page.goto(`/residentes/${residente.id}/faixas`)
+  await page.getByLabel('Pressão sistólica — mínimo').fill('90')
+  await page.getByLabel('Pressão sistólica — máximo').fill('210')
+  await page.getByRole('button', { name: 'Salvar faixas' }).click()
+  await expect(page.getByRole('status')).toHaveText('Registro salvo.')
+
+  await page.goto('/pendencias')
+  await expect(page.locator('li', { hasText: `${PREFIXO} Maria` })).toHaveCount(0)
+})
