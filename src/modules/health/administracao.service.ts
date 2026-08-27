@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
-import { janelaDoTurno } from '@/lib/turno'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 
 /**
@@ -17,20 +16,51 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
  */
 
 /**
- * Um registro é tardio quando foi feito fora do turno a que a dose pertence.
+ * A partir de quantas horas de atraso um registro passa a ser tardio.
  *
- * Não é campo no banco: sai da comparação entre `registradoEm` e a janela do
- * turno de `horarioPrevisto`. Guardá-lo seria guardar algo que já se pode
- * calcular, e que ficaria errado se a divisão dos turnos mudasse.
+ * Quatro, e o número é uma escolha declarada e não um limite clínico. Ele foi
+ * calibrado para **preservar a sensibilidade que a regra anterior tinha**: com
+ * três turnos de oito horas, uma dose podia atrasar até quase oito horas sem
+ * sinalizar, e a média do que passava despercebido ficava perto de quatro.
  *
- * `SE_NECESSARIO` nunca é tardia: sem `horarioPrevisto` não há turno de
- * referência, e ela é registrada quando acontece.
+ * Um limite bem menor — duas horas, por exemplo — seria mais rigoroso do que
+ * este sistema jamais foi, e traria o risco que o aviso de conselho vencendo já
+ * documenta em `funcionarios/page.tsx`: alerta que dispara demais treina a
+ * equipe a ignorá-lo, e o dia em que houver um atraso de verdade é o dia em que
+ * ninguém olha.
+ *
+ * Se o Lar quiser outro limite, é esta constante que muda.
+ */
+export const HORAS_ATE_TARDIO = 4
+
+/**
+ * Um registro é tardio quando foi feito mais de `HORAS_ATE_TARDIO` depois do
+ * horário previsto da dose.
+ *
+ * **Era "fora do turno a que a dose pertence"**, e mudou em 27/08/2026 porque
+ * aquela regra media a coisa errada: ela dependia de *onde a fronteira do
+ * plantão caía*, e não de quanto tempo passou. A dose das 17:00 registrada às
+ * 18:30 era tardia — uma hora e meia, mas atravessou a fronteira; a das 08:00
+ * registrada às 17:00 não era — nove horas, mesmo turno. O mesmo atraso dava
+ * respostas opostas conforme a hora do dia, e a passagem de três turnos para
+ * dois tornou isso visível ao dobrar a janela sem que ninguém tivesse pedido.
+ *
+ * Não é campo no banco: sai da comparação entre `registradoEm` e
+ * `horarioPrevisto`. Guardá-lo seria guardar algo que já se pode calcular, e
+ * que ficaria errado se o limite mudasse.
+ *
+ * **Registro adiantado não é tardio.** Registrar antes da hora prevista pode
+ * ser a dose dada um pouco cedo, e chamá-la de tardia gravaria uma afirmação
+ * falsa num prontuário. A regra mede atraso, e atraso negativo não existe.
+ *
+ * `SE_NECESSARIO` nunca é tardia: sem `horarioPrevisto` não há de que atrasar,
+ * e ela é registrada quando acontece.
  */
 export function ehRegistroTardio(horarioPrevisto: Date | null, registradoEm: Date): boolean {
   if (!horarioPrevisto) return false
 
-  const janela = janelaDoTurno(horarioPrevisto)
-  return registradoEm < janela.inicio || registradoEm >= janela.fim
+  const atrasoEmHoras = (registradoEm.getTime() - horarioPrevisto.getTime()) / 3_600_000
+  return atrasoEmHoras >= HORAS_ATE_TARDIO
 }
 
 const administracaoSchema = z
