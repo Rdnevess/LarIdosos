@@ -9,6 +9,11 @@ o **prontuário**: cabeçalho clínico, anotações de saúde por turno, sinais
 vitais, exames com controle de pendências, consultas, vacinas e linha do
 tempo.
 
+Cada medida aferida tem **gráfico de tendência** — sete delas contra a faixa de
+normalidade que gera alerta, e o peso, que não tem faixa: 62 kg não é alarmante
+nem tranquilizador sem os 68 kg do mês passado, e a tendência é a única forma de
+ele dizer alguma coisa.
+
 Cobre também o **controle de medicação**: esquema medicamentoso, mapa do
 turno, registro dose a dose e relatório de aderência.
 

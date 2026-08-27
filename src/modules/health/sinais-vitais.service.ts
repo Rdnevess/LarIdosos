@@ -53,6 +53,9 @@ const sinalVitalSchema = z
 
 export type DadosSinalVital = z.infer<typeof sinalVitalSchema>
 
+/** As colunas numéricas de `SinalVital` — as sete que alertam, mais o peso. */
+export type CampoDeMedida = (typeof MEDIDAS)[number]
+
 export async function registrarSinalVital(
   ctx: Ctx,
   dados: DadosSinalVital
@@ -83,14 +86,21 @@ export async function registrarSinalVital(
   })
 }
 
+/**
+ * `desde` é opcional: sem ele vem o histórico inteiro, que é o que o prontuário
+ * mostra. O gráfico de tendência passa a janela, e quem corta é o banco — o
+ * índice `[residenteId, aferidoEm]` já existe, e filtrar depois de ler traria
+ * todo o histórico para a memória a cada troca de janela.
+ */
 export async function listarSinaisVitais(
   ctx: Ctx,
-  residenteId: string
+  residenteId: string,
+  desde?: Date
 ): Promise<SinalVital[]> {
   exigirPapel(ctx, 'SinalVital', 'COORDENACAO', 'SAUDE')
 
   return prisma.sinalVital.findMany({
-    where: { residenteId },
+    where: { residenteId, ...(desde ? { aferidoEm: { gte: desde } } : {}) },
     orderBy: [{ aferidoEm: 'desc' }, { id: 'desc' }],
   })
 }
@@ -110,4 +120,28 @@ export async function obterUltimoSinalVital(
     where: { residenteId },
     orderBy: [{ aferidoEm: 'desc' }, { id: 'desc' }],
   })
+}
+
+/**
+ * Se o residente já teve **alguma vez** aquela medida aferida, em qualquer data.
+ *
+ * Existe para a tela vazia do gráfico dizer qual dos dois vazios é o dela:
+ * "ninguém mediu isto ainda" e "não houve medida nesta janela" pedem coisas
+ * opostas — o primeiro pede começar a medir, o segundo pede abrir a janela.
+ *
+ * O campo é tipado contra as chaves do modelo, e não `string`: não há como
+ * passar um nome de coluna que o schema não tenha.
+ */
+export async function existeAfericaoDaMedida(
+  ctx: Ctx,
+  residenteId: string,
+  campo: CampoDeMedida
+): Promise<boolean> {
+  exigirPapel(ctx, 'SinalVital', 'COORDENACAO', 'SAUDE')
+
+  const achada = await prisma.sinalVital.findFirst({
+    where: { residenteId, [campo]: { not: null } },
+    select: { id: true },
+  })
+  return achada !== null
 }
