@@ -192,6 +192,81 @@ test('o cabeçalho leva o filete dourado, nos dois temas', async ({ page }) => {
     .not.toBe(filetePorTema.dark)
 })
 
+test('o nome do Lar fica centrado na tela, e não no espaço que sobra', async ({
+  page,
+}) => {
+  // Centrar não é `justify-between`: ali o nome ficaria no meio do espaço
+  // restante, e sairia do centro toda vez que os controles da direita mudassem
+  // de largura — o botão de tema alterna entre "Escuro" e "Claro", que não têm
+  // a mesma largura. O teste mede contra o centro do cabeçalho, e alterna o
+  // tema justamente para provar que o nome não se mexe.
+  await page.setViewportSize({ width: 1100, height: 700 })
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/residentes/)
+
+  const centros = async () => {
+    const nome = await page.getByText('Lar Dona Francisca').boundingBox()
+    const faixa = await page.locator('header > div').first().boundingBox()
+    if (!nome || !faixa) throw new Error('cabeçalho não encontrado')
+    return {
+      nome: nome.x + nome.width / 2,
+      faixa: faixa.x + faixa.width / 2,
+    }
+  }
+
+  const antes = await centros()
+  // 1px de folga para arredondamento de subpixel, e nada além disso.
+  expect(Math.abs(antes.nome - antes.faixa), 'nome fora do centro').toBeLessThanOrEqual(1)
+
+  // O nome acessível é estável de propósito: os rótulos visíveis "Escuro" e
+  // "Claro" são decoração com `aria-hidden`, e o botão se chama sempre igual.
+  await page.getByRole('button', { name: 'Alternar tema claro e escuro' }).click()
+  const depois = await centros()
+  expect(Math.abs(depois.nome - depois.faixa), 'nome saiu do centro ao trocar o tema')
+    .toBeLessThanOrEqual(1)
+
+  // No celular não cabe centrar o nome ao lado dos controles: o nome (~140px)
+  // mais os controles (~150px) mais um vão igual à esquerda passariam da tela
+  // inteira. Por isso ele ganha linha própria abaixo de 640px — e continua
+  // centrado, que era o pedido. Sem esta asserção, a versão de celular seria a
+  // que ninguém olha e a que quebraria primeiro.
+  await page.setViewportSize({ width: 390, height: 844 })
+  const celular = await centros()
+  expect(Math.abs(celular.nome - celular.faixa), 'nome fora do centro no celular')
+    .toBeLessThanOrEqual(1)
+})
+
+test('a navegação distribui os itens e usa a fonte do corpo', async ({ page }) => {
+  // Fonte maior porque quem lê isto está em pé, no corredor, muitas vezes com
+  // o celular na mão. `text-suporte` (14px) era tamanho de rótulo de apoio, e
+  // a navegação principal não é apoio.
+  await page.setViewportSize({ width: 1100, height: 700 })
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('coordenacao@lar.local')
+  await page.getByLabel('Senha').fill('trocar-esta-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/residentes/)
+
+  const primeiro = page.locator('nav a').first()
+  expect(await primeiro.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px')
+
+  // Distribuídos: o último item termina junto da borda direita da faixa. Com
+  // `gap` simples eles se amontoariam à esquerda e sobraria um vão à direita.
+  // Contra a caixa de *conteúdo*, e não a de borda: a nav tem `px-3`, e medir
+  // pela borda acusaria 12px de vão que são o próprio respiro dela.
+  const recuo = await page
+    .locator('nav')
+    .evaluate((el) => parseFloat(getComputedStyle(el).paddingRight))
+  const nav = await page.locator('nav').boundingBox()
+  const ultimo = await page.locator('nav a').last().boundingBox()
+  if (!nav || !ultimo) throw new Error('navegação não encontrada')
+  expect(nav.x + nav.width - recuo - (ultimo.x + ultimo.width), 'vão sobrando à direita')
+    .toBeLessThanOrEqual(2)
+})
+
 test('o sistema se chama pelo nome do Lar', async ({ page }) => {
   // O sistema nasceu com o nome do template — "Lar de Idosos" — e ficou assim
   // no título da aba e no cabeçalho de toda tela. O Lar se chama Dona

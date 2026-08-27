@@ -47,12 +47,22 @@ export default async function LayoutAutenticado({
           matiz, não só de valor, e a essa espessura ele assina sem gritar numa
           tela que a equipe olha o dia inteiro. */}
       <header className="border-b border-detalhe bg-superficie">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 p-3">
-          <span className="font-semibold text-forte">Lar Dona Francisca</span>
+        {/* Grade de três colunas, e não `justify-between`: com este último o
+            nome ficaria no meio do espaço que sobra, e sairia do centro toda
+            vez que os controles da direita mudassem de largura — o botão de
+            tema alterna entre "Escuro" e "Claro". A coluna da esquerda existe
+            vazia, só para equilibrar a da direita.
+
+            No celular a grade some e vira uma coluna: nome numa linha, ainda
+            centrado, controles na de baixo. Não é preferência — o nome mais os
+            controles mais o vão que os equilibraria não cabem em 390px, e
+            insistir na linha única empurraria o nome para fora do centro. */}
+        <div className="mx-auto grid max-w-5xl gap-2 p-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-4">
+          <span className="text-center font-semibold text-forte sm:col-start-2">Lar Dona Francisca</span>
           {/* Uma colocação só cobre todas as telas autenticadas, e ainda o
               `error.tsx` e o `not-found.tsx`, que renderizam dentro deste
               layout. */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 sm:col-start-3">
             <BotaoTema />
             <form
               action={async () => {
@@ -87,12 +97,12 @@ export default async function LayoutAutenticado({
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 pb-2">
+        <nav className="mx-auto flex max-w-5xl justify-between gap-1 overflow-x-auto px-3 pb-2">
           {itens.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-suporte text-firme hover:bg-realce"
+              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-corpo text-firme hover:bg-realce"
             >
               {/* O ícone acompanha o rótulo, nunca o substitui: sozinho ele
                   vira adivinhação para quem está de plantão. Sem `rotulo`,
