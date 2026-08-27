@@ -73,19 +73,32 @@ function tabela(
   const alturaDaLinha = 16
   const ultimaLinhaUtil = 700
 
+  /**
+   * O `y` é capturado **uma vez** e reusado por todas as colunas, igual ao laço
+   * do corpo logo abaixo.
+   *
+   * Antes, o laço lia `doc.y` a cada coluna e devolvia `alturaDaLinha` para
+   * desfazer o avanço — mas `doc.text` avança a altura real da linha, que em
+   * corpo 9 é 10,71 pt, e não 16. Sobravam −5,29 pt por coluna, acumulados: na
+   * folha de Despesas, com seis colunas, a última saía 26 pt acima da primeira,
+   * e o corpo da tabela começava acima do próprio cabeçalho.
+   *
+   * `lineBreak: false`, e não `continued: false`: um título comprido numa
+   * coluna estreita quebraria em duas linhas e voltaria a mexer no `doc.y`.
+   */
   const escreverCabecalho = () => {
     let x = MARGEM
+    const y = doc.y
     doc.font('Helvetica-Bold').fontSize(9)
     for (const coluna of colunas) {
-      doc.text(coluna.titulo, x, doc.y, {
+      doc.text(coluna.titulo, x, y, {
         width: coluna.largura,
         align: coluna.alinhamento ?? 'left',
-        continued: false,
+        lineBreak: false,
       })
-      doc.y -= alturaDaLinha
       x += coluna.largura
     }
-    doc.y += alturaDaLinha
+    doc.y = y + alturaDaLinha
     doc.moveTo(MARGEM, doc.y).lineTo(MARGEM + LARGURA_UTIL, doc.y).stroke()
     doc.y += 4
   }

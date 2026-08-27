@@ -111,3 +111,88 @@ describe('gerarPdfPrestacao', () => {
     expect(texto).toContain('reforma do telhado')
   })
 })
+
+/**
+ * Onde cada texto foi posto na página.
+ *
+ * O `pdfkit` abre um bloco `BT … ET` por trecho, com a matriz
+ * `1 0 0 1 <x> <y> Tm` dizendo onde ele começa. O `y` do PDF cresce **de baixo
+ * para cima**, ao contrário do `doc.y` do `pdfkit` — então dois textos na mesma
+ * linha têm o mesmo `y`, e um `y` maior está mais alto na folha.
+ *
+ * Como `extrairTexto`, não é um leitor de PDF: responde "onde esta palavra
+ * foi escrita?", que é o que o teste de geometria pergunta.
+ */
+function textosPosicionados(buffer: Buffer): { texto: string; x: number; y: number }[] {
+  const blocos = buffer.toString('latin1').match(/BT[\s\S]{0,400}?ET/g) ?? []
+
+  return blocos.flatMap((bloco) => {
+    const matriz = bloco.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/)
+    if (!matriz) return []
+
+    const texto = (bloco.match(/<([0-9a-fA-F]*)>/g) ?? [])
+      .map((hexa) => Buffer.from(hexa.slice(1, -1), 'hex').toString('latin1'))
+      .join('')
+
+    return [{ texto, x: Number(matriz[1]), y: Number(matriz[2]) }]
+  })
+}
+
+describe('geometria do cabeçalho das tabelas', () => {
+  // Só as folhas de Despesas e Recebimentos usam `tabela()`; as demais
+  // desenham por outro caminho. São exatamente as duas em que o defeito
+  // aparecia.
+  const CABECALHO_DESPESAS = ['Item', 'Credor', 'CNPJ/CPF', 'CH/OB', 'Data', 'Valor (R$)']
+  const CABECALHO_RECEBIMENTOS = ['Item', 'Origem', 'CNPJ/CPF', 'Data', 'Valor (R$)']
+
+  it('os títulos do cabeçalho de Despesas ficam todos na mesma linha', async () => {
+    // O defeito: o laço lia `doc.y` a cada coluna e devolvia um valor fixo de
+    // 16 pt, enquanto `doc.text` avança a altura real da linha (10,71 pt em
+    // corpo 9). Sobravam −5,29 pt por coluna, acumulados — a sexta coluna saía
+    // 26 pt acima da primeira.
+    const buffer = await gerarPdfPrestacao(
+      documentoDeTeste({ despesas: [despesaDeTeste()] })
+    )
+    const postos = textosPosicionados(buffer)
+
+    const credor = postos.find((p) => p.texto === 'Credor')
+    expect(credor, 'cabeçalho de Despesas não encontrado').toBeDefined()
+
+    for (const titulo of CABECALHO_DESPESAS) {
+      const naMesmaLinha = postos.some((p) => p.texto === titulo && p.y === credor!.y)
+      expect(naMesmaLinha, `"${titulo}" fora da linha do cabeçalho`).toBe(true)
+    }
+  })
+
+  it('os títulos do cabeçalho de Recebimentos ficam todos na mesma linha', async () => {
+    const buffer = await gerarPdfPrestacao(
+      documentoDeTeste({ receitas: [receitaDeTeste()] })
+    )
+    const postos = textosPosicionados(buffer)
+
+    const origem = postos.find((p) => p.texto === 'Origem')
+    expect(origem, 'cabeçalho de Recebimentos não encontrado').toBeDefined()
+
+    for (const titulo of CABECALHO_RECEBIMENTOS) {
+      const naMesmaLinha = postos.some((p) => p.texto === titulo && p.y === origem!.y)
+      expect(naMesmaLinha, `"${titulo}" fora da linha do cabeçalho`).toBe(true)
+    }
+  })
+
+  it('o cabeçalho fica acima da primeira linha de dados', async () => {
+    // Consequência do mesmo defeito, e a mais grave: com a deriva, o `doc.y`
+    // no fim do laço já estava tão acima que o corpo da tabela começava
+    // **antes** do próprio cabeçalho. Em PDF, `y` maior é mais alto.
+    const buffer = await gerarPdfPrestacao(
+      documentoDeTeste({ despesas: [despesaDeTeste({ credor: 'Fornecedor Alfa' })] })
+    )
+    const postos = textosPosicionados(buffer)
+
+    const titulo = postos.find((p) => p.texto === 'Credor')
+    const dado = postos.find((p) => p.texto === 'Fornecedor Alfa')
+    expect(titulo, 'título não encontrado').toBeDefined()
+    expect(dado, 'linha de dados não encontrada').toBeDefined()
+
+    expect(titulo!.y, 'o cabeçalho não está acima dos dados').toBeGreaterThan(dado!.y)
+  })
+})
