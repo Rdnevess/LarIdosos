@@ -40,6 +40,9 @@ export type EntidadeAuditada =
   // Fase 2B — medicação.
   | 'Medicacao'
   | 'AdministracaoMedicacao'
+  // Alerta de sinal vital.
+  | 'FaixaReferencia'
+  | 'AlertaDispensado'
   // Fase 3 — financeiro.
   | 'ConfiguracaoInstituicao'
   | 'ContaBancaria'

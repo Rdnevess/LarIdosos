@@ -142,6 +142,7 @@ model Residente {
   administracoes        AdministracaoMedicacao[]
   lancamentos           Lancamento[]
   contribuicoes         ContribuicaoResidente[]
+  faixasReferencia      FaixaReferencia[]
 
   @@index([status, nomeCompleto])
   @@map("residentes")
@@ -354,6 +355,20 @@ enum CategoriaAnotacaoSaude {
   QUEDA
 }
 
+/// As medidas que alertam quando saem da faixa. `peso` nao esta aqui de
+/// proposito: ele so significa alguma coisa como tendencia, e um alerta por
+/// faixa fixa diria algo que nao quer dizer nada. Ver
+/// `src/modules/health/faixas.ts`.
+enum MedidaVital {
+  PRESSAO_SISTOLICA
+  PRESSAO_DIASTOLICA
+  FREQUENCIA_CARDIACA
+  FREQUENCIA_RESPIRATORIA
+  TEMPERATURA
+  SATURACAO_O2
+  GLICEMIA
+}
+
 /// Dois turnos de doze horas: DIA 6h-18h, NOITE 18h-6h. Eram tres de oito
 /// horas (MANHA, TARDE, NOITE) ate 27/08/2026 — ver a migration
 /// `20260827120000_turno_dia_e_noite`, que recalculou as anotacoes ja gravadas
@@ -446,25 +461,62 @@ model AnotacaoSaude {
 }
 
 model SinalVital {
-  id                     String    @id @default(cuid())
+  id                     String             @id @default(cuid())
   residenteId            String
-  residente              Residente @relation(fields: [residenteId], references: [id])
+  residente              Residente          @relation(fields: [residenteId], references: [id])
   aferidoEm              DateTime
   pressaoSistolica       Int?
   pressaoDiastolica      Int?
   frequenciaCardiaca     Int?
   frequenciaRespiratoria Int?
-  temperatura            Decimal?  @db.Decimal(4, 1)
+  temperatura            Decimal?           @db.Decimal(4, 1)
   saturacaoO2            Int?
   glicemia               Int?
-  peso                   Decimal?  @db.Decimal(5, 2)
+  peso                   Decimal?           @db.Decimal(5, 2)
   observacao             String?
-  criadoEm               DateTime  @default(now())
-  atualizadoEm           DateTime  @updatedAt
+  criadoEm               DateTime           @default(now())
+  atualizadoEm           DateTime           @updatedAt
   criadoPorId            String?
+  alertasDispensados     AlertaDispensado[]
 
   @@index([residenteId, aferidoEm])
   @@map("sinais_vitais")
+}
+
+model FaixaReferencia {
+  id           String      @id @default(cuid())
+  residenteId  String
+  residente    Residente   @relation(fields: [residenteId], references: [id])
+  medida       MedidaVital
+  /// Anulaveis porque nem toda medida tem os dois lados: a saturacao nao tem
+  /// maximo. `Decimal`, e nao `Float`: a temperatura tem casa decimal, e erro
+  /// de ponto flutuante numa comparacao que decide se alguem e alertado e o
+  /// tipo de defeito que ninguem encontra.
+  minimo       Decimal?    @db.Decimal(5, 1)
+  maximo       Decimal?    @db.Decimal(5, 1)
+  criadoEm     DateTime    @default(now())
+  atualizadoEm DateTime    @updatedAt
+  criadoPorId  String?
+
+  /// Impede duas faixas concorrentes para a mesma medida do mesmo residente.
+  /// Sem isto, "qual e a faixa da dona Maria" teria duas respostas.
+  @@unique([residenteId, medida])
+  @@map("faixas_referencia")
+}
+
+model AlertaDispensado {
+  id           String      @id @default(cuid())
+  usuarioId    String
+  sinalVitalId String
+  sinalVital   SinalVital  @relation(fields: [sinalVitalId], references: [id])
+  medida       MedidaVital
+  criadoEm     DateTime    @default(now())
+
+  /// Existir e estar dispensado; nao ha booleano a manter nem estado a
+  /// sincronizar. Dispensar nao apaga nada: a afericao continua onde esta.
+  @@unique([usuarioId, sinalVitalId, medida])
+  @@index([usuarioId])
+  @@map("alertas_dispensados")
 }
 
 model Exame {

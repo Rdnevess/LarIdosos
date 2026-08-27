@@ -2,6 +2,7 @@ import type { Consulta, Exame } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { TAMANHO_PADRAO, totalDePaginas, type Tamanho } from '@/lib/paginacao'
+import { listarAlertasVitais, type AlertaVital } from './alertas-vitais'
 import { EXAMES_EM_ABERTO } from './exames.service'
 
 /**
@@ -25,7 +26,13 @@ type ResidenteResumido = {
 export type Pendencias = {
   exames: (Exame & { residente: ResidenteResumido })[]
   consultas: (Consulta & { residente: ResidenteResumido })[]
-  /** Somados, os dois. É o que a paginação fatia. */
+  /**
+   * Vêm **antes** de exames e consultas na sequência paginada: se a página
+   * encher, o que cai para a seguinte é exame agendado, e nunca sinal vital.
+   */
+  alertas: AlertaVital[]
+  totalAlertas: number
+  /** Somados, os três. É o que a paginação fatia. */
   total: number
   paginas: number
   /**
@@ -75,7 +82,8 @@ export async function listarPendencias(
   const ordemConsultas = [{ dataHora: 'asc' }, { id: 'asc' }] as const
 
   if (filtro.pagina === undefined) {
-    const [exames, consultas] = await Promise.all([
+    const [alertas, exames, consultas] = await Promise.all([
+      listarAlertasVitais(ctx),
       prisma.exame.findMany({
         where: ONDE_EXAMES,
         include: { residente: RESIDENTE },
@@ -87,8 +95,10 @@ export async function listarPendencias(
         orderBy: [...ordemConsultas],
       }),
     ])
-    const total = exames.length + consultas.length
+    const total = alertas.length + exames.length + consultas.length
     return {
+      alertas,
+      totalAlertas: alertas.length,
       exames,
       consultas,
       total,
@@ -102,40 +112,60 @@ export async function listarPendencias(
   const pagina = Math.max(1, filtro.pagina)
   const deslocamento = (pagina - 1) * por
 
-  // Conta-se antes de fatiar porque é a contagem de exames que diz onde a
-  // sequência deixa de ser exame e passa a ser consulta. Sem ela, não há como
-  // saber quantas consultas cabem na fatia sem trazer as duas tabelas
-  // inteiras — que é justamente o que paginar existe para evitar.
-  const [totalExames, totalConsultas] = await Promise.all([
+  // Conta-se antes de fatiar porque são as contagens que dizem onde a sequência
+  // deixa de ser alerta e passa a ser exame, e onde deixa de ser exame e passa
+  // a ser consulta. Sem elas, não há como saber quanto cabe na fatia sem trazer
+  // as tabelas inteiras — que é o que paginar existe para evitar.
+  //
+  // Os alertas vêm inteiros porque são derivados, e não contáveis por `count`:
+  // saber quantos existem já é tê-los. É o custo aceito na §4 da spec.
+  const [todosAlertas, totalExames, totalConsultas] = await Promise.all([
+    listarAlertasVitais(ctx),
     prisma.exame.count({ where: ONDE_EXAMES }),
     prisma.consulta.count({ where: ONDE_CONSULTAS }),
   ])
-  const total = totalExames + totalConsultas
+  const totalAlertas = todosAlertas.length
+  const total = totalAlertas + totalExames + totalConsultas
 
-  const cabemDeExames = Math.max(0, Math.min(por, totalExames - deslocamento))
+  // **Os três deslocamentos são encadeados**, e é aqui que uma implementação
+  // desatenta some com um registro no meio sem quebrar nada visivelmente: o
+  // deslocamento de cada lista é o que sobra depois de atravessar as anteriores.
+  const cabemDeAlertas = Math.max(0, Math.min(por, totalAlertas - deslocamento))
+  const alertas = todosAlertas.slice(deslocamento, deslocamento + cabemDeAlertas)
+
+  const deslocamentoExames = Math.max(0, deslocamento - totalAlertas)
+  const cabemDeExames = Math.max(
+    0,
+    Math.min(por - cabemDeAlertas, totalExames - deslocamentoExames)
+  )
+
+  const deslocamentoConsultas = Math.max(0, deslocamento - totalAlertas - totalExames)
+  const cabemDeConsultas = por - cabemDeAlertas - cabemDeExames
+
   const [exames, consultas] = await Promise.all([
     cabemDeExames > 0
       ? prisma.exame.findMany({
           where: ONDE_EXAMES,
           include: { residente: RESIDENTE },
           orderBy: [...ordemExames],
-          skip: deslocamento,
+          skip: deslocamentoExames,
           take: cabemDeExames,
         })
       : Promise.resolve([]),
-    // O deslocamento das consultas é o que sobra depois de passar por todos os
-    // exames. Na primeira página em que a fatia atravessa a fronteira, ele é
-    // zero — as consultas começam do início.
-    prisma.consulta.findMany({
-      where: ONDE_CONSULTAS,
-      include: { residente: RESIDENTE },
-      orderBy: [...ordemConsultas],
-      skip: Math.max(0, deslocamento - totalExames),
-      take: por - cabemDeExames,
-    }),
+    cabemDeConsultas > 0
+      ? prisma.consulta.findMany({
+          where: ONDE_CONSULTAS,
+          include: { residente: RESIDENTE },
+          orderBy: [...ordemConsultas],
+          skip: deslocamentoConsultas,
+          take: cabemDeConsultas,
+        })
+      : Promise.resolve([]),
   ])
 
   return {
+    alertas,
+    totalAlertas,
     exames,
     consultas,
     total,
