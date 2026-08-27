@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { ErroPermissao, ErroValidacao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import type { Ctx } from '@/lib/contexto'
+import { janelaDoTurno, turnoAnterior } from '@/lib/turno'
 import { prescrever, type DadosMedicacao } from './medicacoes.service'
 import {
   registrarAdministracao,
@@ -48,9 +49,13 @@ describe('registrarAdministracao', () => {
     expect(log.residenteId).toBe(residente.id)
   })
 
-  it('recusa registro de turno passado sem observação', async () => {
+  it('recusa registro tardio sem observação, e diz por quê', async () => {
     // Registro tardio é livre, e exige justificativa: sem ela, maquiar o
     // relatório de aderência no fim do mês não deixaria rastro na tela.
+    //
+    // A mensagem é asserida porque é o que a pessoa de plantão lê, e porque
+    // ela já esteve errada: dizia "de um turno que já passou" depois que a
+    // regra deixou de disparar em turno passado.
     const ctx = await ctxComPapel('SAUDE')
     const { residente, medicacao } = await prescricaoDeTeste(ctx)
 
@@ -61,7 +66,32 @@ describe('registrarAdministracao', () => {
         horarioPrevisto: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
         status: 'ADMINISTRADA',
       })
-    ).rejects.toThrow(ErroValidacao)
+    ).rejects.toThrow(/ficou sem registro até o turno dela voltar/)
+  })
+
+  it('não exige justificativa para a dose do turno anterior', async () => {
+    // **É a regra que o Lar pediu, e o gate que ela destravou.** Registrar no
+    // plantão seguinte é o trabalho normal de quem entra e encontra pendência;
+    // exigir justificativa ali põe atrito exatamente em quem está resolvendo o
+    // problema.
+    //
+    // Ancorado no turno anterior a agora, e não num número de horas: a
+    // asserção precisa valer a qualquer hora que a suíte rode, e a largura do
+    // turno já mudou uma vez.
+    const ctx = await ctxComPapel('SAUDE')
+    const { residente, medicacao } = await prescricaoDeTeste(ctx)
+
+    const anterior = turnoAnterior(janelaDoTurno(new Date()))
+    const doseDoTurnoAnterior = new Date(anterior.inicio.getTime() + 60_000)
+
+    const registro = await registrarAdministracao(ctx, {
+      medicacaoId: medicacao.id,
+      residenteId: residente.id,
+      horarioPrevisto: doseDoTurnoAnterior,
+      status: 'ADMINISTRADA',
+    })
+
+    expect(registro.observacao).toBeNull()
   })
 
   it('aceita registro de turno passado com observação', async () => {
