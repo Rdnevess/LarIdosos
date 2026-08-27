@@ -26,7 +26,7 @@ describe('montarLinhaDoTempo', () => {
     await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'INTERCORRENCIA',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Febre ao acordar.',
       ocorridoEm: new Date('2026-08-20T07:00:00'),
     })
@@ -78,7 +78,7 @@ describe('montarLinhaDoTempo', () => {
     await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Sem intercorrências.',
       ocorridoEm: new Date('2026-08-20T07:00:00'),
     })

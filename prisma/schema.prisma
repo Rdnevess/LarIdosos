@@ -354,9 +354,12 @@ enum CategoriaAnotacaoSaude {
   QUEDA
 }
 
+/// Dois turnos de doze horas: DIA 6h-18h, NOITE 18h-6h. Eram tres de oito
+/// horas (MANHA, TARDE, NOITE) ate 27/08/2026 — ver a migration
+/// `20260827120000_turno_dia_e_noite`, que recalculou as anotacoes ja gravadas
+/// a partir de `ocorridoEm`, e nao por troca de rotulo.
 enum Turno {
-  MANHA
-  TARDE
+  DIA
   NOITE
 }
 

@@ -175,8 +175,12 @@ export function MapaDoTurno({ mapa, ehTurnoCorrente }: { mapa: Mapa; ehTurnoCorr
 export function CabecalhoDoTurno({ mapa }: { mapa: Mapa }) {
   return (
     <div>
+      {/* "Turno: Dia", e não "Turno da dia". Com os três turnos antigos os
+          rótulos eram todos femininos — manhã, tarde, noite — e a preposição
+          cabia fixa aqui. Com DIA e NOITE os gêneros divergem, e a forma
+          neutra evita um mapa de artigos para dois valores. */}
       <h1 className="text-secao font-semibold text-forte">
-        Turno da {ROTULO_TURNO[mapa.janela.turno].toLowerCase()}
+        Turno: {ROTULO_TURNO[mapa.janela.turno]}
       </h1>
       <p className="text-suporte text-apoio">
         {formatarData(mapa.janela.inicio)}, das {hora(mapa.janela.inicio)} às{' '}

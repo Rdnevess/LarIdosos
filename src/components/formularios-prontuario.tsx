@@ -1,5 +1,6 @@
 import { FormularioSimples } from './formulario-simples'
 import { JANELA_EDICAO_MINUTOS } from '@/lib/janela-edicao'
+import { ROTULO_TURNO, type NomeTurno } from '@/lib/turno'
 import {
   acaoRegistrarAlergia,
   acaoRegistrarCondicaoCronica,
@@ -148,11 +149,14 @@ const CATEGORIAS_SAUDE = [
   { valor: 'QUEDA', rotulo: 'Queda' },
 ]
 
-const TURNOS = [
-  { valor: 'MANHA', rotulo: 'Manhã' },
-  { valor: 'TARDE', rotulo: 'Tarde' },
-  { valor: 'NOITE', rotulo: 'Noite' },
-]
+// Derivado do mapa canônico de `@/lib/turno`, e não escrito à mão: os turnos
+// já mudaram uma vez — de três de oito horas para dois de doze — e uma lista
+// solta aqui teria continuado oferecendo "Manhã" e "Tarde" para um enum que
+// não os aceita mais.
+const TURNOS = (Object.keys(ROTULO_TURNO) as NomeTurno[]).map((valor) => ({
+  valor,
+  rotulo: ROTULO_TURNO[valor],
+}))
 
 const GRAVIDADES = [
   { valor: 'LEVE', rotulo: 'Leve' },

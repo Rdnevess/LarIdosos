@@ -7,7 +7,7 @@ import { texto, data, numero } from '@/lib/formulario'
 // saúde e a tela do turno precisam da mesma resposta para "em que turno isso
 // aconteceu?". O turno continua sendo só o palpite inicial aqui — o
 // formulário o deixa editável.
-import { turnoDaHora } from '@/lib/turno'
+import { turnoDaHora, type NomeTurno } from '@/lib/turno'
 import { obterCtx } from '@/modules/auth/sessao'
 import {
   registrarAlergia,
@@ -183,7 +183,7 @@ export async function acaoCriarAnotacaoSaude(
     await criarAnotacaoSaude(ctx, {
       residenteId,
       categoria: texto(dados, 'categoria') as CategoriaSaude,
-      turno: (turno as 'MANHA' | 'TARDE' | 'NOITE') || turnoDaHora(ocorridoEm),
+      turno: (turno as NomeTurno) || turnoDaHora(ocorridoEm),
       texto: texto(dados, 'texto')!,
       gravidade: texto(dados, 'gravidade') as 'LEVE' | 'MODERADA' | 'GRAVE' | null,
       conduta: texto(dados, 'conduta'),
