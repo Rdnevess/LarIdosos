@@ -3,8 +3,11 @@ import { obterCtx } from '@/modules/auth/sessao'
 import { listarPendencias } from '@/modules/health/pendencias'
 import { formatarData, formatarDataHora } from '@/lib/ptbr'
 import { comParametros, numeroDaPagina, tamanhoDePagina } from '@/lib/paginacao'
+import { ROTULO_MEDIDA } from '@/modules/health/faixas'
+import { Botao } from '@/components/ui/botao'
 import { Cartao } from '@/components/ui/cartao'
 import { Paginacao } from '@/components/ui/paginacao'
+import { acaoDispensarAlerta } from './acoes'
 
 /**
  * A tela que atravessa residentes.
@@ -34,12 +37,12 @@ export default async function PaginaPendencias({
   const pagina = numeroDaPagina(filtros.pagina)
   const por = tamanhoDePagina(filtros.por)
 
-  // **Um limite para a tela toda**, e não um por lista: as duas são fatiadas
-  // como uma sequência só, exames primeiro. A consequência foi escolhida e
-  // está fixada em teste — quando os exames passarem do tamanho da página, as
-  // consultas caem para a página seguinte.
+  // **Um limite para a tela toda**, e não um por lista: as três são fatiadas
+  // como uma sequência só — alertas, exames, consultas, nessa ordem. A
+  // consequência foi escolhida e está fixada em teste: se a página encher, o
+  // que cai para a seguinte é exame agendado, e nunca sinal vital.
   const resultado = await listarPendencias(ctx, { pagina, por })
-  const { exames, consultas } = resultado
+  const { alertas, exames, consultas } = resultado
 
   const agora = new Date()
 
@@ -51,6 +54,50 @@ export default async function PaginaPendencias({
           De todos os residentes, da mais antiga para a mais recente.
         </p>
       </div>
+
+      <Cartao>
+        <h2 className="mb-3 font-medium text-forte">
+          Sinais vitais fora de faixa ({alertas.length} de {resultado.totalAlertas})
+        </h2>
+        <ul className="divide-y">
+          {alertas.map((alerta) => (
+            <li
+              key={`${alerta.sinalVitalId}-${alerta.medida}`}
+              className="flex items-start justify-between gap-3 py-2 text-suporte"
+            >
+              <span>
+                <Link
+                  href={`/residentes/${alerta.residenteId}/prontuario`}
+                  className="font-medium text-forte underline"
+                >
+                  {alerta.residenteNome}
+                </Link>
+                <span className="block text-medio">
+                  {ROTULO_MEDIDA[alerta.medida]} {alerta.valor} (faixa{' '}
+                  {alerta.faixa.minimo ?? '—'}–{alerta.faixa.maximo ?? '—'})
+                </span>
+                <span className="block text-apoio">
+                  {formatarDataHora(alerta.aferidoEm)}
+                  {/* Uma vez pede atenção; várias seguidas pedem ajuste de
+                      faixa. É o que separa o evento do padrão. */}
+                  {alerta.seguidas > 1 &&
+                    ` · fora há ${alerta.seguidas} aferições seguidas`}
+                </span>
+              </span>
+              <form action={acaoDispensarAlerta}>
+                <input type="hidden" name="sinalVitalId" value={alerta.sinalVitalId} />
+                <input type="hidden" name="medida" value={alerta.medida} />
+                <Botao variante="secundario">Dispensar</Botao>
+              </form>
+            </li>
+          ))}
+          {alertas.length === 0 && (
+            <li className="py-2 text-suporte text-apoio">
+              Nenhum sinal vital fora de faixa nos últimos 7 dias.
+            </li>
+          )}
+        </ul>
+      </Cartao>
 
       <Cartao>
         <h2 className="mb-3 font-medium text-forte">
