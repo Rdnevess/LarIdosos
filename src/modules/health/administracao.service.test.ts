@@ -207,10 +207,28 @@ describe('listarAdministracoes', () => {
 
 describe('ehRegistroTardio', () => {
   it('é falso dentro do turno da dose e verdadeiro fora dele', () => {
+    // A dose das 08:00 pertence ao DIA, que vai das 6h às 18h.
     const dose = new Date('2026-08-24T08:00:00')
     expect(ehRegistroTardio(dose, new Date('2026-08-24T09:00:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T13:59:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T15:00:00'))).toBe(true)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T17:59:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T18:00:00'))).toBe(true)
+    // Antes da janela também é fora dela: registrar às 5h uma dose das 8h é
+    // registrar no plantão anterior.
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T05:59:00'))).toBe(true)
+  })
+
+  it('a janela do registro tardio dobrou quando os turnos passaram a dois', () => {
+    // Consequência direta e aceita da redução: com turnos de oito horas, a
+    // dose das 08:00 registrada às 15:00 era tardia — 08:00 era MANHA e 15:00
+    // era TARDE. Com turnos de doze, as duas horas caem no mesmo DIA e o
+    // registro deixa de ser sinalizado.
+    //
+    // Está escrito como teste, e não como comentário solto, porque é uma
+    // perda de sinal num registro de medicação: sete horas de atraso deixaram
+    // de aparecer no relatório. Quem quiser o sinal antigo de volta precisa de
+    // outra regra — uma janela em horas —, e não de outra divisão de turnos.
+    const dose = new Date('2026-08-24T08:00:00')
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T15:00:00'))).toBe(false)
   })
 
   it('SE_NECESSARIO nunca é tardia', () => {

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ErroNaoEncontrado } from '@/lib/erros'
 import { prisma } from '@/lib/prisma'
+import { ROTULO_TURNO } from '@/lib/turno'
 import { obterCtx } from '@/modules/auth/sessao'
 import { obterResidente } from '@/modules/residents/residentes.service'
 import { obterGrauVigente } from '@/modules/residents/dependencia.service'
@@ -51,12 +52,6 @@ const ROTULO_CATEGORIA_SAUDE: Record<string, string> = {
   HIGIENE: 'Higiene',
   COMPORTAMENTO: 'Comportamento',
   QUEDA: 'Queda',
-}
-
-const ROTULO_TURNO: Record<string, string> = {
-  MANHA: 'manhÃ£',
-  TARDE: 'tarde',
-  NOITE: 'noite',
 }
 
 const ROTULO_STATUS_EXAME: Record<string, string> = {
@@ -337,7 +332,7 @@ export default async function PaginaProntuario({
             <li key={anotacao.id} className="border-l-2 border-borda-suave pl-3 text-suporte">
               <p className="text-apoio">
                 {formatarDataHora(anotacao.ocorridoEm)} ·{' '}
-                {ROTULO_CATEGORIA_SAUDE[anotacao.categoria]} · turno da{' '}
+                {ROTULO_CATEGORIA_SAUDE[anotacao.categoria]} · turno:{' '}
                 {ROTULO_TURNO[anotacao.turno]}
                 {anotacao.retificaAnotacaoSaudeId && ' · retificação'}
                 {retificadas.has(anotacao.id) && ' · retificada depois'}

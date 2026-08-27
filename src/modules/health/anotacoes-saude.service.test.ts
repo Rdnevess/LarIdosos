@@ -46,7 +46,7 @@ describe('criarAnotacaoSaude', () => {
       criarAnotacaoSaude(ctx, {
         residenteId: residente.id,
         categoria: 'EVOLUCAO',
-        turno: 'MANHA',
+        turno: 'DIA',
         texto: 'Registro com data futura.',
         ocorridoEm: new Date(Date.now() + 86_400_000),
       })
@@ -61,7 +61,7 @@ describe('criarAnotacaoSaude', () => {
       criarAnotacaoSaude(ctx, {
         residenteId: residente.id,
         categoria: 'EVOLUCAO',
-        turno: 'MANHA',
+        turno: 'DIA',
         texto: 'Tentativa do administrativo.',
         ocorridoEm: new Date(),
       })
@@ -76,7 +76,7 @@ describe('editarAnotacaoSaude', () => {
     const anotacao = await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Aceitou o café da manhã por completo.',
       ocorridoEm: new Date(),
     })
@@ -97,7 +97,7 @@ describe('editarAnotacaoSaude', () => {
     const anotacao = await criarAnotacaoSaude(autora, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Aceitou o café da manhã por completo.',
       ocorridoEm: new Date(),
     })
@@ -113,7 +113,7 @@ describe('editarAnotacaoSaude', () => {
     const anotacao = await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Aceitou o café da manhã por completo.',
       ocorridoEm: new Date(),
     })
@@ -139,7 +139,7 @@ describe('retificarAnotacaoSaude', () => {
     const original = await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'TARDE',
+      turno: 'DIA',
       texto: 'Recusou o almoço.',
       ocorridoEm: new Date(),
     })
@@ -152,7 +152,7 @@ describe('retificarAnotacaoSaude', () => {
     // Herda categoria e turno da original: retificar corrige o que foi
     // escrito, não reclassifica o evento nem muda o turno em que aconteceu.
     expect(retificacao.categoria).toBe('EVOLUCAO')
-    expect(retificacao.turno).toBe('TARDE')
+    expect(retificacao.turno).toBe('DIA')
 
     const intacta = await prisma.anotacaoSaude.findUniqueOrThrow({
       where: { id: original.id },
@@ -170,7 +170,7 @@ describe('retificarAnotacaoSaude', () => {
     const original = await criarAnotacaoSaude(autora, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'MANHA',
+      turno: 'DIA',
       texto: 'Recusou o almoço.',
       ocorridoEm: new Date(),
     })
@@ -197,7 +197,7 @@ describe('listarAnotacoesSaude', () => {
     await criarAnotacaoSaude(ctx, {
       residenteId: residente.id,
       categoria: 'EVOLUCAO',
-      turno: 'TARDE',
+      turno: 'DIA',
       texto: 'Evento da tarde.',
       ocorridoEm: new Date('2026-08-20T15:00:00'),
     })

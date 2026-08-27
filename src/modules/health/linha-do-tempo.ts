@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { ROTULO_TURNO } from '@/lib/turno'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { formatarData } from '@/lib/ptbr'
 
@@ -59,12 +60,6 @@ const ROTULO_CATEGORIA: Record<string, string> = {
   HIGIENE: 'Higiene',
   COMPORTAMENTO: 'Comportamento',
   QUEDA: 'Queda',
-}
-
-const ROTULO_TURNO: Record<string, string> = {
-  MANHA: 'manhã',
-  TARDE: 'tarde',
-  NOITE: 'noite',
 }
 
 const ROTULO_STATUS_EXAME: Record<string, string> = {
@@ -153,7 +148,11 @@ export async function montarLinhaDoTempo(
       id: a.id,
       tipo: 'ANOTACAO_SAUDE' as const,
       ocorridoEm: a.ocorridoEm,
-      titulo: `${ROTULO_CATEGORIA[a.categoria] ?? a.categoria} · turno da ${
+      // "turno: Dia", e não "turno da dia": com três turnos os três rótulos
+      // eram femininos e a preposição cabia numa string só. Com DIA e NOITE os
+      // gêneros divergem, e a forma neutra evita um mapa de artigos para dois
+      // valores.
+      titulo: `${ROTULO_CATEGORIA[a.categoria] ?? a.categoria} · turno: ${
         ROTULO_TURNO[a.turno] ?? a.turno
       }${a.retificaAnotacaoSaudeId ? ' · retificação' : ''}`,
       detalhe: a.conduta ? `${a.texto} — conduta: ${a.conduta}` : a.texto,

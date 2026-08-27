@@ -29,7 +29,7 @@ const categoriaSchema = z.enum([
   'QUEDA',
 ])
 
-const turnoSchema = z.enum(['MANHA', 'TARDE', 'NOITE'])
+const turnoSchema = z.enum(['DIA', 'NOITE'])
 
 const textoSchema = textoDeAnotacaoSchema
 
