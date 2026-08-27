@@ -66,9 +66,14 @@ export const ROTULO_MEDIDA: Record<MedidaVital, string> = {
 /**
  * O ponto de partida de quem não tem ajuste.
  *
- * **Estes números são proposta, e esperam a equipe de saúde do Lar** (§3.1 e
- * §11 da spec). Trocá-los é trocar esta tabela; nada mais no desenho depende
- * dos valores.
+ * **Estes números estão em uso a título provisório.** Foram propostos ao
+ * escrever a spec, para que a conversa tivesse uma tabela concreta na mesa, e o
+ * dono do projeto autorizou entrarem assim em 27/08/2026 — com a revisão
+ * clínica pendente, e não dispensada. Autorizar o uso não os torna clínicos.
+ *
+ * Trocá-los é trocar esta tabela: nada mais no desenho depende dos valores, e
+ * não há migração nem dado a recadastrar. Ver o item 1 de
+ * `docs/operacao/pendencias-alerta-sinal-vital.md`.
  */
 export const FAIXAS_DO_SISTEMA: Record<MedidaVital, Faixa> = {
   PRESSAO_SISTOLICA: { minimo: 90, maximo: 140 },

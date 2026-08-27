@@ -10,13 +10,13 @@ consequências aceitas ao decidir.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. Os números das faixas do sistema são proposta | aberto | com a equipe de saúde do Lar |
+| 1. Os números das faixas do sistema são provisórios | em uso, revisão pendente | com a equipe de saúde do Lar |
 | 2. A janela de sete dias | aberto, deliberado | se a equipe aferir com menos frequência |
 | 3. Não há tela que meça se o alerta virou ruído | aberto, deliberado | quando a suspeita aparecer |
 | 4. Peso continua fora | aberto, deliberado | é o item 3 da Fase 2A |
 | 5. Não há alerta sobre a *ausência* de aferição | fora de escopo | merece a sua própria decisão |
 
-## 1. Os números das faixas do sistema são proposta, e não decisão clínica
+## 1. Os números das faixas do sistema são provisórios, e não decisão clínica
 
 **Situação:** `FAIXAS_DO_SISTEMA`, em `src/modules/health/faixas.ts`, traz sete
 faixas — pressão sistólica 90–140, diastólica 60–90, frequência cardíaca 50–100,
@@ -33,9 +33,25 @@ método — preservar a sensibilidade da regra anterior — e o Lar o substituiu
 um critério que descrevia um fato do plantão. Inventar número e chamá-lo de
 clínico é um erro que este projeto já cometeu uma vez.
 
-**Como resolver:** levar a tabela à equipe de saúde e trocar os valores. O
-sistema funciona com qualquer conjunto que entre ali, e **nada mais no desenho
-depende dos números** — não há migração, nem dado a recadastrar.
+### Em uso desde 27/08/2026, a título provisório
+
+O dono do projeto autorizou que entrassem como estão, com a revisão clínica
+pendente: *"pode ser com a sua proposta, se necessário altero depois"*.
+
+**O que isso muda, e o que não muda.** Muda o estado: o alerta funciona hoje, e
+não espera reunião para começar a servir. Não muda a natureza dos números —
+autorizar o uso não os torna clínicos, e este item continua aberto por isso. A
+diferença entre "em uso" e "validado" é a razão de este parágrafo existir em vez
+de o item ser fechado.
+
+**Como resolver de verdade:** levar a tabela à equipe de saúde e trocar os
+valores. O sistema funciona com qualquer conjunto que entre ali, e **nada mais
+no desenho depende dos números** — não há migração, nem dado a recadastrar.
+
+**O sinal de que a revisão ficou tarde demais:** se a equipe passar a dispensar
+alertas em série sem ajustar faixa de residente nenhum, pode ser que a faixa do
+sistema esteja errada para esta população — e não que cada residente precise de
+ajuste. É o número do item 3 que responde, e ele existe na trilha.
 
 **O que não fazer:** afinar os números por palpite ao ver o relatório cheio ou
 vazio. Se muita gente estiver alertando, o caminho é ajustar a faixa de quem tem
