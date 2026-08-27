@@ -3,6 +3,7 @@ import { ErroPermissao } from '@/lib/erros'
 import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import { registrarExame, atualizarExame } from './exames.service'
 import { registrarConsulta, atualizarConsulta } from './consultas.service'
+import { registrarSinalVital } from './sinais-vitais.service'
 import { listarPendencias } from './pendencias'
 
 describe('listarPendencias', () => {
@@ -179,5 +180,99 @@ describe('listarPendencias — paginação', () => {
     const tudo = await listarPendencias(ctx)
     expect(tudo.exames).toHaveLength(1)
     expect(tudo.total).toBe(1)
+  })
+})
+
+describe('listarPendencias — alertas de sinal vital', () => {
+  it('traz o alerta junto de exames e consultas', async () => {
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date(),
+      pressaoSistolica: 200,
+    })
+
+    const pendencias = await listarPendencias(ctx)
+    expect(pendencias.alertas.some((a) => a.residenteId === residente.id)).toBe(true)
+    expect(pendencias.totalAlertas).toBeGreaterThan(0)
+    expect(pendencias.total, 'os alertas entram na contagem geral').toBeGreaterThan(0)
+  })
+
+  it('os alertas vêm primeiro na sequência paginada', async () => {
+    // A ordem é decisão da spec (§6): se a página encher, o que cai para a
+    // seguinte é exame agendado, e nunca sinal vital.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date(),
+      pressaoSistolica: 200,
+    })
+    await registrarExame(ctx, {
+      residenteId: residente.id,
+      tipo: 'Hemograma da ordem',
+      dataSolicitacao: new Date('2026-07-01'),
+    })
+
+    const primeira = await listarPendencias(ctx, { pagina: 1, por: 20 })
+    expect(primeira.alertas.length, 'alertas ocupam a página antes dos exames')
+      .toBeGreaterThan(0)
+  })
+
+  it('a fatia atravessa as três listas sem repetir nem pular', async () => {
+    // **O teste que o plano marcou como o mais importante desta tarefa.** A
+    // aritmética foi escrita para duas listas e passou a ter três; os
+    // deslocamentos precisam ser encadeados — alertas, depois exames, depois
+    // consultas. Um erro aqui não quebra nada visivelmente: só some com um
+    // registro no meio.
+    //
+    // Sete aferições com três medidas fora cada uma dão 21 alertas, o que faz
+    // a segunda página começar no meio dos alertas e atravessar as outras duas
+    // listas. Com menos que isso, tudo caberia numa página e a travessia — que
+    // é o que se quer medir — nunca aconteceria.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    for (let i = 0; i < 7; i++) {
+      await registrarSinalVital(ctx, {
+        residenteId: residente.id,
+        aferidoEm: new Date(Date.now() - i * 3_600_000),
+        pressaoSistolica: 200,
+        pressaoDiastolica: 120,
+        temperatura: 39,
+      })
+    }
+    for (const tipo of ['Exame Fatia A', 'Exame Fatia B']) {
+      await registrarExame(ctx, {
+        residenteId: residente.id,
+        tipo,
+        dataSolicitacao: new Date('2026-07-01'),
+      })
+    }
+    await registrarConsulta(ctx, {
+      residenteId: residente.id,
+      especialidade: 'Especialidade Fatia',
+      dataHora: new Date('2026-09-01T10:00:00'),
+    })
+
+    const tudo = await listarPendencias(ctx)
+    const total = tudo.total
+    expect(total, 'o cenário precisa passar de uma página').toBeGreaterThan(20)
+
+    const vistos: string[] = []
+    for (let pagina = 1; pagina <= Math.ceil(total / 20); pagina++) {
+      const fatia = await listarPendencias(ctx, { pagina, por: 20 })
+      vistos.push(
+        ...fatia.alertas.map((a) => `alerta:${a.sinalVitalId}:${a.medida}`),
+        ...fatia.exames.map((e) => `exame:${e.id}`),
+        ...fatia.consultas.map((c) => `consulta:${c.id}`)
+      )
+    }
+
+    expect(vistos.length, 'a soma das fatias tem de dar o total').toBe(total)
+    expect(new Set(vistos).size, 'houve repetição entre as páginas').toBe(total)
   })
 })
