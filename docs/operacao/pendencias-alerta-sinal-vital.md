@@ -13,7 +13,7 @@ consequências aceitas ao decidir.
 | 1. Os números das faixas do sistema são provisórios | em uso, revisão pendente | com a equipe de saúde do Lar |
 | 2. A janela de sete dias | aberto, deliberado | se a equipe aferir com menos frequência |
 | 3. Não há tela que meça se o alerta virou ruído | aberto, deliberado | quando a suspeita aparecer |
-| 4. Peso continua fora | aberto, deliberado | é o item 3 da Fase 2A |
+| 4. Peso continua fora do alerta | aberto, deliberado | o gráfico existe desde 27/08/2026 |
 | 5. Não há alerta sobre a *ausência* de aferição | fora de escopo | merece a sua própria decisão |
 
 ## 1. Os números das faixas do sistema são provisórios, e não decisão clínica
@@ -93,7 +93,7 @@ faixas do sistema. Se a equipe dispensa em série e ninguém ajusta faixa nenhum
 o problema é de processo — falta ajustar as faixas de quem tem condição crônica
 registrada —, e não das faixas do sistema.
 
-## 4. Peso continua fora
+## 4. Peso continua fora do alerta
 
 **Situação:** as sete medidas que alertam não incluem peso, e há teste afirmando
 isso em `faixas.test.ts`.
@@ -102,9 +102,18 @@ isso em `faixas.test.ts`.
 passado. Peso é **tendência**, e um alerta por faixa fixa diria algo que não
 quer dizer nada.
 
-**Onde se resolve:** é o item 3 das pendências da Fase 2A — o gráfico de
-tendência —, que continua aberto e deliberado. Se a coordenação quiser alerta de
-perda de peso, o trabalho é aquele, e não este.
+**Onde se resolve:** era o item 3 das pendências da Fase 2A — o gráfico de
+tendência —, e **ele existe desde 27/08/2026**, em
+`/residentes/[id]/prontuario/tendencia`. Peso abre a tela, por ser a única
+medida sem alerta nenhum: para as outras sete o alerta avisa quando o número sai
+da faixa, e o gráfico é a segunda leitura; para o peso, é a única.
+
+**O item continua aberto, e a mudança é de outro tipo.** O que faltava era um
+lugar onde a tendência do peso pudesse ser lida, e ele deixou de faltar. O que
+continua não existindo é **alerta** de perda de peso — ninguém é avisado, alguém
+precisa abrir a tela. Um alerta assim exigiria decidir quanta perda em quanto
+tempo merece aviso, o que é decisão clínica e não de código, e cai na mesma
+conversa do item 1.
 
 ## 5. Não há alerta sobre a ausência de aferição
 

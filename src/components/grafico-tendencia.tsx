@@ -85,14 +85,20 @@ export function GraficoTendencia({
 
       <g transform={`translate(${MARGEM.esquerda}, ${MARGEM.topo})`}>
         {/* A faixa de normalidade, ao fundo. Sombreada e não delimitada por
-            linha forte: ela é o contexto da leitura, não o dado. */}
+            linha forte: ela é o contexto da leitura, não o dado.
+
+            Na família de sucesso, e não em `realce`: aquele token pesa de
+            formas diferentes nos dois temas — #f8f4f1 sobre branco some, e
+            #32567b no escuro grita —, e a zona normal precisa ler igual nos
+            dois. Verde para "dentro" também acompanha o âmbar e o vermelho que
+            o resto do sistema já usa para problema. */}
         {banda && (
           <rect
             x={0}
             y={banda.y}
             width={LARGURA_UTIL}
             height={banda.altura}
-            className="fill-realce"
+            className="fill-sucesso-fundo"
           />
         )}
 

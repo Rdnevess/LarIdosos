@@ -75,10 +75,14 @@ export default async function PaginaTendencia({
         <h1 className="text-secao font-semibold text-forte">
           Tendência — {residente.nomeSocial || residente.nomeCompleto}
         </h1>
+        {/* A legenda acompanha a medida: peso não tem faixa, e prometer uma
+            sombra que não existe é pior do que não explicar nada — ainda mais
+            aqui, que é a tela que abre por padrão. */}
         <p className="text-suporte text-apoio">
-          Cada ponto é uma aferição, na data em que foi feita. A faixa
-          sombreada é a de normalidade em vigor para este residente — a mesma
-          que gera alerta.
+          Cada ponto é uma aferição, na data em que foi feita.{' '}
+          {faixa
+            ? 'A faixa sombreada é a de normalidade em vigor para este residente — a mesma que gera alerta.'
+            : 'Peso não tem faixa de normalidade: 62 kg não é alarmante nem tranquilizador sem os 68 kg do mês passado. É por isso que ele só se lê aqui.'}
         </p>
       </div>
 
