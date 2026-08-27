@@ -31,6 +31,9 @@ Thumbs.db
 # Testes
 coverage/
 test-results/
+# PDFs gerados por `npm run pdf:rascunho`, para olhar o desenho sem passar pelo
+# sistema. Sao descartaveis e regerados a cada execucao.
+rascunho/
 playwright-report/
 tests/e2e/.sessao.json
 tests/e2e/.sessao-saude.json
@@ -48,11 +51,17 @@ next-env.d.ts
 # Modelos e documentos do convenio (podem conter dados sensiveis)
 docs/convenio/
 
-# Artefatos de execucao do Playwright. `test-results/` e `playwright-report/`
+# Artefatos de execucao do Playwright. `test-results/
+# PDFs gerados por `npm run pdf:rascunho`, para olhar o desenho sem passar pelo
+# sistema. Sao descartaveis e regerados a cada execucao.
+rascunho/` e `playwright-report/`
 # so aparecem quando um teste falha — que e exatamente quando alguem commita
 # com pressa. `.playwright-mcp/` acumula um snapshot por interacao do
 # navegador conduzido por agente.
 test-results/
+# PDFs gerados por `npm run pdf:rascunho`, para olhar o desenho sem passar pelo
+# sistema. Sao descartaveis e regerados a cada execucao.
+rascunho/
 playwright-report/
 .playwright-mcp/
 
