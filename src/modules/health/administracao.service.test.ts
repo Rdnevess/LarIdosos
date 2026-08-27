@@ -8,6 +8,7 @@ import {
   registrarAdministracao,
   listarAdministracoes,
   ehRegistroTardio,
+  HORAS_ATE_TARDIO,
 } from './administracao.service'
 
 async function prescricaoDeTeste(ctx: Ctx, campos: Partial<DadosMedicacao> = {}) {
@@ -206,29 +207,50 @@ describe('listarAdministracoes', () => {
 })
 
 describe('ehRegistroTardio', () => {
-  it('é falso dentro do turno da dose e verdadeiro fora dele', () => {
-    // A dose das 08:00 pertence ao DIA, que vai das 6h às 18h.
+  it('conta horas desde o previsto, e não o turno em que caiu', () => {
+    // A regra era "fora do turno da dose". Ela dependia de **onde a fronteira
+    // do plantão caía**, e não de quanto tempo passou: a dose das 17:00
+    // registrada às 18:30 era tardia (uma hora e meia, mas atravessou a
+    // fronteira), enquanto a das 08:00 registrada às 17:00 não era (nove
+    // horas, mesmo turno). O mesmo atraso dava respostas opostas conforme a
+    // hora do dia.
     const dose = new Date('2026-08-24T08:00:00')
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T09:00:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T17:59:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T18:00:00'))).toBe(true)
-    // Antes da janela também é fora dela: registrar às 5h uma dose das 8h é
-    // registrar no plantão anterior.
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T05:59:00'))).toBe(true)
+
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T08:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T11:59:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T12:00:00'))).toBe(true)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T20:00:00'))).toBe(true)
   })
 
-  it('a janela do registro tardio dobrou quando os turnos passaram a dois', () => {
-    // Consequência direta e aceita da redução: com turnos de oito horas, a
-    // dose das 08:00 registrada às 15:00 era tardia — 08:00 era MANHA e 15:00
-    // era TARDE. Com turnos de doze, as duas horas caem no mesmo DIA e o
-    // registro deixa de ser sinalizado.
-    //
-    // Está escrito como teste, e não como comentário solto, porque é uma
-    // perda de sinal num registro de medicação: sete horas de atraso deixaram
-    // de aparecer no relatório. Quem quiser o sinal antigo de volta precisa de
-    // outra regra — uma janela em horas —, e não de outra divisão de turnos.
+  it('o mesmo atraso dá a mesma resposta em qualquer hora do dia', () => {
+    // É a propriedade que a regra antiga não tinha, e o motivo de ela ter
+    // mudado. Três doses em horas diferentes, todas registradas com três
+    // horas de atraso: nenhuma é tardia, inclusive a que atravessa a
+    // fronteira dos turnos às 18h e a que atravessa a meia-noite.
+    for (const previsto of ['06:00', '17:00', '23:00']) {
+      const [h, m] = previsto.split(':').map(Number)
+      const dose = new Date(2026, 7, 24, h, m)
+      const tresHorasDepois = new Date(dose.getTime() + 3 * 3_600_000)
+      expect(ehRegistroTardio(dose, tresHorasDepois), `dose das ${previsto}`).toBe(false)
+
+      const cincoHorasDepois = new Date(dose.getTime() + 5 * 3_600_000)
+      expect(ehRegistroTardio(dose, cincoHorasDepois), `dose das ${previsto}`).toBe(true)
+    }
+  })
+
+  it('registro adiantado não é tardio', () => {
+    // Registrar antes da hora prevista é outra coisa — pode ser a dose dada um
+    // pouco cedo, e chamá-la de "tardia" seria mentira. A regra mede atraso, e
+    // atraso negativo não existe.
     const dose = new Date('2026-08-24T08:00:00')
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T15:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T07:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-23T20:00:00'))).toBe(false)
+  })
+
+  it('a janela está declarada, e não escondida num número solto', () => {
+    // Se o Lar quiser outro limite, é esta constante que muda — e o teste
+    // acompanha, em vez de precisar ser reescrito.
+    expect(HORAS_ATE_TARDIO).toBe(4)
   })
 
   it('SE_NECESSARIO nunca é tardia', () => {
