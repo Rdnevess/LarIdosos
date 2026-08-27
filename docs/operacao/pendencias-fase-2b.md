@@ -50,11 +50,17 @@ cada relatório de aderência. Ela varre as prescrições vigentes e monta as do
 em memória.
 
 **Por que não é problema hoje:** trinta residentes, poucas prescrições por
-pessoa, janela de oito horas na tela do turno e trinta dias no relatório. O
+pessoa, janela de **doze** horas na tela do turno e trinta dias no relatório. O
 custo é irrelevante, e a alternativa — materializar as doses — foi descartada
 pela spec-mãe por razões que continuam valendo: exigiria cron, duplicaria
 estado, e converter pendência em "não administrada" no fim do dia gravaria
 afirmação falsa no prontuário.
+
+**A janela dobrou em 27/08/2026**, quando os três turnos de oito horas viraram
+dois de doze. O custo desta derivação dobrou junto, e continua irrelevante na
+escala do Lar — mas o número está corrigido aqui porque este documento existe
+para ser lido depois, e uma justificativa com o número errado é uma justificativa
+que não se pode conferir.
 
 **Onde vai doer primeiro, se doer:** o relatório de aderência de um período
 longo (um ano) sobre medicação de uso contínuo. **Meça antes de mudar.** O
@@ -84,6 +90,10 @@ foi apagada. Duas divisões seriam duas respostas para "em que turno isso
 aconteceu?".
 
 **Um teste de aderência nascia dependente do relógio:** uma dose das 08:00 de
-hoje, registrada durante o turno da manhã, não é tardia — e a asserção passava
-ou falhava conforme a hora em que a suíte rodasse. Passou a usar um dia
-claramente no passado.
+hoje, registrada dentro do mesmo turno, não é tardia — e a asserção passava ou
+falhava conforme a hora em que a suíte rodasse. Passou a usar um dia claramente
+no passado.
+
+*(A regra do registro tardio mudou em 27/08/2026: deixou de ser "fora do turno
+da dose" e passou a ser "quatro horas ou mais depois do previsto". O motivo do
+teste continua valendo — o que mudou foi o que ele mede.)*
