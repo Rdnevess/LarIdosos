@@ -1,20 +1,28 @@
 import Link from 'next/link'
 import { obterCtx } from '@/modules/auth/sessao'
-import { listarResidentes } from '@/modules/residents/residentes.service'
+import { consultarResidentes } from '@/modules/residents/residentes.service'
 import { formatarData } from '@/lib/ptbr'
+import { comParametros, numeroDaPagina, tamanhoDePagina } from '@/lib/paginacao'
 import { Botao } from '@/components/ui/botao'
+import { Paginacao } from '@/components/ui/paginacao'
 
 export default async function PaginaResidentes({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; status?: string }>
+  searchParams: Promise<{ busca?: string; status?: string; pagina?: string; por?: string }>
 }) {
-  const { busca, status } = await searchParams
+  const filtros = await searchParams
+  const { busca, status } = filtros
   const ctx = await obterCtx()
-  const residentes = await listarResidentes(ctx, {
+  const pagina = numeroDaPagina(filtros.pagina)
+  const por = tamanhoDePagina(filtros.por)
+  const resultado = await consultarResidentes(ctx, {
     busca,
     status: (status as 'ATIVO' | 'DESLIGADO' | 'FALECIDO') || 'ATIVO',
+    pagina,
+    por,
   })
+  const residentes = resultado.itens
 
   const podeCadastrar = ctx.papel !== 'SAUDE'
 
@@ -32,6 +40,8 @@ export default async function PaginaResidentes({
         )}
       </div>
 
+      {/* Sem `pagina` escondida no formulario: filtrar volta a primeira
+          pagina, e nao a terceira de um resultado que pode ter uma so. */}
       <form className="flex gap-2">
         <input
           name="busca"
@@ -78,6 +88,15 @@ export default async function PaginaResidentes({
           ))}
         </ul>
       )}
+
+      <Paginacao
+        pagina={resultado.pagina}
+        paginas={resultado.paginas}
+        total={resultado.total}
+        por={resultado.por}
+        rotulo="residente(s)"
+        url={(mudancas) => comParametros(filtros, mudancas)}
+      />
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 function calcularDigitoVerificador(digitos: number[]): number {
   let soma = 0
@@ -35,6 +35,20 @@ function gerarCpfValido(): string {
 // testes de um arquivo na ordem em que aparecem.
 const CPF_TESTE = gerarCpfValido()
 
+/**
+ * Filtra a lista até sobrar quem o teste acabou de cadastrar.
+ *
+ * A lista passou a mostrar vinte por página e o banco de desenvolvimento
+ * carrega dezenas de funcionários de execuções anteriores — o recém-cadastrado
+ * quase nunca cai na primeira página. Procurá-lo é o que uma pessoa faz numa
+ * lista longa, e **é o que mantém a asserção honesta**: sem o filtro, um
+ * `toHaveCount(0)` passaria por ausência da página, e não por ausência do
+ * registro.
+ */
+async function irParaFuncionario(page: Page, nome: string): Promise<void> {
+  await page.goto(`/funcionarios?busca=${encodeURIComponent(nome)}`)
+}
+
 test('cadastra funcionário com registro de conselho', async ({ page }) => {
   const nome = `Ana Teste ${Date.now()}`
 
@@ -46,6 +60,12 @@ test('cadastra funcionário com registro de conselho', async ({ page }) => {
   await page.getByLabel('Data de admissão').fill('2025-02-01')
   await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
 
+  // Pelo caminho exato, e nao por `/funcionarios` solto: aquele casaria com
+  // `/funcionarios/novo`, resolveria de imediato ainda na tela de cadastro, e
+  // a navegacao seguinte correria contra a Server Action. Passou isolado e
+  // falhou na suite inteira, que e onde a corrida aparece.
+  await page.waitForURL((url) => url.pathname === '/funcionarios')
+  await irParaFuncionario(page, nome)
   await expect(page.getByText(nome)).toBeVisible()
 })
 
@@ -65,6 +85,12 @@ test('aceita recontratação com o mesmo CPF, como cadastro novo', async ({ page
   await page.getByLabel('Data de admissão').fill('2025-02-01')
   await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
 
+  // Pelo caminho exato, e nao por `/funcionarios` solto: aquele casaria com
+  // `/funcionarios/novo`, resolveria de imediato ainda na tela de cadastro, e
+  // a navegacao seguinte correria contra a Server Action. Passou isolado e
+  // falhou na suite inteira, que e onde a corrida aparece.
+  await page.waitForURL((url) => url.pathname === '/funcionarios')
+  await irParaFuncionario(page, nome)
   await expect(page.getByText(nome)).toBeVisible()
 })
 
@@ -84,9 +110,12 @@ test('funcionário desligado sai do aviso de conselho vencendo', async ({ page }
   await page.getByLabel('Validade do registro').fill(emVinteDias)
   await page.getByRole('button', { name: 'Cadastrar funcionário' }).click()
 
-  // Antes do desligamento, o aviso cita a pessoa.
+  // Antes do desligamento, o aviso cita a pessoa. O aviso fica fora da
+  // paginação de propósito — ele conta o Lar inteiro —, então continua
+  // visível sem filtro nenhum.
   await expect(page.getByRole('status')).toContainText(nome)
 
+  await irParaFuncionario(page, nome)
   await page.getByRole('link', { name: new RegExp(nome) }).click()
   await page.getByLabel('Data do desligamento').fill('2026-08-01')
   await page.getByLabel('Motivo').fill('Pedido de demissão')
@@ -104,6 +133,8 @@ test('funcionário desligado sai do aviso de conselho vencendo', async ({ page }
   await expect(page.getByText(/Desligado em/)).toBeVisible()
 
   // Depois, some — é isso que impede o aviso de encher de gente que já saiu.
-  await page.goto('/funcionarios')
+  // Com o filtro pelo nome: sem ele, o `toHaveCount(0)` passaria porque a
+  // pessoa está na página 3, e não porque saiu da lista de ativos.
+  await irParaFuncionario(page, nome)
   await expect(page.getByText(nome)).toHaveCount(0)
 })

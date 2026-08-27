@@ -1,4 +1,7 @@
+import type { Papel, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { normalizarBusca } from '@/lib/busca'
+import { TAMANHO_PADRAO, totalDePaginas, type Pagina, type Tamanho } from '@/lib/paginacao'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { hashSenha, verificarSenha } from '@/lib/senha'
@@ -65,12 +68,63 @@ export async function criarUsuario(
   })
 }
 
+/**
+ * Todos os usuarios, sem paginar. Existe para o `<select>` de autor do filtro
+ * da trilha de auditoria, que precisa oferecer todo mundo — paginar ali
+ * esconderia autores e faria a trilha parecer incompleta.
+ *
+ * A tela de usuarios usa `consultarUsuarios`, que pagina e filtra.
+ */
 export async function listarUsuarios(ctx: Ctx): Promise<UsuarioPublico[]> {
   exigirPapel(ctx, 'Usuario', 'COORDENACAO')
   return prisma.usuario.findMany({
     select: CAMPOS_PUBLICOS,
     orderBy: [{ ativo: 'desc' }, { nome: 'asc' }],
   })
+}
+
+export type FiltroUsuarios = {
+  nome?: string
+  papel?: Papel
+  pagina?: number
+  por?: Tamanho
+}
+
+export async function consultarUsuarios(
+  ctx: Ctx,
+  filtro: FiltroUsuarios = {}
+): Promise<Pagina<UsuarioPublico>> {
+  exigirPapel(ctx, 'Usuario', 'COORDENACAO')
+
+  const where: Prisma.UsuarioWhereInput = {}
+  if (filtro.papel) where.papel = filtro.papel
+  if (filtro.nome?.trim()) {
+    // A coluna `busca` e gerada pelo banco sobre nome e e-mail, sem acento e
+    // em minusculas (migration `20260827000000_busca_usuario`). O termo passa
+    // pela mesma normalizacao: os dois lados precisam falar a mesma lingua.
+    //
+    // O e-mail entra na coluna de proposito: e por ele que a coordenacao
+    // identifica a conta quando ha dois nomes parecidos.
+    where.busca = { contains: normalizarBusca(filtro.nome) }
+  }
+
+  const por = filtro.por ?? TAMANHO_PADRAO
+  const pagina = Math.max(1, filtro.pagina ?? 1)
+
+  const [itens, total] = await Promise.all([
+    prisma.usuario.findMany({
+      where,
+      select: CAMPOS_PUBLICOS,
+      // Inativos por ultimo, como a listagem sempre fez; `id` desempata para
+      // que a paginacao seja estavel entre consultas.
+      orderBy: [{ ativo: 'desc' }, { nome: 'asc' }, { id: 'asc' }],
+      skip: (pagina - 1) * por,
+      take: por,
+    }),
+    prisma.usuario.count({ where }),
+  ])
+
+  return { itens, total, pagina, por, paginas: totalDePaginas(total, por) }
 }
 
 export async function atualizarUsuario(

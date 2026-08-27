@@ -79,13 +79,18 @@ test('traduz o valor booleano da desativação de um usuário, sem vazar true/fa
   await novoUsuario.getByLabel('Papel').selectOption('ADMINISTRATIVO')
   await novoUsuario.getByLabel('Senha inicial (mínimo 8 caracteres)').fill('senha-de-teste-123')
   await novoUsuario.getByRole('button', { name: 'Criar usuário' }).click()
+  await expect(novoUsuario.getByRole('status')).toHaveText('Registro salvo.')
 
-  const linhaUsuario = page.locator('li', { hasText: nome })
+  // Filtrando pelo e-mail: a lista mostra vinte por página e o banco de
+  // desenvolvimento carrega mais de cem contas, então a recém-criada não cai
+  // na primeira. Sem o filtro, a linha simplesmente não estaria na tela.
+  await page.goto(`/usuarios?nome=${encodeURIComponent(email)}`)
+  const linhaUsuario = page.locator('li', { hasText: email })
   await expect(linhaUsuario).toBeVisible()
   const idUsuario = await linhaUsuario.locator('input[name="id"]').first().getAttribute('value')
 
   await linhaUsuario.getByRole('button', { name: 'Desativar acesso' }).click()
-  await expect(page.locator('li', { hasText: nome })).toContainText('(inativo)')
+  await expect(page.locator('li', { hasText: email })).toContainText('(inativo)')
 
   await page.goto('/auditoria')
   await page.getByLabel('Entidade').selectOption('Usuario')

@@ -3,6 +3,7 @@ import type { Residente, StatusResidente } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { normalizarBusca } from '@/lib/busca'
+import { TAMANHO_PADRAO, totalDePaginas, type Pagina, type Tamanho } from '@/lib/paginacao'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { calcularDiff, registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -99,10 +100,17 @@ export type ResidenteResumo = Pick<
   'id' | 'nomeCompleto' | 'nomeSocial' | 'dataNascimento' | 'dataAdmissao' | 'quarto' | 'leito' | 'status'
 >
 
-export async function listarResidentes(
+export type FiltroResidentes = {
+  busca?: string
+  status?: StatusResidente
+  pagina?: number
+  por?: Tamanho
+}
+
+export async function consultarResidentes(
   ctx: Ctx,
-  filtro: { busca?: string; status?: StatusResidente } = {}
-): Promise<ResidenteResumo[]> {
+  filtro: FiltroResidentes = {}
+): Promise<Pagina<ResidenteResumo>> {
   exigirPapel(ctx, 'Residente', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
 
   const where: Prisma.ResidenteWhereInput = {}
@@ -114,11 +122,28 @@ export async function listarResidentes(
     where.busca = { contains: normalizarBusca(filtro.busca) }
   }
 
-  return prisma.residente.findMany({
-    where,
-    select: CAMPOS_LISTA,
-    orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
-  })
+  const por = filtro.por ?? TAMANHO_PADRAO
+  const pagina = Math.max(1, filtro.pagina ?? 1)
+
+  // A contagem usa o mesmo `where` da fatia, e nao o total da tabela: sem
+  // isso, uma busca que cabe na primeira pagina anunciaria "1 de 3" e
+  // ofereceria duas paginas vazias.
+  const [itens, total] = await Promise.all([
+    prisma.residente.findMany({
+      where,
+      select: CAMPOS_LISTA,
+      // O desempate por `id` e o que torna a paginacao estavel: dois nomes
+      // iguais sem criterio de desempate podem trocar de lugar entre duas
+      // consultas, e sob `skip`/`take` isso poe um residente em duas paginas
+      // e some com outro. A trilha de auditoria aprendeu isto primeiro.
+      orderBy: [{ nomeCompleto: 'asc' }, { id: 'asc' }],
+      skip: (pagina - 1) * por,
+      take: por,
+    }),
+    prisma.residente.count({ where }),
+  ])
+
+  return { itens, total, pagina, por, paginas: totalDePaginas(total, por) }
 }
 
 export async function atualizarResidente(

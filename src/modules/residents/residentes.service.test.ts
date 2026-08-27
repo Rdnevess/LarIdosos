@@ -5,7 +5,7 @@ import { ctxComPapel } from '@/../tests/helpers/fabricas'
 import {
   criarResidente,
   obterResidente,
-  listarResidentes,
+  consultarResidentes,
   atualizarResidente,
   desligarResidente,
 } from './residentes.service'
@@ -127,7 +127,64 @@ describe('CPF unico', () => {
   })
 })
 
-describe('listarResidentes', () => {
+describe('consultarResidentes — paginação', () => {
+  async function criarVarios(ctx: Awaited<ReturnType<typeof ctxComPapel>>, quantos: number) {
+    for (let i = 0; i < quantos; i++) {
+      await criarResidente(ctx, {
+        ...dadosValidos,
+        // Prefixo numérico para que a ordem alfabética seja previsível: sem
+        // isso a asserção de "quem está na página 2" dependeria de como o
+        // banco ordena nomes iguais.
+        nomeCompleto: `Residente ${String(i).padStart(3, '0')}`,
+        cpf: undefined,
+      })
+    }
+  }
+
+  it('devolve a primeira página com o tamanho pedido, e o total de todos', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarVarios(ctx, 25)
+
+    const pagina = await consultarResidentes(ctx, { pagina: 1, por: 20 })
+
+    expect(pagina.itens).toHaveLength(20)
+    expect(pagina.total).toBe(25)
+    expect(pagina.paginas).toBe(2)
+  })
+
+  it('a página seguinte continua de onde a anterior parou, sem repetir nem pular', async () => {
+    // O risco real de `skip`/`take` não é a contagem, é a ordenação instável:
+    // com dois registros empatados no critério de ordem, um pode aparecer em
+    // duas páginas enquanto outro não aparece em nenhuma. O desempate por
+    // `id` é o que impede isso, e é isto que esta asserção mede — a união das
+    // duas páginas tem de ser exatamente o conjunto inteiro.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarVarios(ctx, 25)
+
+    const primeira = await consultarResidentes(ctx, { pagina: 1, por: 20 })
+    const segunda = await consultarResidentes(ctx, { pagina: 2, por: 20 })
+
+    expect(segunda.itens).toHaveLength(5)
+    const ids = [...primeira.itens, ...segunda.itens].map((r) => r.id)
+    expect(new Set(ids).size, 'houve repetição entre as páginas').toBe(25)
+  })
+
+  it('o filtro entra na contagem, e não só na fatia', async () => {
+    // Uma contagem que ignorasse o filtro mostraria "página 1 de 3" numa
+    // busca que cabe inteira na primeira — e ofereceria páginas vazias.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarVarios(ctx, 25)
+    await criarResidente(ctx, { ...dadosValidos, nomeCompleto: 'Joaquim Único', cpf: undefined })
+
+    const pagina = await consultarResidentes(ctx, { busca: 'joaquim', pagina: 1, por: 20 })
+
+    expect(pagina.itens).toHaveLength(1)
+    expect(pagina.total).toBe(1)
+    expect(pagina.paginas).toBe(1)
+  })
+})
+
+describe('consultarResidentes', () => {
   it('acha o nome acentuado por quem digita sem acento', async () => {
     // Quem usa o sistema digita no celular, em pe no corredor, e nao para
     // para achar o acento. `mode: 'insensitive'` do Prisma resolve
@@ -141,9 +198,9 @@ describe('listarResidentes', () => {
       cpf: undefined,
     })
 
-    expect(await listarResidentes(ctx, { busca: 'jose' })).toHaveLength(1)
-    expect(await listarResidentes(ctx, { busca: 'antonio' })).toHaveLength(1)
-    expect(await listarResidentes(ctx, { busca: 'conceicao' })).toHaveLength(1)
+    expect((await consultarResidentes(ctx, { busca: 'jose' })).itens).toHaveLength(1)
+    expect((await consultarResidentes(ctx, { busca: 'antonio' })).itens).toHaveLength(1)
+    expect((await consultarResidentes(ctx, { busca: 'conceicao' })).itens).toHaveLength(1)
   })
 
   it('acha o nome sem acento por quem digita com acento', async () => {
@@ -156,8 +213,8 @@ describe('listarResidentes', () => {
       cpf: undefined,
     })
 
-    expect(await listarResidentes(ctx, { busca: 'José' })).toHaveLength(1)
-    expect(await listarResidentes(ctx, { busca: 'Conceição' })).toHaveLength(1)
+    expect((await consultarResidentes(ctx, { busca: 'José' })).itens).toHaveLength(1)
+    expect((await consultarResidentes(ctx, { busca: 'Conceição' })).itens).toHaveLength(1)
   })
 
   it('filtra por status e busca por nome sem diferenciar maiúsculas', async () => {
@@ -174,18 +231,18 @@ describe('listarResidentes', () => {
       motivoSaida: 'Retorno à família',
     })
 
-    const ativos = await listarResidentes(ctx, { status: 'ATIVO' })
-    expect(ativos.map((r) => r.nomeCompleto)).toEqual(['João Pereira'])
+    const ativos = await consultarResidentes(ctx, { status: 'ATIVO' })
+    expect(ativos.itens.map((r) => r.nomeCompleto)).toEqual(['João Pereira'])
 
-    const busca = await listarResidentes(ctx, { busca: 'maria das' })
-    expect(busca).toHaveLength(1)
+    const busca = await consultarResidentes(ctx, { busca: 'maria das' })
+    expect(busca.itens).toHaveLength(1)
   })
 
   it('não devolve dado sensível na listagem', async () => {
     const ctx = await ctxComPapel('ADMINISTRATIVO')
     await criarResidente(ctx, dadosValidos)
 
-    const [residente] = await listarResidentes(ctx, {})
+    const [residente] = (await consultarResidentes(ctx, {})).itens
 
     expect(residente).not.toHaveProperty('cpf')
     expect(residente).not.toHaveProperty('rg')

@@ -5,7 +5,7 @@ import { ctxComPapel } from '@/../tests/helpers/fabricas'
 import {
   criarFuncionario,
   obterFuncionario,
-  listarFuncionarios,
+  consultarFuncionarios,
   atualizarFuncionario,
   desligarFuncionario,
   listarConselhosVencendo,
@@ -96,7 +96,7 @@ describe('obterFuncionario', () => {
   })
 })
 
-describe('listarFuncionarios', () => {
+describe('consultarFuncionarios', () => {
   it('acha o cargo acentuado por quem digita sem acento', async () => {
     // O cargo entra na mesma coluna gerada que o nome, e por isso vale o
     // mesmo: quem procura a equipe de enfermagem digita "tecnico".
@@ -107,9 +107,9 @@ describe('listarFuncionarios', () => {
       cargo: 'Técnico de enfermagem',
     })
 
-    expect(await listarFuncionarios(ctx, { busca: 'tecnico' })).toHaveLength(1)
-    expect(await listarFuncionarios(ctx, { busca: 'ines' })).toHaveLength(1)
-    expect(await listarFuncionarios(ctx, { busca: 'goncalves' })).toHaveLength(1)
+    expect((await consultarFuncionarios(ctx, { busca: 'tecnico' })).itens).toHaveLength(1)
+    expect((await consultarFuncionarios(ctx, { busca: 'ines' })).itens).toHaveLength(1)
+    expect((await consultarFuncionarios(ctx, { busca: 'goncalves' })).itens).toHaveLength(1)
   })
 
   it('filtra ativos e busca por nome ou cargo', async () => {
@@ -130,16 +130,16 @@ describe('listarFuncionarios', () => {
       motivoDesligamento: 'Pedido de demissão',
     })
 
-    const ativos = await listarFuncionarios(ctx, { apenasAtivos: true })
-    expect(ativos.map((f) => f.nomeCompleto)).toEqual(['Carlos Lima'])
+    const ativos = await consultarFuncionarios(ctx, { apenasAtivos: true })
+    expect(ativos.itens.map((f) => f.nomeCompleto)).toEqual(['Carlos Lima'])
 
-    const porCargo = await listarFuncionarios(ctx, { busca: 'cozinh' })
-    expect(porCargo).toHaveLength(1)
+    const porCargo = await consultarFuncionarios(ctx, { busca: 'cozinh' })
+    expect(porCargo.itens).toHaveLength(1)
   })
 
   it('nega leitura ao papel SAUDE', async () => {
     const ctx = await ctxComPapel('SAUDE')
-    await expect(listarFuncionarios(ctx)).rejects.toThrow(ErroPermissao)
+    await expect(consultarFuncionarios(ctx)).rejects.toThrow(ErroPermissao)
   })
 })
 

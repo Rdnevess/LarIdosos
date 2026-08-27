@@ -18,6 +18,12 @@ model Usuario {
   email           String    @unique
   senhaHash       String
   nome            String
+  /// Gerada pelo banco (ver migration `20260827000000_busca_usuario`):
+  /// minusculas e sem acento, sobre o nome e o e-mail. Mesma familia das de
+  /// `residentes` e `funcionarios`, pelo mesmo motivo — `mode: 'insensitive'`
+  /// resolveria caixa e nao acento, e "Conceicao" nao acharia "Conceição".
+  /// **Nunca escreva nela** — o Postgres recusa escrita em coluna gerada.
+  busca           String?
   papel           Papel
   ativo           Boolean   @default(true)
   funcionarioId   String?   @unique
