@@ -207,7 +207,7 @@ export function FormularioRegistrarDose({
           rotuloBotao="Registrar dose"
           aviso={
             tardio
-              ? 'Esta dose é de um turno que já passou: escreva o que aconteceu antes de registrar.'
+              ? 'Esta dose ficou sem registro até o turno dela voltar: escreva o que aconteceu antes de registrar.'
               : undefined
           }
           campos={[

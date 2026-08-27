@@ -122,8 +122,12 @@ export async function registrarAdministracao(
     ehRegistroTardio(entrada.horarioPrevisto ?? null, registradoEm) &&
     !entrada.observacao
   ) {
+    // A mensagem diz o que dispara a exigência, e não "turno passado": desde
+    // 27/08/2026 a regra só alcança a dose cujo turno já voltou, e registrar no
+    // plantão seguinte passa direto. Uma mensagem que descreva mal o gatilho
+    // ensina a equipe uma regra que o sistema não tem.
     throw new ErroValidacao(
-      'Esta dose é de um turno que já passou. Escreva o que aconteceu antes de registrar.'
+      'Esta dose ficou sem registro até o turno dela voltar. Escreva o que aconteceu antes de registrar.'
     )
   }
 

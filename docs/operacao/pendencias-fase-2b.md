@@ -6,7 +6,7 @@ não dependerem da memória de ninguém.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. Justificativa obrigatória no registro tardio | aberto — decisão a medir | com dado, depois de a fase entrar em uso |
+| 1. Justificativa obrigatória no registro tardio | aberto, muito reduzido | 27/08/2026 mudou o gatilho; o número ainda vale olhar |
 | 2. A lacuna entre suspender e prescrever | aberto — mitigado | na área de pendências, se acontecer |
 | 3. Custo da derivação em períodos longos | aberto, sem urgência | quando doer, medindo antes |
 | 4. Sem alerta de dose atrasada fora da tela | aberto, deliberado | não se resolve sem app nativo |
@@ -27,6 +27,33 @@ no relatório de aderência de cada residente, e é justamente o indicador que a
 coordenação acompanha. A decisão volta à mesa com dado, não com suposição.
 
 **O que não fazer:** afrouxar a regra sem olhar o número. Ele existe para isso.
+
+### O atrito caiu muito em 27/08/2026, e não por afrouxamento
+
+A regra do que conta como tardio mudou duas vezes naquele dia, e a segunda
+mudança veio do próprio Lar: **atraso para o turno seguinte deixou de contar**.
+Quem entra à noite e registra uma dose do dia não escreve justificativa nenhuma
+— está fazendo o trabalho normal do plantão.
+
+A exigência agora só alcança a dose que atravessou uma rotação inteira: o
+remédio do turno do dia que ninguém registrou e que só foi lançado quando a
+equipe do dia voltou. Ver `pendencias-listas-e-turnos.md`, item 3.
+
+**Isto não é o afrouxamento que o parágrafo acima proíbe.** Aquele seria tirar a
+justificativa de onde ela faz falta, olhando o relatório e achando que está
+cheio. Este foi mover o gatilho para onde o Lar reconhece o problema — o atrito
+saiu de cima de quem está resolvendo a pendência e ficou sobre quem a deixou
+passar um plantão inteiro.
+
+**O que continua valendo deste item:** o percentual de doses sem registro segue
+sendo o número a acompanhar. Se ele subir mesmo com o atrito reduzido, a causa
+não era o campo de justificativa — e a decisão volta à mesa com a suspeita
+certa, que é o que este registro sempre existiu para permitir.
+
+**A mensagem foi corrigida junto.** Ela dizia "Esta dose é de um turno que já
+passou", que descrevia o gatilho antigo e ensinaria à equipe uma regra que o
+sistema não tem mais. Agora diz que a dose ficou sem registro até o turno dela
+voltar, e há teste prendendo o texto — é o que a pessoa de plantão lê.
 
 ## 2. Nada obriga a completar o segundo passo da substituição
 
