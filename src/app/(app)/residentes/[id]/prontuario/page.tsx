@@ -393,6 +393,14 @@ export default async function PaginaProntuario({
         <summary className="cursor-pointer font-medium text-forte">
           Sinais vitais ({sinais.length})
         </summary>
+        {/* Dentro da seção, e não no cabeçalho da tela: quem está lendo a lista
+            de aferições é quem quer ver a mesma medida ao longo do tempo. */}
+        <Link
+          href={`/residentes/${id}/prontuario/tendencia`}
+          className="mt-2 inline-block text-suporte text-medio underline"
+        >
+          Ver tendência
+        </Link>
         <ul className="mt-3 space-y-2">
           {sinais.map((sinal) => (
             <li key={sinal.id} className="text-suporte">

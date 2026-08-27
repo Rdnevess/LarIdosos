@@ -6,6 +6,7 @@ import {
   registrarSinalVital,
   listarSinaisVitais,
   obterUltimoSinalVital,
+  existeAfericaoDaMedida,
 } from './sinais-vitais.service'
 
 describe('registrarSinalVital', () => {
@@ -131,5 +132,78 @@ describe('listarSinaisVitais', () => {
     const residente = await criarResidenteDeTeste()
 
     await expect(listarSinaisVitais(ctx, residente.id)).rejects.toThrow(ErroPermissao)
+  })
+
+  it('com `desde`, deixa de fora o que é anterior à janela', async () => {
+    // O gráfico de tendência pede uma janela. Filtrar depois de ler traria
+    // todo o histórico do residente para a memória a cada troca de janela,
+    // quando o índice `[residenteId, aferidoEm]` já sabe fazer o corte.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date('2026-01-10T10:00:00Z'),
+      peso: 70,
+    })
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date('2026-08-10T10:00:00Z'),
+      peso: 72,
+    })
+
+    const dentro = await listarSinaisVitais(ctx, residente.id, new Date('2026-06-01T00:00:00Z'))
+
+    expect(dentro).toHaveLength(1)
+    expect(Number(dentro[0].peso)).toBe(72)
+  })
+
+  it('sem `desde`, continua trazendo o histórico inteiro', async () => {
+    // Os chamadores que já existiam — o prontuário e o cabeçalho clínico —
+    // não passam janela, e não podem perder aferição por causa do parâmetro
+    // novo.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date('2026-01-10T10:00:00Z'),
+      peso: 70,
+    })
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date('2026-08-10T10:00:00Z'),
+      peso: 72,
+    })
+
+    expect(await listarSinaisVitais(ctx, residente.id)).toHaveLength(2)
+  })
+})
+
+describe('existeAfericaoDaMedida', () => {
+  it('separa "nunca se aferiu isto" de "nada na janela"', async () => {
+    // A tela vazia precisa dizer qual dos dois é. São conselhos opostos: um
+    // pede abrir a janela, o outro pede começar a medir. É a mesma dúvida que
+    // a pendência 2 do alerta admite ter sobre a frequência de aferição.
+    const ctx = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+
+    await registrarSinalVital(ctx, {
+      residenteId: residente.id,
+      aferidoEm: new Date('2026-01-10T10:00:00Z'),
+      peso: 70,
+    })
+
+    expect(await existeAfericaoDaMedida(ctx, residente.id, 'peso')).toBe(true)
+    expect(await existeAfericaoDaMedida(ctx, residente.id, 'glicemia')).toBe(false)
+  })
+
+  it('nega ao papel ADMINISTRATIVO', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const residente = await criarResidenteDeTeste()
+
+    await expect(existeAfericaoDaMedida(ctx, residente.id, 'peso')).rejects.toThrow(
+      ErroPermissao
+    )
   })
 })

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { Prisma } from '@prisma/client'
 import {
   MEDIDAS_GRAFICO,
+  ROTULO_GRAFICO,
+  UNIDADE_GRAFICO,
   faixaDoGrafico,
   montarSerie,
   JANELA_PADRAO,
@@ -10,6 +12,7 @@ import {
   medidaDaUrl,
   posicaoX,
   posicaoY,
+  retanguloDaFaixa,
 } from './tendencia'
 import { FAIXAS_DO_SISTEMA, MEDIDAS_VITAIS } from './faixas'
 
@@ -192,5 +195,47 @@ describe('conversão do Decimal', () => {
 
     expect(serie.pontos[0].valor).toBe(72.5)
     expect(typeof serie.pontos[0].valor).toBe('number')
+  })
+})
+
+describe('retanguloDaFaixa', () => {
+  it('a faixa com os dois lados vira a fatia entre eles', () => {
+    const faixa = { minimo: 90, maximo: 140 }
+    const escala = { minimo: 80, maximo: 150 }
+
+    const retangulo = retanguloDaFaixa(faixa, escala, 140)
+
+    // 150→0 e 80→140: dois pontos por unidade. 140 cai em 20, 90 cai em 120.
+    expect(retangulo).toEqual({ y: 20, altura: 100 })
+  })
+
+  it('faixa sem máximo sobe até o topo do quadro', () => {
+    // A saturação não tem "alto demais". Fechar a faixa no maior valor medido
+    // desenharia um teto que não existe, e um dia alguém leria aquele teto
+    // como limite.
+    const faixa = { minimo: 92, maximo: null }
+    const escala = { minimo: 88, maximo: 100 }
+
+    const retangulo = retanguloDaFaixa(faixa, escala, 120)
+
+    expect(retangulo).toEqual({ y: 0, altura: 80 })
+  })
+
+  it('faixa sem lado nenhum não desenha retângulo', () => {
+    // É o que "não me avise sobre isto" significa quando o residente tem
+    // ajuste vazio: não há zona normal a sombrear.
+    expect(retanguloDaFaixa({ minimo: null, maximo: null }, { minimo: 0, maximo: 10 }, 100))
+      .toBeNull()
+  })
+})
+
+describe('rótulos e unidades', () => {
+  it('toda medida do gráfico tem rótulo e unidade', () => {
+    // O eixo vertical mostra números soltos: "72" é quilo, batimento ou
+    // milímetro de mercúrio conforme a medida, e sem a unidade quem lê adivinha.
+    for (const medida of MEDIDAS_GRAFICO) {
+      expect(ROTULO_GRAFICO[medida]).toBeTruthy()
+      expect(UNIDADE_GRAFICO[medida]).toBeTruthy()
+    }
   })
 })

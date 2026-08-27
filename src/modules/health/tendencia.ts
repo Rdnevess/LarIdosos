@@ -42,6 +42,22 @@ export const ROTULO_GRAFICO: Record<MedidaGrafico, string> = {
 }
 
 /**
+ * O eixo vertical mostra números soltos, e "72" é quilo, batimento ou
+ * milímetro de mercúrio conforme a medida. `Record` completo de propósito:
+ * medida nova sem unidade não compila.
+ */
+export const UNIDADE_GRAFICO: Record<MedidaGrafico, string> = {
+  PRESSAO_SISTOLICA: 'mmHg',
+  PRESSAO_DIASTOLICA: 'mmHg',
+  FREQUENCIA_CARDIACA: 'bpm',
+  FREQUENCIA_RESPIRATORIA: 'irpm',
+  TEMPERATURA: '°C',
+  SATURACAO_O2: '%',
+  GLICEMIA: 'mg/dL',
+  PESO: 'kg',
+}
+
+/**
  * A faixa desenhada atrás da linha — a mesma que alerta, nunca uma segunda
  * opinião. Peso não tem: ver o item 4 das pendências do alerta de sinal vital.
  */
@@ -194,4 +210,26 @@ export function medidaDaUrl(bruto: string | undefined): MedidaGrafico {
 export function janelaDaUrl(bruto: string | undefined): Janela {
   const achada = JANELAS.find((dias) => String(dias) === bruto)
   return achada ?? JANELA_PADRAO
+}
+
+/**
+ * A fatia do quadro que a faixa de normalidade ocupa, ou `null` quando não há
+ * faixa a sombrear.
+ *
+ * Um lado aberto vai até a borda do quadro, e não até o maior valor medido:
+ * a saturação não tem "alto demais", e fechar a faixa no maior número aferido
+ * desenharia um teto que não existe — que alguém um dia leria como limite.
+ */
+export function retanguloDaFaixa(
+  faixa: Faixa | null,
+  escala: Escala,
+  altura: number
+): { y: number; altura: number } | null {
+  if (!faixa) return null
+  if (faixa.minimo === null && faixa.maximo === null) return null
+
+  const topo = faixa.maximo === null ? 0 : posicaoY(faixa.maximo, escala, altura)
+  const base = faixa.minimo === null ? altura : posicaoY(faixa.minimo, escala, altura)
+
+  return { y: topo, altura: base - topo }
 }
