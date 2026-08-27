@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Prisma, type AdministracaoMedicacao } from '@prisma/client'
+import { janelaDoTurno, turnoSeguinte } from '@/lib/turno'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
@@ -16,51 +17,64 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
  */
 
 /**
- * A partir de quantas horas de atraso um registro passa a ser tardio.
+ * Um registro é tardio quando **o turno de origem da dose já voltou** e ele
+ * ainda não tinha vindo.
  *
- * Quatro, e o número é uma escolha declarada e não um limite clínico. Ele foi
- * calibrado para **preservar a sensibilidade que a regra anterior tinha**: com
- * três turnos de oito horas, uma dose podia atrasar até quase oito horas sem
- * sinalizar, e a média do que passava despercebido ficava perto de quatro.
+ * Não é o relógio que decide, é a rotação da equipe. Uma dose do turno do dia
+ * registrada à noite é trabalho normal de plantão: quem entrou à noite
+ * encontrou a pendência e a resolveu. O que precisa aparecer no relatório é
+ * outra coisa — a dose do dia que ninguém registrou, e que só foi lançada
+ * quando a equipe do dia voltou, no dia seguinte, e a encontrou em aberto.
  *
- * Um limite bem menor — duas horas, por exemplo — seria mais rigoroso do que
- * este sistema jamais foi, e traria o risco que o aviso de conselho vencendo já
- * documenta em `funcionarios/page.tsx`: alerta que dispara demais treina a
- * equipe a ignorá-lo, e o dia em que houver um atraso de verdade é o dia em que
- * ninguém olha.
+ * ## As duas regras anteriores, e por que caíram
  *
- * Se o Lar quiser outro limite, é esta constante que muda.
- */
-export const HORAS_ATE_TARDIO = 4
-
-/**
- * Um registro é tardio quando foi feito mais de `HORAS_ATE_TARDIO` depois do
- * horário previsto da dose.
+ * **"Fora do turno da dose"** foi a primeira, e media a coisa errada: dependia
+ * de onde a fronteira do plantão caía. A dose das 17:00 registrada às 18:30 era
+ * tardia — uma hora e meia, mas atravessou a fronteira —, enquanto a das 08:00
+ * registrada às 17:00 não era, com nove horas.
  *
- * **Era "fora do turno a que a dose pertence"**, e mudou em 27/08/2026 porque
- * aquela regra media a coisa errada: ela dependia de *onde a fronteira do
- * plantão caía*, e não de quanto tempo passou. A dose das 17:00 registrada às
- * 18:30 era tardia — uma hora e meia, mas atravessou a fronteira; a das 08:00
- * registrada às 17:00 não era — nove horas, mesmo turno. O mesmo atraso dava
- * respostas opostas conforme a hora do dia, e a passagem de três turnos para
- * dois tornou isso visível ao dobrar a janela sem que ninguém tivesse pedido.
+ * **"Quatro horas de atraso"** foi a segunda, e era consistente mas arbitrária:
+ * o número saiu de preservar a sensibilidade da anterior, e não de nada que o
+ * Lar reconhecesse. Sinalizava o atraso para o turno seguinte, que é justamente
+ * o trabalho normal do plantão — e alerta que dispara no que acontece todo dia
+ * treina a equipe a ignorá-lo.
  *
- * Não é campo no banco: sai da comparação entre `registradoEm` e
- * `horarioPrevisto`. Guardá-lo seria guardar algo que já se pode calcular, e
- * que ficaria errado se o limite mudasse.
+ * ## A propriedade que esta regra tem, e a que ela não tem
  *
- * **Registro adiantado não é tardio.** Registrar antes da hora prevista pode
- * ser a dose dada um pouco cedo, e chamá-la de tardia gravaria uma afirmação
- * falsa num prontuário. A regra mede atraso, e atraso negativo não existe.
+ * O equivalente em horas **varia com a posição da dose dentro do turno**: de
+ * doze a vinte e quatro, porque uma dose do fim do turno e uma do começo
+ * esperam o mesmo instante — o retorno do turno. Isso está em teste, como
+ * propriedade e não como defeito: o que se mede é uma rotação inteira, e a
+ * variação é a largura do próprio turno.
  *
- * `SE_NECESSARIO` nunca é tardia: sem `horarioPrevisto` não há de que atrasar,
- * e ela é registrada quando acontece.
+ * Não há número a calibrar. A regra se ajusta sozinha se a divisão dos turnos
+ * mudar de novo — e ela já mudou uma vez.
+ *
+ * Não é campo no banco: sai da comparação entre `registradoEm` e a janela de
+ * `horarioPrevisto`. Guardá-lo seria guardar algo que já se pode calcular.
+ *
+ * **Registro adiantado não é tardio.** Dose dada um pouco cedo não é dose
+ * atrasada, e chamar uma da outra gravaria afirmação falsa num prontuário.
+ * Aqui isso sai de graça: um registro anterior à dose está muito antes do
+ * retorno do turno.
+ *
+ * `SE_NECESSARIO` nunca é tardia: sem `horarioPrevisto` não há turno de
+ * origem, e ela é registrada quando acontece.
  */
 export function ehRegistroTardio(horarioPrevisto: Date | null, registradoEm: Date): boolean {
   if (!horarioPrevisto) return false
 
-  const atrasoEmHoras = (registradoEm.getTime() - horarioPrevisto.getTime()) / 3_600_000
-  return atrasoEmHoras >= HORAS_ATE_TARDIO
+  const janela = janelaDoTurno(horarioPrevisto)
+
+  // Anda pelas janelas até o mesmo turno voltar, em vez de somar 24 horas ou
+  // de andar duas vezes. Somar 24h dependeria de as janelas terem doze horas;
+  // andar duas vezes dependeria de haver exatamente dois turnos. Os dois já
+  // foram verdade e já deixaram de ser — eram três turnos de oito horas até
+  // 27/08/2026. O laço só depende de a divisão do dia ser cíclica.
+  let volta = turnoSeguinte(janela)
+  while (volta.turno !== janela.turno) volta = turnoSeguinte(volta)
+
+  return registradoEm >= volta.inicio
 }
 
 const administracaoSchema = z

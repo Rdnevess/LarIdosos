@@ -8,13 +8,15 @@ dependerem da memória de ninguém.
 
 Dois itens deste documento — o **3** e o **5** — não nasceram do pedido. Saíram
 da execução dele, e são o tipo de coisa que só aparece quando a mudança encosta
-no sistema de verdade.
+no sistema de verdade. O **3** foi respondido pelo Lar no mesmo dia, e a
+resposta trocou a regra em vez de calibrar um número; o registro do problema
+fica, porque o caminho até ela é o que explica a regra de hoje.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. Pendências tem um limite para a tela toda | aberto, deliberado | se a segunda lista começar a sumir |
 | 2. O tamanho de página não acompanha quem navega | aberto, deliberado | se alguém reclamar de reescolher |
-| 3. `HORAS_ATE_TARDIO = 4` é escolha declarada, não limite clínico | aberto | com a equipe de saúde do Lar |
+| 3. O que conta como registro tardio | resolvido | 27/08/2026 — pelo Lar |
 | 4. A faxina deixa arquivo órfão no volume de uploads | aberto, deliberado | quando o volume incomodar |
 | 5. Cada rodada da suíte deixa ~18 residentes para trás | contornado | `npm run db:limpar-teste` |
 | 6. A migration do turno fixou `America/Sao_Paulo` | resolvido, registrado | 27/08/2026 |
@@ -58,30 +60,43 @@ são estado novo para resolver um incômodo que ninguém relatou ainda.
 um cookie, não uma coluna: a escolha é de conveniência e não precisa sobreviver
 a uma troca de dispositivo.
 
-## 3. As quatro horas do registro tardio são escolha declarada, não limite clínico
+## 3. O que conta como registro tardio — resolvido
 
-**Situação:** um registro de dose passa a ser "tardio" quando vem quatro horas
-ou mais depois do horário previsto. A constante é `HORAS_ATE_TARDIO`, em
-`administracao.service.ts`, e há teste prendendo o valor.
+**Resolvido em 27/08/2026.** A pergunta que este item registrava foi feita ao
+Lar, e a resposta mudou a regra em vez de calibrar um número.
 
-**De onde veio o número:** de preservar a sensibilidade que existia, e não de
-literatura clínica. Sob a regra anterior — "fora do turno da dose" — uma dose
-podia atrasar quase oito horas sem sinalizar, e a média do que passava
-despercebido ficava perto de quatro. Um limite bem menor seria mais rigoroso do
-que este sistema jamais foi.
+**O que este item dizia:** que o limite de quatro horas era escolha declarada e
+não clínica — calibrado para preservar a sensibilidade da regra anterior, e não
+por nada que o Lar reconhecesse. A pergunta era *a partir de quantas horas de
+atraso vale registrar que a dose saiu fora da hora?*
 
-**Por que não se escolheu duas horas:** pelo mesmo motivo que o aviso de
-conselho vencendo só aparece quando há algo a mostrar. Alerta que dispara demais
-treina a equipe a ignorá-lo, e o dia em que houver um atraso de verdade é o dia
-em que ninguém olha.
+**A resposta não foi um número.** Atraso para o turno seguinte **não é
+problema**: quem entra à noite e registra uma dose do dia está fazendo o
+trabalho normal do plantão. O que precisa aparecer é a dose que atravessou uma
+rotação inteira — o remédio do turno do dia que ninguém administrou e que só foi
+lançado no dia seguinte, quando a equipe do dia voltou e o encontrou em aberto.
 
-**Como resolver:** perguntar à equipe de saúde do Lar, com uma pergunta
-concreta: *a partir de quantas horas de atraso vale registrar que a dose saiu
-fora da hora?* A resposta muda um número, e o teste que o prende acompanha.
+**A regra passou a ser essa:** tardio quando o turno de origem da dose já
+voltou. Não há número a calibrar, e ela se ajusta sozinha se a divisão dos
+turnos mudar de novo — o que já aconteceu uma vez.
 
-**O que não fazer:** afinar o número por palpite a cada relatório que pareça
-cheio ou vazio demais. O relatório de aderência é indicador de qualidade, e um
-limite que se move deixa de comparar meses.
+**A propriedade que ficou registrada em teste:** o equivalente em horas varia de
+doze a vinte e quatro, conforme onde a dose caiu dentro do turno, porque uma
+dose do fim e uma do começo esperam o mesmo instante — o retorno do turno. É
+diferente do defeito da primeira regra, em que 1h30 era tardia e 9h não era:
+aqui o que se mede é uma rotação inteira, e a variação é a largura do próprio
+turno.
+
+**O laço anda pelas janelas em vez de somar 24 horas**, e isso é deliberado:
+somar 24h dependeria de as janelas terem doze horas, e andar duas vezes
+dependeria de haver exatamente dois turnos. As duas coisas já foram verdade e já
+deixaram de ser. O laço só depende de a divisão do dia ser cíclica.
+
+**Três regras em três dias, e vale dizer por quê:** a primeira ("fora do turno
+da dose") media a coisa errada e só se revelou quando os turnos mudaram; a
+segunda ("quatro horas") era consistente mas arbitrária, e sinalizava o que
+acontece todo dia. A terceira veio de quem opera o Lar, e é a única que descreve
+um fato do plantão em vez de um limite inventado.
 
 ## 4. A faxina deixa arquivo órfão no volume de uploads
 

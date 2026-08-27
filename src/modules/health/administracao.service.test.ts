@@ -8,7 +8,6 @@ import {
   registrarAdministracao,
   listarAdministracoes,
   ehRegistroTardio,
-  HORAS_ATE_TARDIO,
 } from './administracao.service'
 
 async function prescricaoDeTeste(ctx: Ctx, campos: Partial<DadosMedicacao> = {}) {
@@ -207,50 +206,63 @@ describe('listarAdministracoes', () => {
 })
 
 describe('ehRegistroTardio', () => {
-  it('conta horas desde o previsto, e não o turno em que caiu', () => {
-    // A regra era "fora do turno da dose". Ela dependia de **onde a fronteira
-    // do plantão caía**, e não de quanto tempo passou: a dose das 17:00
-    // registrada às 18:30 era tardia (uma hora e meia, mas atravessou a
-    // fronteira), enquanto a das 08:00 registrada às 17:00 não era (nove
-    // horas, mesmo turno). O mesmo atraso dava respostas opostas conforme a
-    // hora do dia.
-    const dose = new Date('2026-08-24T08:00:00')
-
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T08:00:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T11:59:00'))).toBe(false)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T12:00:00'))).toBe(true)
-    expect(ehRegistroTardio(dose, new Date('2026-08-24T20:00:00'))).toBe(true)
+  it('atraso para o turno seguinte é normal, e não é sinalizado', () => {
+    // O critério é a rotação da equipe, e não o relógio: quem está de plantão à
+    // noite registrando uma dose do dia está fazendo o trabalho normal do
+    // plantão. Sinalizar isso encheria o relatório do que acontece todo dia.
+    const dose = new Date('2026-08-24T08:00:00') // turno DIA, 6h-18h
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T09:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-24T20:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T05:59:00'))).toBe(false)
   })
 
-  it('o mesmo atraso dá a mesma resposta em qualquer hora do dia', () => {
-    // É a propriedade que a regra antiga não tinha, e o motivo de ela ter
-    // mudado. Três doses em horas diferentes, todas registradas com três
-    // horas de atraso: nenhuma é tardia, inclusive a que atravessa a
-    // fronteira dos turnos às 18h e a que atravessa a meia-noite.
-    for (const previsto of ['06:00', '17:00', '23:00']) {
-      const [h, m] = previsto.split(':').map(Number)
-      const dose = new Date(2026, 7, 24, h, m)
-      const tresHorasDepois = new Date(dose.getTime() + 3 * 3_600_000)
-      expect(ehRegistroTardio(dose, tresHorasDepois), `dose das ${previsto}`).toBe(false)
+  it('é tardio quando o turno de origem volta e o registro ainda não veio', () => {
+    // O caso que o Lar descreveu: um remédio do turno do dia que ninguém
+    // administrou, e que alguém tenta registrar só no dia seguinte. Aí a
+    // equipe do dia já voltou, e encontrou a dose sem registro — é isso que o
+    // relatório precisa mostrar.
+    const dose = new Date('2026-08-24T08:00:00') // turno DIA, 6h-18h
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T06:00:00'))).toBe(true)
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T14:00:00'))).toBe(true)
+    expect(ehRegistroTardio(dose, new Date('2026-08-26T10:00:00'))).toBe(true)
+  })
 
-      const cincoHorasDepois = new Date(dose.getTime() + 5 * 3_600_000)
-      expect(ehRegistroTardio(dose, cincoHorasDepois), `dose das ${previsto}`).toBe(true)
-    }
+  it('vale igual para a noite, que atravessa a meia-noite', () => {
+    // A janela da noite é a única partida em dois dias do calendário, e é onde
+    // uma implementação ingênua erra. A dose das 23:00 pertence à noite que
+    // começou às 18:00 do dia 24; essa noite volta às 18:00 do dia 25.
+    const dose = new Date('2026-08-24T23:00:00')
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T03:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T10:00:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T17:59:00'))).toBe(false)
+    expect(ehRegistroTardio(dose, new Date('2026-08-25T18:00:00'))).toBe(true)
+  })
+
+  it('o limite em horas varia com a posição da dose dentro do turno', () => {
+    // Propriedade registrada, e não defeito: o critério é "o turno de origem
+    // voltou", então o equivalente em horas vai de doze a vinte e quatro
+    // conforme onde a dose caiu na janela. Uma dose do fim do turno tem menos
+    // folga que uma do começo, porque as duas esperam o mesmo instante — o
+    // retorno do turno.
+    //
+    // É diferente do defeito que a regra antiga tinha, em que 1h30 era tardia
+    // e 9h não era. Aqui o que se mede é uma rotação inteira, e a variação é a
+    // largura do próprio turno.
+    const inicioDoTurno = new Date('2026-08-24T06:00:00')
+    const fimDoTurno = new Date('2026-08-24T17:00:00')
+    const voltaDoDia = new Date('2026-08-25T06:00:00')
+
+    expect(ehRegistroTardio(inicioDoTurno, voltaDoDia)).toBe(true) // 24h
+    expect(ehRegistroTardio(fimDoTurno, voltaDoDia)).toBe(true) // 13h
+    expect(ehRegistroTardio(fimDoTurno, new Date('2026-08-25T05:59:00'))).toBe(false)
   })
 
   it('registro adiantado não é tardio', () => {
     // Registrar antes da hora prevista é outra coisa — pode ser a dose dada um
-    // pouco cedo, e chamá-la de "tardia" seria mentira. A regra mede atraso, e
-    // atraso negativo não existe.
+    // pouco cedo, e chamá-la de "tardia" seria mentira.
     const dose = new Date('2026-08-24T08:00:00')
     expect(ehRegistroTardio(dose, new Date('2026-08-24T07:00:00'))).toBe(false)
     expect(ehRegistroTardio(dose, new Date('2026-08-23T20:00:00'))).toBe(false)
-  })
-
-  it('a janela está declarada, e não escondida num número solto', () => {
-    // Se o Lar quiser outro limite, é esta constante que muda — e o teste
-    // acompanha, em vez de precisar ser reescrito.
-    expect(HORAS_ATE_TARDIO).toBe(4)
   })
 
   it('SE_NECESSARIO nunca é tardia', () => {
