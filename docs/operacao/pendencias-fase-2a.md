@@ -7,7 +7,7 @@ para não dependerem da memória de ninguém.
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. Cabeçalho clínico invisível ao ADMINISTRATIVO | resolvido | 25/08/2026 — §7.1 do design |
-| 2. Sinal vital fora de faixa não alerta | aberto | depois da 2B |
+| 2. Sinal vital fora de faixa não alerta | resolvido | 28/08/2026 |
 | 3. Sem gráfico de tendência | aberto, deliberado | quando alguém pedir |
 
 ## 1. O cabeçalho clínico é invisível ao ADMINISTRATIVO
@@ -55,6 +55,31 @@ registro que mais importa.
 
 **Encaminhamento:** depois da 2B. Antes disso, o dado numérico separado já está
 gravado, então nada precisa ser recadastrado quando o alerta existir.
+
+### Resolvido em 28/08/2026
+
+O encaminhamento se cumpriu como estava escrito: a 2B e a Fase 3 fecharam, o
+item destravou, e **nada precisou ser recadastrado** — as aferições já
+gravadas passaram a alertar sem qualquer migração de dado. Foi o que a decisão
+de guardar o número separado, lá atrás, comprou.
+
+**As duas perguntas que este item deixou em aberto foram respondidas pelo Lar**,
+e as respostas não foram as que o registro supunha:
+
+- *Faixas de referência por residente?* Sim — e faixas de **normalidade**, não
+  de urgência, com o custo à vista: quem não for ajustado e viver fora delas
+  gera alerta diário. A tela de ajuste existe para isso.
+- *Para quem o alerta vai?* Para coordenação e saúde. **A fronteira da §7 não se
+  mexeu.** Ao contrário do item 1 deste mesmo documento, aqui a pergunta *quem
+  age sobre isso?* não incluiu a portaria nem o cadastro — não há ato
+  administrativo que dependa de conhecer a pressão de um residente.
+
+O alerta ficou em `/pendencias`, e não em tela própria: aferição fora de faixa é
+o mesmo problema do exame esquecido, com outro nome, e uma tela nova seria a
+segunda que ninguém abre.
+
+Ver `pendencias-alerta-sinal-vital.md` para o que ficou aberto, e
+`docs/superpowers/specs/2026-08-27-alerta-sinal-vital-design.md` para o desenho.
 
 ## 3. Não há gráfico de tendência de pressão e peso
 

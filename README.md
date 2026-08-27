@@ -250,7 +250,8 @@ plataforma serverless. Os documentos anexados ficam num volume
 - **`docs/operacao/pendencias-*.md`** — o que ficou em aberto ao fechar cada
   fase ou travessia, com o estado de cada item e onde ele se resolve. Nenhum
   impede o uso; estão escritos para não dependerem da memória de ninguém. Hoje
-  são seis: as Fases 1, 2A, 2B e 3, a identidade visual e as listas e turnos.
+  são sete: as Fases 1, 2A, 2B e 3, a identidade visual, as listas e turnos, e
+  o alerta de sinal vital.
 
 **Não considere o sistema pronto para uso real antes de configurar e
 testar o backup.**
