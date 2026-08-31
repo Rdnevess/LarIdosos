@@ -212,6 +212,8 @@ enum TipoDocumento {
   FOTO
   EXAME
   COMPROVANTE_FISCAL
+  COMPROVANTE_PAGAMENTO
+  EXTRATO_BANCARIO
   CONSELHO_PROFISSIONAL
   OUTRO
 }
@@ -244,9 +246,11 @@ model Documento {
   // O laudo de um exame e o encaminhamento de uma consulta sao documentos
   // como qualquer outro: a politica de visibilidade que ja existe vale para
   // eles sem regra propria.
-  exames      Exame[]
-  consultas   Consulta[]
-  lancamentos Lancamento[]
+  exames                 Exame[]
+  consultas              Consulta[]
+  lancamentosFiscal      Lancamento[]      @relation("LancamentoDocumentoFiscal")
+  lancamentosComprovante Lancamento[]      @relation("LancamentoComprovantePagamento")
+  prestacoesExtrato      PrestacaoContas[] @relation("PrestacaoExtrato")
 
   @@index([residenteId, ativo])
   @@index([funcionarioId, ativo])
@@ -817,26 +821,28 @@ model Fornecedor {
 }
 
 model Lancamento {
-  id                 String             @id @default(cuid())
-  natureza           NaturezaLancamento
-  descricao          String
-  valor              Decimal            @db.Decimal(12, 2)
-  data               DateTime           @db.Date
-  contaBancariaId    String
-  contaBancaria      ContaBancaria      @relation(fields: [contaBancariaId], references: [id])
-  status             StatusLancamento   @default(REALIZADO)
+  id                     String             @id @default(cuid())
+  natureza               NaturezaLancamento
+  descricao              String
+  valor                  Decimal            @db.Decimal(12, 2)
+  data                   DateTime           @db.Date
+  contaBancariaId        String
+  contaBancaria          ContaBancaria      @relation(fields: [contaBancariaId], references: [id])
+  status                 StatusLancamento   @default(REALIZADO)
   /// Preenchido no fechamento: e o que congela o conjunto entregue ao orgao e
   /// impede que um lancamento posterior mude, em silencio, um documento ja
   /// protocolado.
-  prestacaoContasId  String?
-  prestacaoContas    PrestacaoContas?   @relation(fields: [prestacaoContasId], references: [id])
-  documentoId        String?
-  documento          Documento?         @relation(fields: [documentoId], references: [id])
-  motivoCancelamento String?
-  observacao         String?
+  prestacaoContasId      String?
+  prestacaoContas        PrestacaoContas?   @relation(fields: [prestacaoContasId], references: [id])
+  documentoFiscalId      String?
+  documentoFiscal        Documento?         @relation("LancamentoDocumentoFiscal", fields: [documentoFiscalId], references: [id])
+  comprovantePagamentoId String?
+  comprovantePagamento   Documento?         @relation("LancamentoComprovantePagamento", fields: [comprovantePagamentoId], references: [id])
+  motivoCancelamento     String?
+  observacao             String?
   /// A conciliacao e manual, contra o extrato do banco.
-  conciliado         Boolean            @default(false)
-  conciliadoEm       DateTime?
+  conciliado             Boolean            @default(false)
+  conciliadoEm           DateTime?
 
   origemReceitaId  String?
   origemReceita    OrigemReceita? @relation(fields: [origemReceitaId], references: [id])
@@ -881,6 +887,8 @@ model PrestacaoContas {
   criadoEm              DateTime        @default(now())
   atualizadoEm          DateTime        @updatedAt
   criadoPorId           String?
+  extratoId             String?
+  extrato               Documento?      @relation("PrestacaoExtrato", fields: [extratoId], references: [id])
 
   lancamentos Lancamento[]
 

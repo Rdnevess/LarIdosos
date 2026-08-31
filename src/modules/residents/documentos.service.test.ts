@@ -10,6 +10,7 @@ import {
   excluirDocumento,
   papeisQuePodemVer,
   tiposQuePodeAnexar,
+  TIPOS_DE_ALVO,
 } from './documentos.service'
 
 const conteudo = Buffer.from('%PDF-1.4 laudo')
@@ -364,13 +365,20 @@ describe('tiposQuePodeAnexar', () => {
     // Esta é a asserção que impede as duas listas de divergirem de novo: se
     // alguém acrescentar uma exceção só na tela, ou mexer na ordem dos ifs de
     // `papeisQuePodemVer`, este teste acusa.
+    //
+    // O universo aqui é `TIPOS_DE_ALVO`, não `Object.values(TipoDocumento)`:
+    // COMPROVANTE_PAGAMENTO e EXTRATO_BANCARIO são autorizados a COORDENACAO
+    // e ADMINISTRATIVO em `papeisQuePodemVer` (são visíveis num lançamento ou
+    // numa prestação de contas), mas nunca aparecem no seletor da ficha de
+    // uma pessoa — a divergência ali é deliberada, não o defeito que este
+    // teste vigia.
     const papeis = ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] as const
 
     for (const papel of papeis) {
       for (const alvo of [{}, { funcionarioId: 'fun_1' }]) {
         const oferecidos = tiposQuePodeAnexar(papel, alvo)
 
-        for (const tipo of Object.values(TipoDocumento)) {
+        for (const tipo of TIPOS_DE_ALVO) {
           const autorizado = papeisQuePodemVer({
             tipo,
             funcionarioId: alvo.funcionarioId ?? null,
@@ -387,5 +395,57 @@ describe('tiposQuePodeAnexar', () => {
     // precisa preservar isso: um LAUDO de funcionário não é oferecido a SAUDE.
     expect(tiposQuePodeAnexar('SAUDE', { funcionarioId: 'fun_1' })).toEqual([])
     expect(tiposQuePodeAnexar('ADMINISTRATIVO', { funcionarioId: 'fun_1' })).toContain('LAUDO')
+  })
+})
+
+describe('os tipos do financeiro nao sao anexo de pessoa', () => {
+  it('extrato e comprovante de pagamento so alcancam coordenacao e administrativo', () => {
+    // O ultimo `return` de `papeisQuePodemVer` e TODOS. Um tipo novo sem regra
+    // propria nasce visivel a SAUDE — e o extrato bancario e o documento mais
+    // sensivel que este sistema guarda.
+    expect(papeisQuePodemVer({ tipo: 'EXTRATO_BANCARIO', funcionarioId: null }))
+      .toEqual(['COORDENACAO', 'ADMINISTRATIVO'])
+    expect(papeisQuePodemVer({ tipo: 'COMPROVANTE_PAGAMENTO', funcionarioId: null }))
+      .toEqual(['COORDENACAO', 'ADMINISTRATIVO'])
+  })
+
+  it('nao aparecem no seletor da ficha, para papel nenhum', () => {
+    // `tiposQuePodeAnexar` deriva de `papeisQuePodemVer`. Sem barreira, a
+    // coordenacao passaria a ver "Extrato bancario" no seletor de tipo de
+    // documento de um residente.
+    for (const papel of ['COORDENACAO', 'SAUDE', 'ADMINISTRATIVO'] as const) {
+      const oferecidos = tiposQuePodeAnexar(papel)
+      expect(oferecidos, `${papel} nao pode anexar extrato a uma pessoa`)
+        .not.toContain('EXTRATO_BANCARIO')
+      expect(oferecidos, `${papel} nao pode anexar comprovante de pagamento a uma pessoa`)
+        .not.toContain('COMPROVANTE_PAGAMENTO')
+    }
+  })
+
+  it('anexarDocumento recusa os dois, mesmo forjados no formulario', async () => {
+    const ctx = { usuarioId: 'u1', papel: 'COORDENACAO' as const, email: 'c@lar.local' }
+
+    // Cuid sintaticamente valido mas de ninguem: o unico motivo de falha
+    // possivel tem de ser o tipo fora de `TIPOS_DE_ALVO`, nunca o formato do
+    // vinculo nem a busca do residente (que so aconteceria depois, se o
+    // schema deixasse passar).
+    await expect(
+      anexarDocumento(ctx, {
+        tipo: 'EXTRATO_BANCARIO' as 'OUTRO',
+        nomeArquivoOriginal: 'extrato.pdf',
+        mimeType: 'application/pdf',
+        conteudo: Buffer.from('%PDF-1.4 x'),
+        residenteId: 'ckqv0000000000000000000a',
+      })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('todo tipo do enum e de alvo ou e do financeiro, nunca nenhum dos dois', () => {
+    // Sem esta contagem, um tipo novo poderia ficar fora de `TIPOS_DE_ALVO` e
+    // fora da lista do financeiro ao mesmo tempo — invisivel nos dois lugares,
+    // e sem nada reclamando.
+    const doFinanceiro = ['COMPROVANTE_PAGAMENTO', 'EXTRATO_BANCARIO']
+    expect(TIPOS_DE_ALVO.length + doFinanceiro.length)
+      .toBe(Object.values(TipoDocumento).length)
   })
 })
