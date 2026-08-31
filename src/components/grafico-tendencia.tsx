@@ -171,7 +171,7 @@ export function GraficoTendencia({
         x={MARGEM.esquerda - 6}
         y={MARGEM.topo + 4}
         textAnchor="end"
-        className="fill-apoio text-[11px]"
+        className="fill-apoio text-legenda"
       >
         {numero(escala.maximo)}
       </text>
@@ -179,7 +179,7 @@ export function GraficoTendencia({
         x={MARGEM.esquerda - 6}
         y={MARGEM.topo + ALTURA_UTIL}
         textAnchor="end"
-        className="fill-apoio text-[11px]"
+        className="fill-apoio text-legenda"
       >
         {numero(escala.minimo)}
       </text>
@@ -188,7 +188,7 @@ export function GraficoTendencia({
       <text
         x={MARGEM.esquerda}
         y={ALTURA - 8}
-        className="fill-apoio text-[11px]"
+        className="fill-apoio text-legenda"
       >
         {formatarData(inicio)}
       </text>
@@ -196,7 +196,7 @@ export function GraficoTendencia({
         x={LARGURA - MARGEM.direita}
         y={ALTURA - 8}
         textAnchor="end"
-        className="fill-apoio text-[11px]"
+        className="fill-apoio text-legenda"
       >
         {formatarData(fim)}
       </text>

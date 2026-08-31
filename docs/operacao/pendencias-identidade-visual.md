@@ -24,7 +24,7 @@ lugares, contados — e um problema contado é um problema que cabe numa branch.
 | 3. O dourado da marca não tem um único chamador | metade resolvido | filete em 27/08/2026; anel na etapa 3 |
 | 4. Nove dos quinze ícones não têm chamador | aberto, esperado | conforme as telas pedirem |
 | 5. Logo e favicon — a etapa 3 está pela metade | aberto, bloqueado | quando os vetores da marca chegarem |
-| 6. Só existe guarda para o que já foi adotado | resolvido | 26 e 27/08/2026, por dois meios diferentes |
+| 6. Só existe guarda para o que já foi adotado | resolvido | 26 e 27/08/2026, por dois meios diferentes; ponto cego da guarda de tamanho fechado em 31/08/2026 |
 
 ## 1. A escala tipográfica está declarada e não adotada — resolvido
 
@@ -245,6 +245,33 @@ tamanho e de cor ao mesmo tempo, e uma guarda gulosa apagaria a paleta inteira.
 A prova de que ela não nasceu cega veio no mesmo dia: o primeiro achado dela
 não foi uma tela, foi um comentário recém-escrito que citava a classe morta pelo
 nome.
+
+**Ela não nasceu cega, mas nasceu com um ponto cego.** A guarda cobria os
+degraus do Tailwind — `text-sm` e família — e não o valor arbitrário,
+`text-[11px]`. É exatamente a falta que a guarda de cor já tinha descoberto e
+fechado, com o motivo comentado nela a algumas linhas de distância: o `\b` que
+fecha o ramo dos nomes nunca casa depois de um `]`, e por isso um valor entre
+colchetes atravessa inteiro uma guarda que parece funcionar. A guarda de tamanho
+foi escrita olhando para a varredura que a motivou, e a varredura era de degraus
+crus.
+
+Quem passou pelo buraco foi o gráfico de tendência, em 27/08/2026: quatro
+`text-[11px]` nos rótulos dos eixos, os únicos tamanhos sem nome do `src/`
+inteiro, com a suíte verde e este documento afirmando que a escala estava
+fechada. Em 31/08/2026 o segundo ramo entrou na guarda — com os controles
+negativos correspondentes, e com cor arbitrária deixada de fora de propósito,
+porque quem barra `text-[#0f172a]` é a guarda de cor, e duas guardas reclamando
+da mesma classe mandariam a próxima pessoa procurar um degrau da escala para um
+problema de token de cor. Os quatro viraram `text-legenda`, que é o degrau que
+eles já queriam ser: 0,75rem, contra os 11px escolhidos à mão.
+
+A lição do item 6 ganha uma segunda metade: **guarda que só conhece a forma que
+motivou a varredura protege contra a repetição do passado, e não contra a
+próxima maneira de escrever a mesma coisa.** O aviso estava escrito no arquivo,
+em comentário, na guarda vizinha — e ainda assim não atravessou de uma para a
+outra. O par de controles negativos é o que faz a diferença entre saber disso e
+ser avisado disso: os que a guarda de tamanho ganhou agora incluem, cada um, uma
+forma que ela deixava passar ontem.
 
 **O dourado é o caso em que a guarda não serve** — e por isso ele precisou de
 outra coisa. Guarda é varredura: procura uma forma proibida em todo lugar e
