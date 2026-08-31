@@ -16,13 +16,15 @@ test('a interface usa a Geist, e não a Arial de sobra do template', async ({ pa
 })
 
 test('a raiz fica em 16px em qualquer dispositivo', async ({ page }) => {
-  // A densidade por dispositivo (15px no desktop) foi revertida: com 148
-  // `text-sm` ainda fora da escala, ela encolhia o texto corrente para 13,1px.
-  // A raiz é uma constante, não uma variável por breakpoint.
+  // A densidade por dispositivo (15px no desktop) foi revertida em 26/08/2026 e
+  // recusada de vez em 31/08. A adoção da escala trocou o nome daqueles 148
+  // `text-sm`, não o valor: `--text-suporte` é `0.875rem` e é o texto corrente
+  // deste sistema, então raiz de 15px o devolve aos mesmos 13,1px que motivaram
+  // a reversão — levando o piso de toque de 44px para 41,25px de carona.
   //
-  // A escala já foi adotada e a trava saiu, então este teste é hoje o que
-  // segura a decisão de *não* ter voltado ainda: mudá-la é mudar este teste
-  // junto, de propósito e não por descuido.
+  // A densidade veio pela célula da tabela (`.tabela-densa`), que não encolhe
+  // texto em lugar nenhum. Este teste é o que segura a raiz no lugar: mudá-la é
+  // mudar este teste junto, de propósito e não por descuido.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/login')
   const celular = await page

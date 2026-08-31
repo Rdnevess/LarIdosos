@@ -170,29 +170,29 @@ export default async function PaginaAuditoria({
       </p>
 
       <div className="overflow-x-auto cartao">
-        <table className="w-full text-left text-suporte">
+        <table className="tabela-densa w-full text-left text-suporte">
           <thead className="border-b bg-suave">
             <tr>
-              <th className="p-2">Data/hora</th>
-              <th className="p-2">Usuário</th>
-              <th className="p-2">Ação</th>
-              <th className="p-2">Entidade</th>
-              <th className="p-2">Alteração</th>
+              <th>Data/hora</th>
+              <th>Usuário</th>
+              <th>Ação</th>
+              <th>Entidade</th>
+              <th>Alteração</th>
             </tr>
           </thead>
           <tbody>
             {resultado.registros.map((registro) => (
               <tr key={registro.id} className="border-b last:border-0">
-                <td className="whitespace-nowrap p-2">{formatarDataHora(registro.criadoEm)}</td>
-                <td className="p-2">{registro.usuarioEmail}</td>
-                <td className="p-2">{ROTULO_ACAO[registro.acao]}</td>
-                <td className="p-2">
+                <td className="whitespace-nowrap">{formatarDataHora(registro.criadoEm)}</td>
+                <td>{registro.usuarioEmail}</td>
+                <td>{ROTULO_ACAO[registro.acao]}</td>
+                <td>
                   {rotularEntidade(registro.entidade)}
                   {registro.entidadeId && (
                     <span className="block text-legenda text-apoio">{registro.entidadeId}</span>
                   )}
                 </td>
-                <td className="p-2 text-medio">{formatarDiff(registro.diff)}</td>
+                <td className="text-medio">{formatarDiff(registro.diff)}</td>
               </tr>
             ))}
             {resultado.registros.length === 0 && (

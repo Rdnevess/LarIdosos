@@ -20,7 +20,7 @@ lugares, contados — e um problema contado é um problema que cabe numa branch.
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. A escala tipográfica está declarada e não adotada | resolvido | 26/08/2026 |
-| 2. Densidade por dispositivo — tentada e revertida | revertido, destravado | pode voltar; o item 1 era a trava |
+| 2. Densidade por dispositivo — tentada e revertida | resolvido por outra rota | 31/08/2026, na célula da tabela |
 | 3. O dourado da marca não tem um único chamador | metade resolvido | filete em 27/08/2026; anel na etapa 3 |
 | 4. Nove dos quinze ícones não têm chamador | aberto, esperado | conforme as telas pedirem |
 | 5. Logo e favicon — a etapa 3 está pela metade | aberto, bloqueado | quando os vetores da marca chegarem |
@@ -98,7 +98,7 @@ nenhum. Vale para o item 2.
 
 **Verificado:** 568 testes de unidade, 73 E2E, `tsc` e `eslint` limpos.
 
-## 2. A densidade por dispositivo foi tentada e revertida
+## 2. A densidade por dispositivo foi tentada e revertida — resolvido por outra rota
 
 **Situação:** a §5.2 da spec decidiu que a raiz cairia para 15px no desktop e a
 escala inteira em `rem` acompanharia — uma regra só entregando densidade no
@@ -114,10 +114,42 @@ legibilidade. A regra estava certa; a ordem é que estava errada.
 a condição de volta escrita ao lado. O `aparencia.spec.ts` passou a exigir 16px
 em qualquer dispositivo, e o teste foi renomeado para o que ele agora verifica.
 
-**Quando volta:** depois do item 1 — que fechou em 26/08/2026. **A trava saiu**,
-e a densidade por dispositivo pode voltar quando alguém quiser: hoje a escala
-inteira está em `rem` e adotada, então baixar a raiz no desktop encolhe tudo na
-proporção pretendida, que era o efeito original.
+**O que este parágrafo dizia, e estava pela metade:** que a trava era o item 1,
+que ele fechou em 26/08/2026, e que portanto a densidade por dispositivo podia
+voltar quando alguém quisesse.
+
+A parte verdadeira: hoje a escala inteira está em `rem` e adotada, então baixar
+a raiz reescala tudo em proporção, numa regra só. Esse era o mecanismo, e ele
+está livre.
+
+**A parte falsa: a objeção que causou a reversão não era de mecanismo, era de
+número — e sobreviveu à adoção.** A adoção trocou o *nome* daqueles 148
+`text-sm`, não o *valor*. `--text-suporte` é `0.875rem`, exatamente o que `text-sm`
+era, e é o texto corrente deste sistema: **169 usos, contra 26 de
+`text-corpo`**. Raiz de 15px o devolve a 13,125px — os mesmos 13,1px que o
+`198a720` recusou.
+
+E havia um custo que ninguém tinha contado: o piso de toque é `2.75rem`, então
+cairia de 44px para 41,25px. Abaixo da diretriz, e **sem quebrar teste nenhum**,
+porque o piso só é medido no celular.
+
+**Como se resolveu, em 31/08/2026: pela célula, e não pela raiz.** A §9 pede
+densidade a quem confere duzentos lançamentos — isso é um problema de tabela, e
+foi tratado como tal. A classe `.tabela-densa` (no `@layer components` do
+`globals.css`) passa a ser dona do padding da célula e aperta só o vertical a
+partir de 640px; o horizontal fica, porque é ele que separa coluna e apertá-lo
+não devolve linha nenhuma.
+
+Medido na trilha de auditoria a 1280×800: linha média de **51,5px para 43,5px**,
+a mais curta de 37px para 29px, e **de ~10 para 12 linhas por tela**. Nenhum
+degrau da escala mudou de tamanho, em dispositivo nenhum, e o piso de toque não
+foi tocado.
+
+**Por que a classe é dona do padding, e o `p-2` saiu do markup:** utilitário do
+Tailwind vence a camada `components` por ordem de camada, e não por
+especificidade. Um `p-2` na célula ganharia da regra por mais específica que ela
+fosse escrita. É o mesmo arranjo do `.cartao`: a classe é dona, ou não adianta
+existir.
 
 **A condição que a volta tem de respeitar:** o campo de formulário precisa de
 16px absolutos no celular, ou o iOS dá zoom ao focar (está escrito em
@@ -125,12 +157,21 @@ proporção pretendida, que era o efeito original.
 isso não esbarrava nisso — se voltar assim, continua não esbarrando. Baixar a
 raiz no celular é que quebraria, e sem quebrar teste nenhum.
 
-**A verificação que a spec pediu e não existe:** a §9 previa um E2E conferindo
-que a tabela de auditoria mantém o mesmo número de linhas por tela no desktop. A
-troca foi deliberada e está na auto-revisão do plano — verifica-se o `font-size`
-da raiz, que é a **causa** da densidade, e não a contagem de linhas, que depende
-do conteúdo do banco e tornaria o teste frágil. A decisão continua valendo
-quando a densidade voltar.
+**A verificação que a spec pediu, e a forma que ela tomou:** a §9 previa um E2E
+conferindo que a tabela de auditoria mantém o mesmo número de linhas por tela no
+desktop. A troca foi deliberada e está na auto-revisão do plano — verifica-se a
+**causa** da densidade, e não a contagem de linhas, que depende do conteúdo do
+banco e tornaria o teste frágil.
+
+Aquela decisão valeu para a rota nova sem uma vírgula de ajuste. O teste em
+`tests/e2e/auditoria.spec.ts` mede o `padding` computado da célula em 390px e em
+1280px — a causa —, e mede no `<th>`, e não no `<td>`, porque o cabeçalho existe
+com a trilha vazia e assim o teste não passa a depender de a suíte ter gerado
+registro antes dele.
+
+A contagem de linhas continua fora da suíte, e foi medida uma vez à mão para
+este registro. É a divisão certa: o teste prende a regra, a medição prova que a
+regra serviu para alguma coisa.
 
 ## 3. O dourado da marca não tem um único chamador — metade resolvido
 

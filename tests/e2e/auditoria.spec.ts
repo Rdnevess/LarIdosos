@@ -160,3 +160,33 @@ test('página acima do total cai na última, em vez de mostrar lista vazia', asy
   await expect(page).not.toHaveURL(/pagina=9999/)
   await expect(page.locator('tbody tr').first()).toBeVisible()
 })
+test('a tabela adensa a partir de 640px, e o celular fica como estava', async ({
+  page,
+}) => {
+  // A §9 do design-mãe promete densidade a quem confere duzentos lançamentos,
+  // e a §5.2 da identidade visual resolvia isso baixando a raiz para 15px no
+  // desktop. Essa rota foi tentada, revertida (`198a720`) e agora recusada de
+  // vez: `--text-suporte` é `0.875rem` e tem 169 usos — é o texto corrente
+  // deste sistema —, então raiz de 15px o devolve aos mesmos 13,1px que
+  // motivaram a reversão. A densidade passa a entrar onde ela foi pedida, na
+  // célula da tabela, sem encolher texto nem alvo de toque em lugar nenhum.
+  //
+  // Mede o `padding`, e não quantas linhas cabem na tela. Contar linhas é o que
+  // a §9 sugeria, e é frágil: depende do que houver no banco. Verifica-se a
+  // causa da densidade, como já se fez com o `font-size` da raiz.
+  //
+  // No `<th>`, e não no `<td>`: o cabeçalho existe com a trilha vazia, e o
+  // teste não passa a depender de a suíte ter gerado registro antes dele.
+  await page.goto('/auditoria')
+  const celula = page.locator('thead th').first()
+  await expect(celula).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const celular = await celula.evaluate((el) => getComputedStyle(el).paddingTop)
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const desktop = await celula.evaluate((el) => getComputedStyle(el).paddingTop)
+
+  expect(celular).toBe('8px')
+  expect(desktop).toBe('4px')
+})
