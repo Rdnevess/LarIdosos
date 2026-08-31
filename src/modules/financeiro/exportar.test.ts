@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
+import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao } from '@/lib/erros'
 import { ctxComPapel } from '@/../tests/helpers/fabricas'
@@ -10,10 +11,31 @@ import { abrirPrestacao } from './prestacoes.service'
 import { exportarPrestacao } from './exportar'
 import { anexarComprovante } from './anexos.service'
 
-async function pdfCom(paginas: number): Promise<Buffer> {
+/** Um PDF de verdade com o número de páginas e a largura pedidas. */
+async function pdfCom(paginas: number, largura = 200): Promise<Buffer> {
   const doc = await PDFDocument.create()
-  for (let i = 0; i < paginas; i++) doc.addPage([200, 200])
+  for (let i = 0; i < paginas; i++) doc.addPage([largura, 200])
   return Buffer.from(await doc.save())
+}
+
+/**
+ * As larguras das páginas, na ordem em que aparecem no documento — o mesmo
+ * padrão de `anexos-prestacao.test.ts`: contar o total não prova ordem,
+ * porque inverter os anexos entre si preserva a contagem e passaria
+ * despercebido. Larguras diferentes por anexo tornam a sequência
+ * reconhecível de verdade.
+ */
+async function largurasDe(buffer: Buffer): Promise<number[]> {
+  const doc = await PDFDocument.load(buffer)
+  return doc.getPages().map((pagina) => pagina.getWidth())
+}
+
+async function reabrirXlsx(buffer: Buffer): Promise<ExcelJS.Workbook> {
+  const wb = new ExcelJS.Workbook()
+  // O `exceljs` embute uma versão antiga de `@types/node`, e o `Buffer` dele
+  // não é o `Buffer<ArrayBufferLike>` deste projeto. O dado é o mesmo.
+  await wb.xlsx.load(buffer as unknown as Parameters<typeof wb.xlsx.load>[0])
+  return wb
 }
 
 /**
@@ -214,10 +236,13 @@ describe('exportarPrestacao', () => {
     expect(nomeArquivo.endsWith('.pdf')).toBe(true)
   })
 
-  it('o PDF leva os anexos depois das seis folhas, na ordem da folha de despesas', async () => {
+  it('o apendice mantem a ordem certa: nota e comprovante da mesma despesa, e o extrato por ultimo', async () => {
     // A ordem do apendice e a mesma da folha 3-Despesas — `data` crescente, `id`
-    // como desempate. Nao e detalhe: como nada e carimbado na pagina, essa ordem
-    // e o unico indice que o apendice tem.
+    // como desempate — e dentro de cada despesa, nota antes do comprovante.
+    // Contar o total nao prova isso: o extrato colado antes da nota, ou os
+    // tres anexos embaralhados, dariam a mesma contagem e passariam
+    // despercebidos. Por isso cada anexo aqui tem uma largura diferente, e a
+    // sequencia inteira e conferida.
     const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
 
     const semAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
@@ -226,17 +251,26 @@ describe('exportarPrestacao', () => {
     await anexarComprovante(
       coordenacao,
       { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
-      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(2) }
+      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1, 300) }
+    )
+    await anexarComprovante(
+      coordenacao,
+      { tipo: 'DESPESA_COMPROVANTE', lancamentoId: despesaId },
+      { nomeArquivoOriginal: 'pago.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1, 400) }
     )
     await anexarComprovante(
       coordenacao,
       { tipo: 'EXTRATO', prestacaoId },
-      { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1) }
+      { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1, 500) }
     )
 
     const comAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
+    const larguras = await largurasDe(comAnexo.buffer)
 
-    expect((await PDFDocument.load(comAnexo.buffer)).getPageCount()).toBe(antes + 3)
+    expect(larguras).toHaveLength(antes + 3)
+    // As seis folhas do modelo continuam intactas antes do apendice; so a
+    // sequencia dos tres anexos importa aqui.
+    expect(larguras.slice(antes)).toEqual([300, 400, 500])
   })
 
   it('despesa sem anexo e pulada, e a seguinte nao sai do lugar', async () => {
@@ -260,12 +294,22 @@ describe('exportarPrestacao', () => {
     expect((await PDFDocument.load(comAnexo.buffer)).getPageCount()).toBe(antes + 1)
   })
 
-  it('o xlsx e o csv nao mudam com anexo nenhum', async () => {
+  it('o xlsx e o csv nao ganham anexo nenhum', async () => {
     // "So o PDF muda": o modelo do orgao tem seis abas e nao comporta anexo, e o
     // CSV e listagem plana para o contador importar.
+    //
+    // `buffer.length` nao prova isso — dois .xlsx diferentes podem pesar
+    // igual — e `Buffer.compare` tambem nao serve: o ExcelJS grava
+    // `created`/`modified` em `docProps/core.xml`, e duas exportacoes da
+    // mesma prestacao em segundos de relogio diferentes ja saem byte a byte
+    // diferentes (medido: 18415 x 18418 bytes com 1.5s de intervalo). A
+    // asserção estrutural — as seis folhas certas, com os nomes certos — e o
+    // que prova que nenhum apendice vazou para a planilha, sem depender do
+    // relogio.
     const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
 
     const xlsxAntes = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
+    const csvAntes = await exportarPrestacao(coordenacao, prestacaoId, 'csv')
 
     await anexarComprovante(
       coordenacao,
@@ -274,7 +318,26 @@ describe('exportarPrestacao', () => {
     )
 
     const xlsxDepois = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
+    const csvDepois = await exportarPrestacao(coordenacao, prestacaoId, 'csv')
 
-    expect(xlsxDepois.buffer.length).toBe(xlsxAntes.buffer.length)
+    const NOMES_DAS_SEIS_FOLHAS = [
+      '1-Capa',
+      '2-Contra-Capa',
+      '3-Despesas',
+      '4-Receitas',
+      '5-Conciliação',
+      '6-Encerramento',
+    ]
+    expect((await reabrirXlsx(xlsxAntes.buffer)).worksheets.map((f) => f.name)).toEqual(
+      NOMES_DAS_SEIS_FOLHAS
+    )
+    expect((await reabrirXlsx(xlsxDepois.buffer)).worksheets.map((f) => f.name)).toEqual(
+      NOMES_DAS_SEIS_FOLHAS
+    )
+
+    // O CSV nem passa por `montarDocumentoPrestacao` — não tem folha para
+    // levar apêndice, e o conteúdo é idêntico byte a byte, sem timestamp de
+    // formato de planilha para atrapalhar a comparação.
+    expect(csvDepois.buffer.toString('utf8')).toBe(csvAntes.buffer.toString('utf8'))
   })
 })
