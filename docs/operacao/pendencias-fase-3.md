@@ -14,7 +14,7 @@ apagar o registro apagaria junto o motivo de ela ter mudado.
 | 2. O PDF não é pixel a pixel igual ao `.xlsx` | aberto, deliberado | não se resolve sem 400 MB de conversor |
 | 3. Categorias de despesa como lista aberta | aberto, deliberado | se a conciliação virar sopa de categorias |
 | 4. "à disposição dos condôminos" na declaração | resolvido | 24/08/2026 |
-| 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | aberto, sem exposição | quando o `exceljs` atualizar |
+| 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | resolvido | 31/08/2026, por `override` |
 | 6. O layout extraído carrega categorias do exemplo | aberto — contornado | no extrator, se o modelo mudar |
 
 ## 1. A fidelidade do `.xlsx` só se confirma abrindo os dois lado a lado
@@ -94,7 +94,7 @@ em toda prestação — **saiu**, e há teste conferindo que não sobrevive em l
 nenhum; e **"Conte Corrente" virou "Conta Corrente"**, erro de digitação sem
 mudança de sentido.
 
-## 5. Vulnerabilidade moderada em `uuid`, herdada do `exceljs`
+## 5. Vulnerabilidade moderada em `uuid`, herdada do `exceljs` — resolvido
 
 **Situação:** `npm audit` aponta uma vulnerabilidade moderada em `uuid`, que
 chega como dependência do `exceljs` — a primeira dependência de produção nova
@@ -105,12 +105,23 @@ pelo chamador. O código deste projeto nunca gera UUID pelo `exceljs`, e o
 `exceljs` só é usado para escrever a planilha da prestação a partir de dados do
 próprio banco.
 
-**O que fazer:** atualizar quando o `exceljs` publicar versão com a
-dependência corrigida. Não vale trocar de biblioteca por causa disto.
+**Como se resolveu:** em 31/08/2026, por `override` no `package.json` —
+`uuid` fixado em 11.1.1 sem esperar o `exceljs`, que continua em 4.4.0, ainda a
+versão mais recente publicada. A espera prevista aqui — "atualizar quando o
+`exceljs` publicar versão com a dependência corrigida" — não tinha prazo, e não
+precisava ser esperada.
 
-**O que não confundir:** as outras vulnerabilidades que o `npm audit` lista em
-produção (`next`, `postcss`, `sharp`, `prisma`, `@prisma/config`,
-`deepmerge-ts`) **são anteriores** à Fase 3. O `pdfkit` não acrescentou nenhuma.
+**O que este item não via:** ele registrava uma vulnerabilidade porque era a que
+a Fase 3 trouxe, e a última seção nomeava as outras para dizer que não eram
+dela. Era verdade, e não era um inventário. Quando alguém finalmente contou, em
+31/08/2026, eram **13, com uma crítica e sete altas**. Todas fechadas no mesmo
+dia.
+
+**Onde isso mora agora:** `docs/operacao/dependencias.md`. Vulnerabilidade de
+dependência não é assunto de fase — ela chega pela árvore, e não pela travessia
+que por acaso estava aberta quando o aviso apareceu. Este item fica como
+registro do que a Fase 3 acrescentou; o número vivo está lá, com
+`npm run auditoria`.
 
 ## 6. O layout extraído carrega categorias do exemplo preenchido
 
