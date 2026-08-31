@@ -305,12 +305,22 @@ describe('guarda contra botão cru', () => {
   })
 })
 
-// `[2-9]?xl` cobre `xl` e de `2xl` a `9xl` numa alternativa só. O `\b` final
-// impede que `text-smart` ou `text-based` sejam confundidos com um degrau cru,
-// e o prefixo opcional pega a forma com variante (`sm:text-sm`) — hoje não há
-// nenhuma no repositório, e a guarda existe justamente para o dia em que
-// alguém escrever a primeira.
-const TAMANHO_CRU = /(?:[a-z-]+:)?text-(?:xs|sm|base|lg|[2-9]?xl)\b/g
+// `[2-9]?xl` cobre `xl` e de `2xl` a `9xl` numa alternativa só. O `\b` fecha só
+// esse ramo, para que `text-smart` ou `text-based` não passem por degrau cru, e
+// o prefixo opcional pega a forma com variante (`sm:text-sm`).
+//
+// O segundo ramo — o valor arbitrário, `text-[11px]` — não estava aqui, e a
+// falta era a mesma que a guarda de cor já tinha descoberto e fechado logo
+// acima: depois do `]` não há caractere de palavra, então `\b` nunca casa e o
+// primeiro ramo é cego a essa forma inteira. Quatro `text-[11px]` do gráfico de
+// tendência entraram no repositório com esta guarda verde.
+//
+// Cor arbitrária (`text-[#0f172a]`) fica de fora de propósito: quem barra
+// aquilo é a guarda de cor, com a mensagem certa. Duas guardas reclamando da
+// mesma classe mandariam a próxima pessoa procurar um degrau da escala para um
+// problema que é de token de cor.
+const TAMANHO_CRU =
+  /(?:[a-z-]+:)?text-(?:(?:xs|sm|base|lg|[2-9]?xl)\b|\[(?:length:)?\d*\.?\d+(?:px|r?em|pt|ch|vw|vh)\])/g
 
 describe('guarda contra tamanho de texto cru', () => {
   it('nenhuma tela declara tamanho fora da escala', () => {
@@ -338,6 +348,9 @@ describe('guarda contra tamanho de texto cru', () => {
     for (const cru of [
       'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl',
       'text-3xl', 'text-9xl', 'sm:text-sm', 'hover:text-lg',
+      // O ramo que faltava. `text-[11px]` é a forma exata que passou batido.
+      'text-[11px]', 'text-[0.8rem]', 'text-[13pt]', 'text-[length:13px]',
+      'sm:text-[10px]',
     ]) {
       expect(cru.match(TAMANHO_CRU), `deveria barrar ${cru}`).not.toBeNull()
     }
@@ -350,6 +363,8 @@ describe('guarda contra tamanho de texto cru', () => {
       'text-titulo', 'text-secao', 'text-corpo', 'text-suporte', 'text-legenda',
       'text-forte', 'text-apoio', 'text-medio', 'text-sobre-acao', 'text-perigo-forte',
       'text-smart', 'text-based',
+      // Cor arbitrária é assunto da guarda de cor, e só dela.
+      'text-[#0f172a]', 'text-[rgb(0,0,0)]',
     ]) {
       expect(bom.match(TAMANHO_CRU), `não deveria barrar ${bom}`).toBeNull()
     }
