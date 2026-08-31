@@ -68,6 +68,9 @@ async function cenario() {
 
   return {
     ctx,
+    conta,
+    categoria,
+    fornecedor,
     prestacaoId: prestacao.id,
     despesaId: despesa.id,
     receitaId: receita.id,
@@ -177,6 +180,86 @@ describe('anexarComprovante', () => {
     // E a recusa nao gravou nada: nem documento, nem campo ligado.
     expect(await prisma.documento.count()).toBe(0)
   })
+
+  it('recusa anexar a uma despesa cuja prestacao esta fechada', async () => {
+    // exigirAlvoEditavel tem dois ramos - EXTRATO e despesa - e ate aqui so o
+    // de EXTRATO era exercitado. Este e o ramo de lancamento:
+    // `lancamento.prestacaoContas?.status === 'FECHADA'`.
+    const { ctx, despesaId, prestacaoId } = await cenario()
+    await prisma.prestacaoContas.update({
+      where: { id: prestacaoId },
+      data: { status: 'FECHADA' },
+    })
+
+    await expect(
+      anexarComprovante(ctx, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId }, arquivo)
+    ).rejects.toThrow('Esta prestação está fechada. Reabra-a antes de mexer nos anexos.')
+
+    // A recusa e antes de gravar.
+    expect(await prisma.documento.count()).toBe(0)
+  })
+
+  it('anexa a uma despesa que ainda nao pertence a nenhuma prestacao', async () => {
+    // "Um lancamento sem prestacaoContasId nao pertence a prestacao nenhuma
+    // ainda - nada a travar." E o caminho normal de quem lanca a despesa
+    // antes de a prestacao do mes existir; ate aqui isso so vivia no
+    // otimismo do `?.`.
+    const { ctx, conta, categoria, fornecedor } = await cenario()
+    const despesaAvulsa = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Manutenção do gerador',
+      valor: 400,
+      data: new Date('2026-08-20'),
+    })
+    expect(despesaAvulsa.prestacaoContasId).toBeNull()
+
+    const documento = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaAvulsa.id },
+      arquivo
+    )
+
+    expect(documento.tipo).toBe('COMPROVANTE_FISCAL')
+    const lancamento = await prisma.lancamento.findUniqueOrThrow({
+      where: { id: despesaAvulsa.id },
+    })
+    expect(lancamento.documentoFiscalId).toBe(documento.id)
+  })
+
+  it('troca o anexo: o campo passa a apontar para o novo, e o antigo continua no banco', async () => {
+    // A §5.2 nomeia "anexar, trocar ou remover" como as tres operacoes.
+    // Trocar nao e uma quarta funcao - e chamar anexarComprovante de novo
+    // sobre o mesmo alvo. Prende o comportamento real: o antigo Documento
+    // nao e apagado, coerente com a exclusao sempre logica deste sistema.
+    const { ctx, despesaId } = await cenario()
+    const primeiro = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      arquivo
+    )
+
+    const segundoArquivo = {
+      ...arquivo,
+      nomeArquivoOriginal: 'nota-substituta.pdf',
+      conteudo: Buffer.from('%PDF-1.4 nota substituta'),
+    }
+    const segundo = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      segundoArquivo
+    )
+
+    expect(segundo.id).not.toBe(primeiro.id)
+    const lancamento = await prisma.lancamento.findUniqueOrThrow({ where: { id: despesaId } })
+    expect(lancamento.documentoFiscalId).toBe(segundo.id)
+
+    // O documento antigo nao foi apagado.
+    expect(await prisma.documento.findUnique({ where: { id: primeiro.id } })).not.toBeNull()
+    expect(await prisma.documento.count()).toBe(2)
+  })
 })
 
 describe('removerComprovante', () => {
@@ -214,5 +297,51 @@ describe('removerComprovante', () => {
       where: { id: prestacaoId },
     })
     expect(prestacao.extratoId).not.toBeNull()
+  })
+
+  it('recusa remover comprovante de despesa cuja prestacao esta fechada', async () => {
+    // O mesmo ramo de exigirAlvoEditavel do teste equivalente em
+    // anexarComprovante - a spec trava as tres operacoes, entao remover
+    // precisa do seu proprio caso, e nao so herdar o de EXTRATO.
+    const { ctx, despesaId, prestacaoId } = await cenario()
+    await anexarComprovante(ctx, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId }, arquivo)
+    await prisma.prestacaoContas.update({
+      where: { id: prestacaoId },
+      data: { status: 'FECHADA' },
+    })
+
+    await expect(
+      removerComprovante(ctx, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId })
+    ).rejects.toThrow('Esta prestação está fechada. Reabra-a antes de mexer nos anexos.')
+
+    // O comprovante continua ligado: a recusa nao desfez o anexo anterior.
+    const lancamento = await prisma.lancamento.findUniqueOrThrow({ where: { id: despesaId } })
+    expect(lancamento.documentoFiscalId).not.toBeNull()
+  })
+
+  it('recusa o papel SAUDE, e a recusa fica na trilha', async () => {
+    // exigirPapel e a primeira linha de removerComprovante, o que o revisor
+    // chamou de "estruturalmente impossivel" de vazar - exatamente o tipo de
+    // garantia que precisa do proprio teste, para continuar valendo depois
+    // de qualquer reordenacao futura.
+    const { ctx, despesaId } = await cenario()
+    await anexarComprovante(ctx, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId }, arquivo)
+    const saude = await ctxComPapel('SAUDE')
+
+    await expect(
+      removerComprovante(saude, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId })
+    ).rejects.toThrow(ErroPermissao)
+    await registrosDeNegacaoPendentes()
+
+    const negado = await prisma.logAuditoria.findFirst({
+      where: { acao: 'ACESSO_NEGADO', usuarioId: saude.usuarioId },
+      orderBy: { criadoEm: 'desc' },
+    })
+    expect(negado).not.toBeNull()
+    expect(negado?.entidade).toBe('Lancamento')
+
+    // A recusa nao desfez o anexo existente.
+    const lancamento = await prisma.lancamento.findUniqueOrThrow({ where: { id: despesaId } })
+    expect(lancamento.documentoFiscalId).not.toBeNull()
   })
 })
