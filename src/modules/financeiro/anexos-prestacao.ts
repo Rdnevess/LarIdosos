@@ -40,6 +40,18 @@ export async function juntarAnexos(
   const final = await PDFDocument.load(base)
 
   for (const anexo of anexos) {
+    // O catch cobre o laço inteiro, não só a leitura e o load. Cogitou-se
+    // estreitá-lo às duas primeiras operações e deixar copyPages/addPage de
+    // fora, para que um bug de programação ali estourasse em vez de virar
+    // console.warn. Ficou largo por decisão: um PDF que carrega mas falha ao
+    // copiar página ainda é um defeito do arquivo, não do código que o lê, e
+    // um arquivo malformado o bastante para passar no cabeçalho mas empacar
+    // na cópia de páginas é exatamente o tipo de anexo ruim que este módulo
+    // existe para pular. Estreitar o catch reabriria o modo de falha que a
+    // regra da spec proíbe: a prestação caindo por causa de um anexo. O
+    // preço fica registrado aqui, para não ser esquecido: um defeito de
+    // programação dentro do laço — um erro de digitação, um uso errado da
+    // API do pdf-lib — também sai silencioso, como console.warn.
     try {
       const bytes = await lerArquivo(anexo.caminhoArmazenamento)
       const origem = await PDFDocument.load(bytes)
