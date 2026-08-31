@@ -66,6 +66,7 @@ export function despesaDeTeste(sobrescritas: Partial<LinhaDespesa> = {}): LinhaD
     formaPagamento: 'PIX',
     data: new Date(2026, 7, 15),
     valor: 800,
+    lancamentoId: 'lancamento-de-teste',
     ...sobrescritas,
   }
 }

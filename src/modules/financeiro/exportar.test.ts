@@ -1,12 +1,76 @@
 import { describe, it, expect } from 'vitest'
+import { PDFDocument } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao } from '@/lib/erros'
 import { ctxComPapel } from '@/../tests/helpers/fabricas'
 import { criarContaBancaria, salvarConfiguracaoInstituicao } from './instituicao.service'
-import { criarOrigemReceita } from './cadastros.service'
-import { lancarReceita } from './lancamentos.service'
+import { criarCategoriaDespesa, criarFornecedor, criarOrigemReceita } from './cadastros.service'
+import { lancarDespesa, lancarReceita } from './lancamentos.service'
 import { abrirPrestacao } from './prestacoes.service'
 import { exportarPrestacao } from './exportar'
+import { anexarComprovante } from './anexos.service'
+
+async function pdfCom(paginas: number): Promise<Buffer> {
+  const doc = await PDFDocument.create()
+  for (let i = 0; i < paginas; i++) doc.addPage([200, 200])
+  return Buffer.from(await doc.save())
+}
+
+/**
+ * `cenario()` mais categoria, fornecedor e uma prestação já aberta com duas
+ * despesas `REALIZADO` ligadas a ela — na mesma forma direta que
+ * `anexos.service.test.ts` usa para simular o congelamento, já que
+ * `lancarDespesa` só grava `prestacaoContasId` no fechamento de verdade
+ * (`fecharPrestacao`).
+ *
+ * Preparo próprio por teste, e não estado de módulo: é a forma que este
+ * arquivo já usa, e evita um teste enxergar mutação de outro.
+ */
+async function cenarioComDespesas() {
+  const { ctx, conta } = await cenario()
+  const categoria = await criarCategoriaDespesa(ctx, { nome: 'Energia' })
+  const fornecedor = await criarFornecedor(ctx, {
+    nome: 'Energisa',
+    documento: '11.222.333/0001-81',
+    tipoDocumento: 'CNPJ',
+  })
+  const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+  const despesa = await lancarDespesa(ctx, {
+    contaBancariaId: conta.id,
+    fornecedorId: fornecedor.id,
+    categoriaDespesaId: categoria.id,
+    formaPagamento: 'PIX',
+    descricao: 'Conta de luz de agosto',
+    valor: 800,
+    data: new Date('2026-08-15'),
+  })
+  await prisma.lancamento.update({
+    where: { id: despesa.id },
+    data: { prestacaoContasId: prestacao.id },
+  })
+
+  const outraDespesa = await lancarDespesa(ctx, {
+    contaBancariaId: conta.id,
+    fornecedorId: fornecedor.id,
+    categoriaDespesaId: categoria.id,
+    formaPagamento: 'PIX',
+    descricao: 'Manutenção do gerador',
+    valor: 400,
+    data: new Date('2026-08-20'),
+  })
+  await prisma.lancamento.update({
+    where: { id: outraDespesa.id },
+    data: { prestacaoContasId: prestacao.id },
+  })
+
+  return {
+    ctx,
+    prestacaoId: prestacao.id,
+    despesaId: despesa.id,
+    outraDespesaId: outraDespesa.id,
+  }
+}
 
 async function cenario() {
   const ctx = await ctxComPapel('COORDENACAO')
@@ -148,5 +212,69 @@ describe('exportarPrestacao', () => {
     expect(nomeArquivo).not.toContain('/')
     expect(nomeArquivo).not.toContain('..')
     expect(nomeArquivo.endsWith('.pdf')).toBe(true)
+  })
+
+  it('o PDF leva os anexos depois das seis folhas, na ordem da folha de despesas', async () => {
+    // A ordem do apendice e a mesma da folha 3-Despesas — `data` crescente, `id`
+    // como desempate. Nao e detalhe: como nada e carimbado na pagina, essa ordem
+    // e o unico indice que o apendice tem.
+    const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
+
+    const semAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
+    const antes = (await PDFDocument.load(semAnexo.buffer)).getPageCount()
+
+    await anexarComprovante(
+      coordenacao,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(2) }
+    )
+    await anexarComprovante(
+      coordenacao,
+      { tipo: 'EXTRATO', prestacaoId },
+      { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1) }
+    )
+
+    const comAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
+
+    expect((await PDFDocument.load(comAnexo.buffer)).getPageCount()).toBe(antes + 3)
+  })
+
+  it('despesa sem anexo e pulada, e a seguinte nao sai do lugar', async () => {
+    // O caso mais comum de todos: metade das despesas com nota e metade sem. A
+    // que tem entra; a que nao tem nao empurra nada, nao deixa pagina em branco
+    // e nao desloca a proxima.
+    const { ctx: coordenacao, prestacaoId, outraDespesaId } = await cenarioComDespesas()
+
+    const soASegunda = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
+    const antes = (await PDFDocument.load(soASegunda.buffer)).getPageCount()
+
+    // `outraDespesaId` fica sem anexo nenhum, de proposito.
+    await anexarComprovante(
+      coordenacao,
+      { tipo: 'DESPESA_COMPROVANTE', lancamentoId: outraDespesaId },
+      { nomeArquivoOriginal: 'pago.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1) }
+    )
+
+    const comAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
+
+    expect((await PDFDocument.load(comAnexo.buffer)).getPageCount()).toBe(antes + 1)
+  })
+
+  it('o xlsx e o csv nao mudam com anexo nenhum', async () => {
+    // "So o PDF muda": o modelo do orgao tem seis abas e nao comporta anexo, e o
+    // CSV e listagem plana para o contador importar.
+    const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
+
+    const xlsxAntes = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
+
+    await anexarComprovante(
+      coordenacao,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(2) }
+    )
+
+    const xlsxDepois = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
+
+    expect(xlsxDepois.buffer.length).toBe(xlsxAntes.buffer.length)
   })
 })
