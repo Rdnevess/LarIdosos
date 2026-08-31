@@ -256,20 +256,35 @@
 }
 
 /**
- * A raiz em 16px, e a mesma em todo dispositivo.
+ * A raiz em 16px, e a mesma em todo dispositivo. **Decisão fechada.**
  *
- * A densidade por dispositivo — 15px no desktop — foi tentada e revertida: ela
- * só funciona depois que as telas adotarem a escala, e com 148 `text-sm` ainda
- * no markup o efeito foi o oposto do pretendido, encolhendo o texto corrente de
- * 14px para 13,1px.
+ * A §5.2 da identidade visual entregava densidade no desktop baixando a raiz
+ * para 15px a partir de 640px. Foi tentado e revertido (`198a720`, 26/08/2026),
+ * porque com 148 `text-sm` fora da escala o texto corrente encolhia de 14px
+ * para 13,1px — o oposto do que uma branch de legibilidade deveria fazer.
  *
- * **A adoção aconteceu** (26/08/2026): o markup não tem mais um único tamanho
- * cru, e há guarda em `tests/tema.test.ts` que o mantém assim. A trava saiu, e
- * a densidade por dispositivo pode voltar — com uma condição, que é o único
- * motivo de este parágrafo existir: o campo de formulário precisa de 16px
- * absolutos no celular, ou o iOS dá zoom ao focar (ver `campo.tsx`). O bloco
- * revertido mexia só a partir de `min-width: 640px` e por isso não esbarrava
- * nisso. Quem baixar a raiz no celular quebra o campo sem quebrar teste nenhum.
+ * A adoção da escala aconteceu no mesmo dia, e por um tempo este comentário
+ * disse que a trava tinha saído e a densidade por dispositivo podia voltar.
+ * **Estava pela metade.** A adoção trocou o nome daqueles usos, não o valor:
+ * `--text-suporte` é `0.875rem`, exatamente o que `text-sm` era, e é o texto
+ * corrente deste sistema — 169 usos, contra 26 de `text-corpo`. Raiz de 15px
+ * devolveria os mesmos 13,1px. O que saiu foi a trava do mecanismo; a objeção
+ * ao número sobreviveu intacta.
+ *
+ * Junto viria um custo que ninguém tinha contado: o piso de toque é `2.75rem`,
+ * então cairia de 44px para 41,25px — abaixo da diretriz, e sem quebrar teste
+ * nenhum, porque o piso só é medido no celular.
+ *
+ * **A densidade voltou em 31/08/2026, pela célula da tabela** (ver
+ * `.tabela-densa`, no `@layer components` abaixo): de ~10 para 12 linhas por
+ * tela na trilha de auditoria a 1280×800, sem que um único degrau da escala
+ * mude de tamanho em dispositivo nenhum.
+ *
+ * Quem for reabrir isto tem ainda uma terceira coisa contra: o campo de
+ * formulário precisa de 16px absolutos no celular, ou o iOS dá zoom ao focar
+ * (ver `campo.tsx`). O bloco revertido mexia só a partir de `min-width: 640px`
+ * e por isso não esbarrava nisso — mas quem baixar a raiz no celular quebra o
+ * campo sem quebrar teste nenhum.
  */
 :root {
   font-size: 16px;
@@ -382,6 +397,42 @@
     border-radius: 0.5rem;
     border: 1px solid var(--cor-borda);
     background-color: var(--cor-superficie);
+  }
+
+  /**
+   * A densidade da tabela — e a dona do padding da célula.
+   *
+   * A §9 do design-mãe promete densidade a quem confere duzentos lançamentos, e
+   * a §5.2 da identidade visual entregava isso baixando a raiz para 15px a
+   * partir de 640px. Aquela rota foi tentada, revertida (`198a720`) e agora
+   * recusada de vez: o texto corrente deste sistema é `--text-suporte`
+   * (`0.875rem`, 169 usos), e raiz de 15px o devolve aos mesmos 13,1px que
+   * motivaram a reversão. Junto viria o piso de toque, de 44px para 41,25px,
+   * sem quebrar teste nenhum.
+   *
+   * Aqui a densidade custa apenas espaço em branco da célula: nenhum degrau da
+   * escala muda de tamanho, em dispositivo nenhum, e o piso de toque não é
+   * tocado.
+   *
+   * **O padding mora aqui inteiro, e não como `p-2` no markup.** Utilitário do
+   * Tailwind vence a camada `components` por ordem de camada, e não por
+   * especificidade: um `p-2` na célula ganharia desta regra por mais específica
+   * que ela fosse. Mesmo arranjo do `.cartao` acima — a classe é dona, ou não
+   * adianta existir.
+   *
+   * Só o vertical aperta. O horizontal é o que separa uma coluna da seguinte, e
+   * apertá-lo não devolve linha nenhuma.
+   */
+  .tabela-densa th,
+  .tabela-densa td {
+    padding: 0.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .tabela-densa th,
+    .tabela-densa td {
+      padding-block: 0.25rem;
+    }
   }
 }
 
