@@ -17,6 +17,10 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
  * Exclusão é lógica. Lançamento errado é cancelado com motivo, e o registro
  * fica: um lançamento apagado é um buraco no extrato que ninguém consegue
  * explicar depois.
+ *
+ * O anexo comprobatório não está em nenhum dos dois: ele entra pelo
+ * `anexos.service.ts`, que é quem sabe que nota e comprovante são só de
+ * despesa e que a prestação fechada não aceita mais nada.
  */
 
 const comum = {
@@ -27,7 +31,6 @@ const comum = {
   valor: z.number().positive('O valor precisa ser maior que zero'),
   data: z.date(),
   observacao: z.string().trim().nullish(),
-  documentoId: z.string().cuid().nullish(),
 }
 
 const receitaSchema = z.object({
