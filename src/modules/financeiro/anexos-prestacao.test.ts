@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
+import PDFKitDocument from 'pdfkit'
 import { salvarArquivo } from '@/lib/arquivos'
 import { juntarAnexos, type AnexoParaJuntar } from './anexos-prestacao'
 
@@ -8,6 +9,35 @@ async function pdfCom(paginas: number, largura = 200): Promise<Buffer> {
   const doc = await PDFDocument.create()
   for (let i = 0; i < paginas; i++) doc.addPage([largura, 200])
   return Buffer.from(await doc.save())
+}
+
+/**
+ * Um PDF gerado pelo `pdfkit`, mesmo motor e mesmo padrão de coleta por
+ * stream de `gerarPdfPrestacao` (`pdf-prestacao.ts`).
+ *
+ * Existe porque `pdfCom()` produz um PDF nativo do `pdf-lib`, e um
+ * load+save do `pdf-lib` sobre um documento que ele mesmo escreveu é
+ * no-op: sai byte a byte igual, por serialização determinística, mascarando
+ * qualquer regressão que force o `base` a passar pelo `pdf-lib`. Um PDF do
+ * `pdfkit` não sobrevive a esse round-trip — é o fixture que expõe essa
+ * regressão de verdade, porque é o que a produção realmente entrega como
+ * `base`.
+ */
+function pdfDoPdfkit(paginas: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFKitDocument()
+    const pedacos: Buffer[] = []
+    doc.on('data', (pedaco: Buffer) => pedacos.push(pedaco))
+    doc.on('end', () => resolve(Buffer.concat(pedacos)))
+    doc.on('error', reject)
+
+    for (let i = 0; i < paginas; i++) {
+      if (i > 0) doc.addPage()
+      doc.text(`folha ${i + 1}`)
+    }
+
+    doc.end()
+  })
 }
 
 async function paginasDe(buffer: Buffer): Promise<number> {
@@ -33,7 +63,13 @@ describe('juntarAnexos', () => {
     // O teste que impede esta mudanca de vazar para quem nao anexa nada: a
     // prestacao de quem nao usa o recurso continua com as seis folhas de
     // sempre, e nem passa a valer outra contagem.
-    const base = await pdfCom(6)
+    //
+    // O base vem do pdfkit, nao do pdfCom(): e o pdfkit que produz o buffer de
+    // verdade em producao (pdf-prestacao.ts), e so um PDF pdfkit-nativo expoe
+    // a regressao que este teste existe para pegar — um base pdf-lib-nativo
+    // sobrevive a um load+save do pdf-lib por coincidencia, sem que o codigo
+    // de fato devolva o buffer de entrada intacto.
+    const base = await pdfDoPdfkit(6)
     const resultado = await juntarAnexos(base, [], contexto)
 
     expect(await paginasDe(resultado)).toBe(6)
