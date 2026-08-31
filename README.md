@@ -178,6 +178,7 @@ npm test          # unidade e integração (Vitest, contra Postgres de verdade)
 npm run test:e2e  # ponta a ponta (Playwright, sobe o `npm run dev` sozinho)
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
+npm run auditoria # npm audit --omit=dev: o que de fato vai para o servidor
 ```
 
 Sobre `npm test`: ele aplica as migrations no banco de teste antes de
@@ -252,6 +253,9 @@ plataforma serverless. Os documentos anexados ficam num volume
   e os problemas comuns.
 - **`docs/operacao/backup.md`** — backup criptografado, envio para
   armazenamento remoto, alerta de falha e o procedimento de restauração.
+- **`docs/operacao/dependencias.md`** — o dono do número do `npm audit`: o que
+  chega ao servidor, o que fica na máquina de quem desenvolve, os `overrides`
+  que fixam transitivas e o preço deles.
 - **`docs/operacao/pendencias-*.md`** — o que ficou em aberto ao fechar cada
   fase ou travessia, com o estado de cada item e onde ele se resolve. Nenhum
   impede o uso; estão escritos para não dependerem da memória de ninguém. Hoje
