@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { writeFile, readFile } from 'node:fs/promises'
+import { PDFDocument } from 'pdf-lib'
 
 /**
  * O caminho inteiro do dinheiro, pela tela: cadastrar a instituição e a conta,
@@ -33,6 +35,27 @@ async function abrirSecao(pagina: Page, titulo: string) {
   const secao = pagina.locator('details', { has: pagina.getByRole('heading', { name: titulo }) })
   await secao.locator('summary').click()
   return secao
+}
+
+/**
+ * O cartão "Lançamentos (N)" da tela `/financeiro`. `section.cartao`, e não só
+ * `section`: o `<section>` que a própria página devolve como raiz também
+ * "contém" o título "Lançamentos", e um `li` solto na página inteira já
+ * ambiguou um teste nesta base. `.cartao` é a classe do componente `<Cartao>`
+ * — só ele carrega essa classe — então escapa da ambiguidade sem depender da
+ * ordem dos elementos no documento.
+ */
+function secaoDeLancamentos(pagina: Page) {
+  return pagina.locator('section.cartao', {
+    has: pagina.getByRole('heading', { name: /^Lançamentos/ }),
+  })
+}
+
+/** Um PDF de uma página, para anexar pela tela. */
+async function pdfDeUmaPagina(): Promise<Buffer> {
+  const doc = await PDFDocument.create()
+  doc.addPage([200, 200])
+  return Buffer.from(await doc.save())
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -192,6 +215,53 @@ test('reabrir exige motivo, e o motivo sai no documento regerado', async ({ page
   // `exact`: sem ele, "Aberta" casa também o "Reaberta:" da linha do motivo.
   await expect(reaberta.getByText('Aberta', { exact: true })).toBeVisible()
   await expect(reaberta.getByText(/chegou atrasada/)).toBeVisible()
+})
+
+test('anexa nota e comprovante na despesa, e eles saem no PDF da prestacao', async ({
+  page,
+}, informacoes) => {
+  // A travessia que so a tela prova: anexar pela interface, ver a contagem
+  // mudar, e o documento entregue ao orgao sair mais gordo do que saia antes.
+  //
+  // A prestacao chega aqui reaberta pelo teste anterior — despesa descongelada
+  // de novo —, entao os campos de anexo voltam a aparecer na linha.
+  const pdf = informacoes.outputPath('nota.pdf')
+  await writeFile(pdf, await pdfDeUmaPagina())
+
+  // Filtro explicito: "hoje" no relogio da maquina ja passou de agosto de
+  // 2026, e o padrao sem filtro (`mesCorrente()`) mostraria o mes corrente, e
+  // nao o da despesa lancada no teste 3.
+  await page.goto('/financeiro?de=2026-08-01&ate=2026-08-31')
+  const linha = secaoDeLancamentos(page).locator('li', { hasText: DESPESA })
+  await linha.getByLabel(/^Documento fiscal/).setInputFiles(pdf)
+  await linha.getByRole('button', { name: 'Anexar' }).first().click()
+  await expect(linha.getByRole('link', { name: 'nota.pdf' })).toBeVisible()
+
+  // Filtrado pela conta: o banco de E2E acumula "Banco do Brasil" de rodadas
+  // anteriores, e um `article` solto pegaria o primeiro da lista, nao o desta
+  // rodada.
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const cartao = page.locator('article', { hasText: 'Banco do Brasil' }).first()
+  await expect(cartao).toContainText('1 com documento fiscal')
+  await expect(cartao).toContainText('sem extrato')
+
+  // Fecha para os downloads aparecerem, e confere que o PDF cresceu.
+  await cartao.getByRole('button', { name: 'Fechar prestação' }).click()
+  const baixado = await Promise.all([
+    page.waitForEvent('download'),
+    cartao.getByRole('link', { name: 'Baixar PDF' }).click(),
+  ])
+  const arquivo = await baixado[0].path()
+  expect((await readFile(arquivo)).length).toBeGreaterThan(0)
+})
+
+test('a prestacao fechada nao aceita mais anexo', async ({ page }) => {
+  // Uma regra so: fechar congela o documento entregue ao orgao, e anexo faz
+  // parte dele. O campo nem e oferecido.
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const fechada = page.locator('article', { hasText: 'Fechada' }).first()
+
+  await expect(fechada.getByLabel(/^Extrato bancário/)).toHaveCount(0)
 })
 
 test('define a contribuição na ficha e a lança pela proposta do mês', async ({ page }) => {
