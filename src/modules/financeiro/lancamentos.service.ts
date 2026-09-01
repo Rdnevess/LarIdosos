@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Lancamento, NaturezaLancamento } from '@prisma/client'
+import { Prisma, type Lancamento, type NaturezaLancamento } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
@@ -201,10 +201,22 @@ export async function cancelarLancamento(
   })
 }
 
+// Traz os dois documentos junto do lançamento porque a tela precisa mostrar
+// (e deixar anexar) nota fiscal e comprovante em cada linha de despesa, sem
+// uma consulta à parte por lançamento.
+const INCLUSAO_ANEXOS = {
+  documentoFiscal: { select: { id: true, nomeArquivoOriginal: true } },
+  comprovantePagamento: { select: { id: true, nomeArquivoOriginal: true } },
+} satisfies Prisma.LancamentoInclude
+
+export type LancamentoComAnexos = Prisma.LancamentoGetPayload<{
+  include: typeof INCLUSAO_ANEXOS
+}>
+
 export async function listarLancamentos(
   ctx: Ctx,
   filtros: FiltrosLancamento
-): Promise<Lancamento[]> {
+): Promise<LancamentoComAnexos[]> {
   exigirPapel(ctx, 'Lancamento', 'COORDENACAO', 'ADMINISTRATIVO')
 
   return prisma.lancamento.findMany({
@@ -214,6 +226,7 @@ export async function listarLancamentos(
       data:
         filtros.de || filtros.ate ? { gte: filtros.de, lte: filtros.ate } : undefined,
     },
+    include: INCLUSAO_ANEXOS,
     orderBy: [{ data: 'desc' }, { id: 'desc' }],
   })
 }

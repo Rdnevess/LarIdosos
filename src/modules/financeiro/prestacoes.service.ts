@@ -360,6 +360,47 @@ export async function obterPrestacao(ctx: Ctx, id: string): Promise<PrestacaoCon
   return exigirPrestacao(id)
 }
 
+export type CoberturaAnexos = {
+  despesas: number
+  comFiscal: number
+  comComprovante: number
+  temExtrato: boolean
+}
+
+/**
+ * Quantas despesas da competência já têm cada anexo.
+ *
+ * Não é alerta e não é erro: é contagem, mostrada no cartão da prestação
+ * enquanto ela ainda está aberta. O apêndice do PDF não carimba nada nas
+ * páginas — foi decisão explícita —, então lá a falta de uma nota não se
+ * enxerga: o leitor vê menos páginas, não um buraco. Aqui se enxerga, e aqui
+ * ainda dá para resolver.
+ */
+export async function coberturaDeAnexos(
+  ctx: Ctx,
+  prestacaoId: string
+): Promise<CoberturaAnexos> {
+  exigirPapel(ctx, 'PrestacaoContas', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  const prestacao = await prisma.prestacaoContas.findUnique({
+    where: { id: prestacaoId },
+    select: { extratoId: true },
+  })
+  if (!prestacao) throw new ErroNaoEncontrado('Prestação de contas não encontrada')
+
+  const despesas = await prisma.lancamento.findMany({
+    where: { prestacaoContasId: prestacaoId, natureza: 'DESPESA', status: 'REALIZADO' },
+    select: { documentoFiscalId: true, comprovantePagamentoId: true },
+  })
+
+  return {
+    despesas: despesas.length,
+    comFiscal: despesas.filter((despesa) => despesa.documentoFiscalId !== null).length,
+    comComprovante: despesas.filter((despesa) => despesa.comprovantePagamentoId !== null).length,
+    temExtrato: prestacao.extratoId !== null,
+  }
+}
+
 export async function listarPrestacoes(
   ctx: Ctx,
   filtros: FiltrosPrestacao

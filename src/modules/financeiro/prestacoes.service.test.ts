@@ -9,6 +9,7 @@ import {
   criarFornecedor,
 } from './cadastros.service'
 import { lancarReceita, lancarDespesa } from './lancamentos.service'
+import { anexarComprovante } from './anexos.service'
 import {
   abrirPrestacao,
   calcularSaldoAnterior,
@@ -17,7 +18,10 @@ import {
   reabrirPrestacao,
   listarPrestacoes,
   registrarObservacoes,
+  coberturaDeAnexos,
 } from './prestacoes.service'
+
+const PDF = Buffer.from('%PDF-1.4 nota')
 
 async function cenario(papel: 'COORDENACAO' | 'ADMINISTRATIVO' = 'COORDENACAO') {
   const ctx = await ctxComPapel(papel)
@@ -356,5 +360,62 @@ describe('registrarObservacoes', () => {
     await expect(registrarObservacoes(saude, prestacao.id, 'Qualquer coisa')).rejects.toThrow(
       ErroPermissao
     )
+  })
+})
+
+describe('coberturaDeAnexos', () => {
+  it('conta as despesas da competencia e quantas tem cada anexo', async () => {
+    // A contagem existe porque a concatenacao sem rotulo torna a falta
+    // invisivel dos dois lados: no documento, porque nada identifica a pagina;
+    // e na tela, porque ate aqui ninguem contava. Antes de fechar e o unico
+    // momento em que ainda da para resolver.
+    const { ctx, conta, categoria, fornecedor } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const primeira = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Conta de luz de agosto',
+      valor: 800,
+      data: new Date('2026-08-15'),
+    })
+    const segunda = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Manutenção do gerador',
+      valor: 400,
+      data: new Date('2026-08-20'),
+    })
+    // Simula o vínculo que só o fechamento de verdade gravaria — o mesmo
+    // atalho direto de `anexos.service.test.ts`.
+    await prisma.lancamento.updateMany({
+      where: { id: { in: [primeira.id, segunda.id] } },
+      data: { prestacaoContasId: prestacao.id },
+    })
+
+    await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: primeira.id },
+      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+
+    const cobertura = await coberturaDeAnexos(ctx, prestacao.id)
+
+    expect(cobertura.despesas).toBe(2)
+    expect(cobertura.comFiscal).toBe(1)
+    expect(cobertura.comComprovante).toBe(0)
+    expect(cobertura.temExtrato).toBe(false)
+  })
+
+  it('recusa o papel SAUDE', async () => {
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    const saude = await ctxComPapel('SAUDE')
+
+    await expect(coberturaDeAnexos(saude, prestacao.id)).rejects.toThrow(ErroPermissao)
   })
 })

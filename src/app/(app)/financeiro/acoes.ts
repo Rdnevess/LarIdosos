@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { executarAcao, type EstadoAcao } from '@/lib/acoes'
 import { texto, data, numero } from '@/lib/formulario'
+import { ErroValidacao } from '@/lib/erros'
 import { obterCtx } from '@/modules/auth/sessao'
 import {
   salvarConfiguracaoInstituicao,
@@ -27,6 +28,11 @@ import {
   reabrirPrestacao,
 } from '@/modules/financeiro/prestacoes.service'
 import { definirContribuicao } from '@/modules/financeiro/contribuicoes.service'
+import {
+  anexarComprovante,
+  removerComprovante,
+  type AlvoAnexo,
+} from '@/modules/financeiro/anexos.service'
 
 /**
  * As ações do financeiro.
@@ -353,5 +359,55 @@ export async function acaoLancarContribuicao(
 
   revalidatePath('/financeiro/contribuicoes')
   revalidatePath('/financeiro')
+  return resultado
+}
+
+/**
+ * O `alvoTipo` chega do formulário e é entrada de quem usa. Não confie nele:
+ * `montarAlvo` só constrói os três alvos que existem, e qualquer outro valor
+ * vira `ErroValidacao` antes de o serviço ser chamado.
+ */
+function montarAlvo(dados: FormData): AlvoAnexo {
+  const tipo = String(dados.get('alvoTipo'))
+  const id = String(dados.get('alvoId'))
+
+  if (tipo === 'DESPESA_FISCAL') return { tipo, lancamentoId: id }
+  if (tipo === 'DESPESA_COMPROVANTE') return { tipo, lancamentoId: id }
+  if (tipo === 'EXTRATO') return { tipo, prestacaoId: id }
+  throw new ErroValidacao('Anexo desconhecido')
+}
+
+export async function acaoAnexarComprovante(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    const arquivo = dados.get('arquivo') as File | null
+    if (!arquivo || arquivo.size === 0) throw new ErroValidacao('Selecione um arquivo')
+
+    await anexarComprovante(ctx, montarAlvo(dados), {
+      nomeArquivoOriginal: arquivo.name,
+      mimeType: arquivo.type,
+      conteudo: Buffer.from(await arquivo.arrayBuffer()),
+    })
+  })
+
+  revalidatePath('/financeiro')
+  revalidatePath('/financeiro/prestacoes')
+  return resultado
+}
+
+export async function acaoRemoverComprovante(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    await removerComprovante(ctx, montarAlvo(dados))
+  })
+
+  revalidatePath('/financeiro')
+  revalidatePath('/financeiro/prestacoes')
   return resultado
 }
