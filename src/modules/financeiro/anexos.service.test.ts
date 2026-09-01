@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao } from '@/lib/erros'
-import { ctxComPapel } from '@/../tests/helpers/fabricas'
+import { ctxComPapel, criarResidenteDeTeste } from '@/../tests/helpers/fabricas'
 import { registrosDeNegacaoPendentes } from '@/modules/audit/acesso-negado'
+import { anexarDocumento } from '@/modules/residents/documentos.service'
 import { criarContaBancaria } from './instituicao.service'
 import { criarCategoriaDespesa, criarFornecedor, criarOrigemReceita } from './cadastros.service'
 import { lancarDespesa, lancarReceita } from './lancamentos.service'
 import { abrirPrestacao } from './prestacoes.service'
-import { anexarComprovante, removerComprovante } from './anexos.service'
+import { anexarComprovante, removerComprovante, extratosAnexados } from './anexos.service'
 
 const PDF = Buffer.from('%PDF-1.4 nota')
 const arquivo = { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: PDF }
@@ -343,5 +344,59 @@ describe('removerComprovante', () => {
     // A recusa nao desfez o anexo existente.
     const lancamento = await prisma.lancamento.findUniqueOrThrow({ where: { id: despesaId } })
     expect(lancamento.documentoFiscalId).not.toBeNull()
+  })
+})
+
+describe('extratosAnexados', () => {
+  it('devolve o nome do arquivo dos extratos anexados pelo fluxo normal', async () => {
+    const { ctx, prestacaoId } = await cenario()
+    const documento = await anexarComprovante(ctx, { tipo: 'EXTRATO', prestacaoId }, arquivo)
+
+    const resultado = await extratosAnexados(ctx, [documento.id])
+
+    expect(resultado.get(documento.id)).toEqual({
+      id: documento.id,
+      nome: arquivo.nomeArquivoOriginal,
+    })
+  })
+
+  it('lista vazia devolve Map vazio sem consultar nada', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+
+    const resultado = await extratosAnexados(ctx, [])
+
+    expect(resultado.size).toBe(0)
+  })
+
+  /**
+   * Este e o caso que a re-revisao da Tarefa 6 pediu por nome: um LAUDO de
+   * residente e classificado como clinico por `papeisQuePodemVer`
+   * (COORDENACAO e SAUDE), fora do ADMINISTRATIVO. Se `extratosAnexados`
+   * filtrasse por um papel fixo em vez de reconsultar `papeisQuePodemVer`
+   * pelo tipo real do documento, um id de LAUDO passado por engano (ou por
+   * um chamador futuro que reusa a funcao para outro fim) vazaria o nome do
+   * arquivo para quem a politica do documento nao autoriza.
+   *
+   * A prova de que este teste acusa de verdade: troque temporariamente o
+   * `.filter((documento) => papeisQuePodemVer(documento).includes(ctx.papel))`
+   * de `extratosAnexados` por `.filter(() => true)` — este teste fica
+   * vermelho. Desfaça a troca depois de confirmar.
+   */
+  it('nao deixa vazar, por id, um documento de tipo que o papel do chamador nao pode ver', async () => {
+    const clinico = await ctxComPapel('SAUDE')
+    const residente = await criarResidenteDeTeste()
+    const laudo = await anexarDocumento(clinico, {
+      tipo: 'LAUDO',
+      nomeArquivoOriginal: 'laudo-dependencia.pdf',
+      mimeType: 'application/pdf',
+      conteudo: Buffer.from('%PDF-1.4 laudo'),
+      residenteId: residente.id,
+    })
+
+    const administrativo = await ctxComPapel('ADMINISTRATIVO')
+    const resultado = await extratosAnexados(administrativo, [laudo.id])
+
+    expect(resultado.has(laudo.id)).toBe(false)
+    expect(resultado.size).toBe(0)
   })
 })
