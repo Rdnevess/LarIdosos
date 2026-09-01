@@ -375,6 +375,13 @@ export type CoberturaAnexos = {
  * páginas — foi decisão explícita —, então lá a falta de uma nota não se
  * enxerga: o leitor vê menos páginas, não um buraco. Aqui se enxerga, e aqui
  * ainda dá para resolver.
+ *
+ * O conjunto é o mesmo que `fecharPrestacao` congela e que
+ * `montarDocumentoPrestacao` imprime — `contaBancariaId` + `REALIZADO` +
+ * `limitesDaCompetencia` —, e não `prestacaoContasId`. Esse campo só é
+ * preenchido no fechamento de verdade; filtrar por ele faria a contagem
+ * devolver zero exatamente na prestação aberta, que é o único momento em que
+ * ela serve para alguma coisa.
  */
 export async function coberturaDeAnexos(
   ctx: Ctx,
@@ -384,12 +391,19 @@ export async function coberturaDeAnexos(
 
   const prestacao = await prisma.prestacaoContas.findUnique({
     where: { id: prestacaoId },
-    select: { extratoId: true },
+    select: { contaBancariaId: true, anoCompetencia: true, mesCompetencia: true, extratoId: true },
   })
   if (!prestacao) throw new ErroNaoEncontrado('Prestação de contas não encontrada')
 
+  const { inicio, fim } = limitesDaCompetencia(prestacao.anoCompetencia, prestacao.mesCompetencia)
+
   const despesas = await prisma.lancamento.findMany({
-    where: { prestacaoContasId: prestacaoId, natureza: 'DESPESA', status: 'REALIZADO' },
+    where: {
+      contaBancariaId: prestacao.contaBancariaId,
+      natureza: 'DESPESA',
+      status: 'REALIZADO',
+      data: { gte: inicio, lt: fim },
+    },
     select: { documentoFiscalId: true, comprovantePagamentoId: true },
   })
 

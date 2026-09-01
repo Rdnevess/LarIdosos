@@ -364,11 +364,13 @@ describe('registrarObservacoes', () => {
 })
 
 describe('coberturaDeAnexos', () => {
-  it('conta as despesas da competencia e quantas tem cada anexo', async () => {
-    // A contagem existe porque a concatenacao sem rotulo torna a falta
-    // invisivel dos dois lados: no documento, porque nada identifica a pagina;
-    // e na tela, porque ate aqui ninguem contava. Antes de fechar e o unico
-    // momento em que ainda da para resolver.
+  it('conta as despesas da competencia e quantas tem cada anexo, com a prestacao ainda aberta', async () => {
+    // A contagem so serve enquanto a prestacao esta aberta - e o unico
+    // momento em que ainda da para resolver a falta de um anexo. Por isso
+    // mede pelo mesmo conjunto que fecharPrestacao e montarDocumentoPrestacao
+    // usam (contaBancariaId + REALIZADO + faixa de datas da competencia), e
+    // NUNCA por prestacaoContasId - esse campo so o fechamento de verdade
+    // preenche, e a prestacao aqui fica ABERTA de proposito.
     const { ctx, conta, categoria, fornecedor } = await cenario()
     const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
 
@@ -381,7 +383,7 @@ describe('coberturaDeAnexos', () => {
       valor: 800,
       data: new Date('2026-08-15'),
     })
-    const segunda = await lancarDespesa(ctx, {
+    await lancarDespesa(ctx, {
       contaBancariaId: conta.id,
       fornecedorId: fornecedor.id,
       categoriaDespesaId: categoria.id,
@@ -389,12 +391,6 @@ describe('coberturaDeAnexos', () => {
       descricao: 'Manutenção do gerador',
       valor: 400,
       data: new Date('2026-08-20'),
-    })
-    // Simula o vínculo que só o fechamento de verdade gravaria — o mesmo
-    // atalho direto de `anexos.service.test.ts`.
-    await prisma.lancamento.updateMany({
-      where: { id: { in: [primeira.id, segunda.id] } },
-      data: { prestacaoContasId: prestacao.id },
     })
 
     await anexarComprovante(
@@ -409,6 +405,37 @@ describe('coberturaDeAnexos', () => {
     expect(cobertura.comFiscal).toBe(1)
     expect(cobertura.comComprovante).toBe(0)
     expect(cobertura.temExtrato).toBe(false)
+  })
+
+  it('conta comprovante de pagamento e extrato quando eles existem', async () => {
+    const { ctx, conta, categoria, fornecedor } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const despesa = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Conta de luz de agosto',
+      valor: 800,
+      data: new Date('2026-08-15'),
+    })
+
+    await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_COMPROVANTE', lancamentoId: despesa.id },
+      { nomeArquivoOriginal: 'comprovante.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+    await anexarComprovante(
+      ctx,
+      { tipo: 'EXTRATO', prestacaoId: prestacao.id },
+      { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+
+    const cobertura = await coberturaDeAnexos(ctx, prestacao.id)
+
+    expect(cobertura.comComprovante).toBe(1)
+    expect(cobertura.temExtrato).toBe(true)
   })
 
   it('recusa o papel SAUDE', async () => {

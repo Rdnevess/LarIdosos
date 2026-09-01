@@ -213,20 +213,37 @@ export type LancamentoComAnexos = Prisma.LancamentoGetPayload<{
   include: typeof INCLUSAO_ANEXOS
 }>
 
+/**
+ * `comAnexos` é opt-in: a tela de prestações chama esta função só para somar
+ * receitas e despesas e descarta o resto (`totaisDa`, em
+ * `financeiro/prestacoes/page.tsx`) — sem o parâmetro, ela não paga os dois
+ * `include` que só a tela de lançamentos usa.
+ */
 export async function listarLancamentos(
   ctx: Ctx,
   filtros: FiltrosLancamento
-): Promise<LancamentoComAnexos[]> {
+): Promise<Lancamento[]>
+export async function listarLancamentos(
+  ctx: Ctx,
+  filtros: FiltrosLancamento,
+  opcoes: { comAnexos: true }
+): Promise<LancamentoComAnexos[]>
+export async function listarLancamentos(
+  ctx: Ctx,
+  filtros: FiltrosLancamento,
+  opcoes?: { comAnexos?: boolean }
+): Promise<Lancamento[] | LancamentoComAnexos[]> {
   exigirPapel(ctx, 'Lancamento', 'COORDENACAO', 'ADMINISTRATIVO')
 
-  return prisma.lancamento.findMany({
-    where: {
-      contaBancariaId: filtros.contaBancariaId,
-      natureza: filtros.natureza,
-      data:
-        filtros.de || filtros.ate ? { gte: filtros.de, lte: filtros.ate } : undefined,
-    },
-    include: INCLUSAO_ANEXOS,
-    orderBy: [{ data: 'desc' }, { id: 'desc' }],
-  })
+  const where = {
+    contaBancariaId: filtros.contaBancariaId,
+    natureza: filtros.natureza,
+    data: filtros.de || filtros.ate ? { gte: filtros.de, lte: filtros.ate } : undefined,
+  }
+  const orderBy = [{ data: 'desc' as const }, { id: 'desc' as const }]
+
+  if (opcoes?.comAnexos) {
+    return prisma.lancamento.findMany({ where, include: INCLUSAO_ANEXOS, orderBy })
+  }
+  return prisma.lancamento.findMany({ where, orderBy })
 }

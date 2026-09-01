@@ -76,12 +76,16 @@ export default async function PaginaFinanceiro({
     }),
   ])
 
-  const lancamentos = await listarLancamentos(ctx, {
-    contaBancariaId: filtros.conta || undefined,
-    de: new Date(`${de}T00:00:00`),
-    ate: fimDoDia(ate),
-    natureza: (filtros.natureza as 'RECEITA' | 'DESPESA') || undefined,
-  })
+  const lancamentos = await listarLancamentos(
+    ctx,
+    {
+      contaBancariaId: filtros.conta || undefined,
+      de: new Date(`${de}T00:00:00`),
+      ate: fimDoDia(ate),
+      natureza: (filtros.natureza as 'RECEITA' | 'DESPESA') || undefined,
+    },
+    { comAnexos: true }
+  )
 
   const porId = new Map<string, string>([
     ...origens.map((o) => [o.id, o.nome] as [string, string]),
@@ -273,7 +277,7 @@ export default async function PaginaFinanceiro({
               {lancamento.motivoCancelamento && (
                 <p className="text-apoio">Motivo: {lancamento.motivoCancelamento}</p>
               )}
-              {lancamento.natureza === 'DESPESA' && (
+              {lancamento.natureza === 'DESPESA' && !lancamento.prestacaoContasId && (
                 <div className="space-y-2">
                   <FormularioAnexoFinanceiro
                     alvo={{ tipo: 'DESPESA_FISCAL', id: lancamento.id }}
