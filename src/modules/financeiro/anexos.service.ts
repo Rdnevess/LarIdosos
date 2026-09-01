@@ -4,6 +4,7 @@ import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { salvarArquivo } from '@/lib/arquivos'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
+import { papeisQuePodemVer } from '@/modules/residents/documentos.service'
 
 /**
  * Os três anexos comprobatórios do financeiro: a nota e o comprovante de cada
@@ -103,6 +104,38 @@ function idDoAlvo(alvo: AlvoAnexo): string {
 
 function entidadeDoAlvo(alvo: AlvoAnexo): 'Lancamento' | 'PrestacaoContas' {
   return alvo.tipo === 'EXTRATO' ? 'PrestacaoContas' : 'Lancamento'
+}
+
+/**
+ * Os extratos já anexados, para uma lista de ids de documento, numa consulta
+ * só.
+ *
+ * Existe para a tela de prestações, que lista várias prestações de uma vez e
+ * precisa do nome de cada extrato sem uma consulta por prestação. A
+ * visibilidade não é um papel fixo escrito aqui: vem de `papeisQuePodemVer`,
+ * a mesma política que rege toda leitura de `Documento`. Se um dia
+ * EXTRATO_BANCARIO for restrito só a COORDENACAO, este ponto de leitura
+ * herda o corte automaticamente, em vez de continuar servindo o nome do
+ * arquivo a um papel que a política já não autoriza mais.
+ */
+export async function extratosAnexados(
+  ctx: Ctx,
+  extratoIds: string[]
+): Promise<Map<string, { id: string; nome: string }>> {
+  exigirPapel(ctx, 'Documento', 'COORDENACAO', 'SAUDE', 'ADMINISTRATIVO')
+
+  if (extratoIds.length === 0) return new Map()
+
+  const documentos = await prisma.documento.findMany({
+    where: { id: { in: extratoIds } },
+    select: { id: true, nomeArquivoOriginal: true, tipo: true, funcionarioId: true },
+  })
+
+  return new Map(
+    documentos
+      .filter((documento) => papeisQuePodemVer(documento).includes(ctx.papel))
+      .map((documento) => [documento.id, { id: documento.id, nome: documento.nomeArquivoOriginal }])
+  )
 }
 
 export async function anexarComprovante(

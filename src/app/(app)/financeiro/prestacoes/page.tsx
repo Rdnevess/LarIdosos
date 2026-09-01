@@ -7,7 +7,7 @@ import {
   coberturaDeAnexos,
 } from '@/modules/financeiro/prestacoes.service'
 import { listarLancamentos } from '@/modules/financeiro/lancamentos.service'
-import { prisma } from '@/lib/prisma'
+import { extratosAnexados } from '@/modules/financeiro/anexos.service'
 import { formatarMoeda } from '@/lib/ptbr'
 import { mesPorExtenso } from '@/modules/financeiro/textos-prestacao'
 import {
@@ -85,17 +85,13 @@ export default async function PaginaPrestacoes({
   // O nome do arquivo do extrato vem numa consulta só, com todos os ids de
   // uma vez (`IN`): `extratoId` já está no registro da prestação — é campo
   // escalar, não precisa de include —, então não há por que buscar o
-  // documento um a um por prestação.
+  // documento um a um por prestação. A busca em si mora em
+  // `anexos.service.ts`: é leitura de `Documento`, e quem decide quem enxerga
+  // cada um é `papeisQuePodemVer`, não esta tela.
   const idsExtrato = prestacoes
     .map((prestacao) => prestacao.extratoId)
     .filter((id): id is string => id !== null)
-  const documentosExtrato = idsExtrato.length
-    ? await prisma.documento.findMany({
-        where: { id: { in: idsExtrato } },
-        select: { id: true, nomeArquivoOriginal: true },
-      })
-    : []
-  const porExtrato = new Map(documentosExtrato.map((documento) => [documento.id, documento]))
+  const porExtrato = await extratosAnexados(ctx, idsExtrato)
 
   const cartoes = await Promise.all(
     prestacoes.map(async (prestacao) => {
@@ -262,9 +258,7 @@ export default async function PaginaPrestacoes({
                   <FormularioAnexoFinanceiro
                     alvo={{ tipo: 'EXTRATO', id: prestacao.id }}
                     rotulo="Extrato bancário"
-                    anexado={
-                      extrato ? { id: extrato.id, nome: extrato.nomeArquivoOriginal } : null
-                    }
+                    anexado={extrato ?? null}
                   />
                   <details>
                     <summary className="cursor-pointer text-suporte text-medio underline">
