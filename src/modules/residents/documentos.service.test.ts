@@ -427,17 +427,31 @@ describe('os tipos do financeiro nao sao anexo de pessoa', () => {
 
     // Cuid sintaticamente valido mas de ninguem: o unico motivo de falha
     // possivel tem de ser o tipo fora de `TIPOS_DE_ALVO`, nunca o formato do
-    // vinculo nem a busca do residente (que so aconteceria depois, se o
-    // schema deixasse passar).
-    await expect(
-      anexarDocumento(ctx, {
-        tipo: 'EXTRATO_BANCARIO' as 'OUTRO',
-        nomeArquivoOriginal: 'extrato.pdf',
-        mimeType: 'application/pdf',
-        conteudo: Buffer.from('%PDF-1.4 x'),
-        residenteId: 'ckqv0000000000000000000a',
-      })
-    ).rejects.toThrow(ErroValidacao)
+    // vinculo nem a busca do residente/funcionario (que so aconteceria
+    // depois, se o schema deixasse passar).
+    //
+    // A §8 da spec pede os DOIS tipos novos recusados como anexo dos DOIS
+    // alvos — residente e funcionario. A barreira real e' um `z.enum` so
+    // (`TIPOS_DE_ALVO`), que pega os quatro casos de uma vez, mas o teste
+    // precisa afirmar o que o nome promete, e nao so um quarto dele.
+    const casos = [
+      { tipo: 'EXTRATO_BANCARIO' as 'OUTRO', vinculo: { residenteId: 'ckqv0000000000000000000a' } },
+      { tipo: 'EXTRATO_BANCARIO' as 'OUTRO', vinculo: { funcionarioId: 'ckqv0000000000000000000b' } },
+      { tipo: 'COMPROVANTE_PAGAMENTO' as 'OUTRO', vinculo: { residenteId: 'ckqv0000000000000000000a' } },
+      { tipo: 'COMPROVANTE_PAGAMENTO' as 'OUTRO', vinculo: { funcionarioId: 'ckqv0000000000000000000b' } },
+    ]
+
+    for (const caso of casos) {
+      await expect(
+        anexarDocumento(ctx, {
+          tipo: caso.tipo,
+          nomeArquivoOriginal: 'anexo.pdf',
+          mimeType: 'application/pdf',
+          conteudo: Buffer.from('%PDF-1.4 x'),
+          ...caso.vinculo,
+        })
+      ).rejects.toThrow(ErroValidacao)
+    }
   })
 
   it('todo tipo do enum e de alvo ou e do financeiro, nunca nenhum dos dois', () => {

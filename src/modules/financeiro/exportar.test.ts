@@ -236,14 +236,18 @@ describe('exportarPrestacao', () => {
     expect(nomeArquivo.endsWith('.pdf')).toBe(true)
   })
 
-  it('o apendice mantem a ordem certa: nota e comprovante da mesma despesa, e o extrato por ultimo', async () => {
+  it('o apendice mantem a ordem certa: nota e comprovante da mesma despesa, o apendice entre despesas, e o extrato por ultimo', async () => {
     // A ordem do apendice e a mesma da folha 3-Despesas — `data` crescente, `id`
     // como desempate — e dentro de cada despesa, nota antes do comprovante.
     // Contar o total nao prova isso: o extrato colado antes da nota, ou os
-    // tres anexos embaralhados, dariam a mesma contagem e passariam
+    // anexos embaralhados entre despesas, dariam a mesma contagem e passariam
     // despercebidos. Por isso cada anexo aqui tem uma largura diferente, e a
-    // sequencia inteira e conferida.
-    const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
+    // sequencia inteira e conferida — inclusive com DUAS despesas com anexo ao
+    // mesmo tempo, para que inverter a ordem de `despesas` no laço de
+    // `anexosDaPrestacao` (`exportar.ts`) reprove este teste. `despesaId` e de
+    // 15/08 e `outraDespesaId` e de 20/08 (`cenarioComDespesas`) — a primeira
+    // vem antes no apendice.
+    const { ctx: coordenacao, prestacaoId, despesaId, outraDespesaId } = await cenarioComDespesas()
 
     const semAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
     const antes = (await PDFDocument.load(semAnexo.buffer)).getPageCount()
@@ -260,6 +264,11 @@ describe('exportarPrestacao', () => {
     )
     await anexarComprovante(
       coordenacao,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: outraDespesaId },
+      { nomeArquivoOriginal: 'nota-gerador.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1, 600) }
+    )
+    await anexarComprovante(
+      coordenacao,
       { tipo: 'EXTRATO', prestacaoId },
       { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(1, 500) }
     )
@@ -267,10 +276,11 @@ describe('exportarPrestacao', () => {
     const comAnexo = await exportarPrestacao(coordenacao, prestacaoId, 'pdf')
     const larguras = await largurasDe(comAnexo.buffer)
 
-    expect(larguras).toHaveLength(antes + 3)
+    expect(larguras).toHaveLength(antes + 4)
     // As seis folhas do modelo continuam intactas antes do apendice; so a
-    // sequencia dos tres anexos importa aqui.
-    expect(larguras.slice(antes)).toEqual([300, 400, 500])
+    // sequencia dos quatro anexos importa aqui: nota e comprovante de
+    // `despesaId` (15/08), a nota de `outraDespesaId` (20/08), e o extrato.
+    expect(larguras.slice(antes)).toEqual([300, 400, 600, 500])
   })
 
   it('despesa sem anexo e pulada, e a seguinte nao sai do lugar', async () => {
