@@ -261,6 +261,33 @@ describe('anexarComprovante', () => {
     expect(await prisma.documento.findUnique({ where: { id: primeiro.id } })).not.toBeNull()
     expect(await prisma.documento.count()).toBe(2)
   })
+
+  it('a troca registra o id anterior no `de` da trilha, nao null', async () => {
+    // Antes desta correcao, `anexarComprovante` gravava `de: null` sempre,
+    // mesmo numa troca em que o campo ja apontava para outro documento.
+    // "Qual arquivo foi trocado" e pergunta de fiscalizacao, e so o id
+    // anterior de verdade responde.
+    const { ctx, despesaId } = await cenario()
+    const primeiro = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      arquivo
+    )
+
+    const segundo = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      { ...arquivo, nomeArquivoOriginal: 'nota-substituta.pdf' }
+    )
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Lancamento', entidadeId: despesaId, acao: 'ATUALIZAR' },
+      orderBy: { criadoEm: 'desc' },
+    })
+    expect(log.diff).toEqual({
+      documentoFiscalId: { de: primeiro.id, para: segundo.id },
+    })
+  })
 })
 
 describe('removerComprovante', () => {
@@ -279,6 +306,27 @@ describe('removerComprovante', () => {
     const lancamento = await prisma.lancamento.findUniqueOrThrow({ where: { id: despesaId } })
     expect(lancamento.documentoFiscalId).toBeNull()
     expect(await prisma.documento.findUnique({ where: { id: documento.id } })).not.toBeNull()
+  })
+
+  it('registra na trilha o id que saiu, nao a string literal "anexado"', async () => {
+    // Antes desta correcao, `removerComprovante` gravava `de: 'anexado'` — um
+    // texto fixo que nao dizia qual documento tinha sido removido.
+    const { ctx, despesaId } = await cenario()
+    const documento = await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId },
+      arquivo
+    )
+
+    await removerComprovante(ctx, { tipo: 'DESPESA_FISCAL', lancamentoId: despesaId })
+
+    const log = await prisma.logAuditoria.findFirstOrThrow({
+      where: { entidade: 'Lancamento', entidadeId: despesaId, acao: 'ATUALIZAR' },
+      orderBy: { criadoEm: 'desc' },
+    })
+    expect(log.diff).toEqual({
+      documentoFiscalId: { de: documento.id, para: null },
+    })
   })
 
   it('recusa remover com a prestacao fechada', async () => {

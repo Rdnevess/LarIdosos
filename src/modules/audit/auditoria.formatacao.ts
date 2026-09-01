@@ -1,4 +1,4 @@
-import { formatarData } from '@/lib/ptbr'
+import { formatarData, ROTULO_TIPO_DOCUMENTO } from '@/lib/ptbr'
 
 /**
  * Rótulos dos valores que aparecem dentro do diff de auditoria. Sem isto, o
@@ -31,21 +31,14 @@ export const ROTULO_VALOR: Record<string, string> = {
   OCORRENCIA: 'Ocorrência',
   SOCIAL: 'Social',
   JURIDICO: 'Jurídico',
-  OUTRO: 'Outro',
   // TipoDocumento: `anexarDocumento` grava `tipo` no diff a cada anexo, então
-  // sem estes a trilha mostraria "Tipo: — → TERMO_RESPONSABILIDADE".
-  RG: 'RG',
-  CPF: 'CPF',
-  CNS: 'Cartão SUS',
-  CERTIDAO: 'Certidão',
-  LAUDO: 'Laudo',
-  PROCURACAO: 'Procuração',
-  TERMO_RESPONSABILIDADE: 'Termo de responsabilidade',
-  TERMO_LGPD: 'Termo de ciência (LGPD)',
-  FOTO: 'Foto',
-  EXAME: 'Exame',
-  COMPROVANTE_FISCAL: 'Comprovante fiscal',
-  CONSELHO_PROFISSIONAL: 'Registro em conselho',
+  // sem estes a trilha mostraria "Tipo: — → TERMO_RESPONSABILIDADE". Reusa
+  // `ROTULO_TIPO_DOCUMENTO` (`src/lib/ptbr.ts`), que é `Record<TipoDocumento,
+  // string>`: um tipo novo no enum sem rótulo lá já quebra o typecheck, então
+  // esta tabela duplicada herda a mesma proteção em vez de ficar descoberta.
+  // Inclui `OUTRO: 'Outro'` — o mesmo rótulo que os outros enums usam para o
+  // valor, então não há entrada duplicada acima para ele.
+  ...ROTULO_TIPO_DOCUMENTO,
 }
 
 const ISO_DATA = /^\d{4}-\d{2}-\d{2}T/

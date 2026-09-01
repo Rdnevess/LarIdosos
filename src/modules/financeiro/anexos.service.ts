@@ -107,6 +107,30 @@ function entidadeDoAlvo(alvo: AlvoAnexo): 'Lancamento' | 'PrestacaoContas' {
 }
 
 /**
+ * O id que hoje está no campo do alvo (`documentoFiscalId`,
+ * `comprovantePagamentoId` ou `extratoId`) — para a trilha registrar o `de`
+ * real, e não um `null` cravado que mentiria numa troca.
+ */
+async function idAtualDoAlvo(alvo: AlvoAnexo): Promise<string | null> {
+  if (alvo.tipo === 'EXTRATO') {
+    const prestacao = await prisma.prestacaoContas.findUnique({
+      where: { id: alvo.prestacaoId },
+      select: { extratoId: true },
+    })
+    return prestacao?.extratoId ?? null
+  }
+
+  const lancamento = await prisma.lancamento.findUnique({
+    where: { id: alvo.lancamentoId },
+    select: { documentoFiscalId: true, comprovantePagamentoId: true },
+  })
+  if (!lancamento) return null
+  return alvo.tipo === 'DESPESA_FISCAL'
+    ? lancamento.documentoFiscalId
+    : lancamento.comprovantePagamentoId
+}
+
+/**
  * Os extratos já anexados, para uma lista de ids de documento, numa consulta
  * só.
  *
@@ -154,6 +178,10 @@ export async function anexarComprovante(
 
   await exigirAlvoEditavel(alvo)
 
+  // Antes de gravar: numa troca, é o id que sai que a trilha precisa mostrar
+  // no `de`, não `null`.
+  const idAnterior = await idAtualDoAlvo(alvo)
+
   // Grava bytes só depois de tudo conferido: um alvo inválido deixaria o
   // arquivo no disco sem registro e sem ninguém para limpá-lo.
   const salvo = await salvarArquivo(arquivo.conteudo, arquivo.mimeType)
@@ -176,7 +204,7 @@ export async function anexarComprovante(
     acao: 'ATUALIZAR',
     entidade: entidadeDoAlvo(alvo),
     entidadeId: idDoAlvo(alvo),
-    diff: { [CAMPO_DO_ALVO[alvo.tipo]]: { de: null, para: documento.id } },
+    diff: { [CAMPO_DO_ALVO[alvo.tipo]]: { de: idAnterior, para: documento.id } },
   })
 
   return documento
@@ -191,12 +219,14 @@ export async function removerComprovante(ctx: Ctx, alvo: AlvoAnexo): Promise<voi
   exigirPapel(ctx, entidadeDoAlvo(alvo), 'COORDENACAO', 'ADMINISTRATIVO')
   await exigirAlvoEditavel(alvo)
 
+  const idAnterior = await idAtualDoAlvo(alvo)
+
   await ligar(alvo, null)
 
   await registrarAuditoria(prisma, ctx, {
     acao: 'ATUALIZAR',
     entidade: entidadeDoAlvo(alvo),
     entidadeId: idDoAlvo(alvo),
-    diff: { [CAMPO_DO_ALVO[alvo.tipo]]: { de: 'anexado', para: null } },
+    diff: { [CAMPO_DO_ALVO[alvo.tipo]]: { de: idAnterior, para: null } },
   })
 }
