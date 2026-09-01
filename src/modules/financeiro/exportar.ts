@@ -2,11 +2,12 @@ import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado } from '@/lib/erros'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
-import { montarDocumentoPrestacao } from './documento-prestacao'
+import { montarDocumentoPrestacao, type LinhaDespesa } from './documento-prestacao'
 import { gerarXlsxPrestacao } from './xlsx-prestacao'
 import { gerarPdfPrestacao } from './pdf-prestacao'
 import { fimDoMes } from '@/lib/periodo'
 import { gerarCsvLancamentos } from './csv-lancamentos'
+import { juntarAnexos, type AnexoParaJuntar } from './anexos-prestacao'
 
 /**
  * A saída do documento pronto: `.xlsx` para o órgão, PDF para o arquivo e a
@@ -50,6 +51,55 @@ function pedacoSeguro(texto: string): string {
 }
 
 /**
+ * Os anexos comprobatórios, na ordem em que entram no apêndice: para cada
+ * despesa, a nota e depois o comprovante; o extrato por último.
+ *
+ * A ordem das despesas vem de `despesas`, que é a lista que a folha 3-Despesas
+ * imprime — e não de uma segunda consulta ordenando de novo. A enésima despesa
+ * da tabela é a enésima do apêndice porque é literalmente a mesma lista.
+ */
+async function anexosDaPrestacao(
+  prestacaoId: string,
+  despesas: LinhaDespesa[]
+): Promise<AnexoParaJuntar[]> {
+  const lancamentos = await prisma.lancamento.findMany({
+    where: { id: { in: despesas.map((despesa) => despesa.lancamentoId) } },
+    select: {
+      id: true,
+      documentoFiscal: { select: { id: true, caminhoArmazenamento: true } },
+      comprovantePagamento: { select: { id: true, caminhoArmazenamento: true } },
+    },
+  })
+  const porId = new Map(lancamentos.map((lancamento) => [lancamento.id, lancamento]))
+
+  const anexos: AnexoParaJuntar[] = []
+  for (const despesa of despesas) {
+    const lancamento = porId.get(despesa.lancamentoId)
+    for (const documento of [lancamento?.documentoFiscal, lancamento?.comprovantePagamento]) {
+      if (documento) {
+        anexos.push({
+          documentoId: documento.id,
+          caminhoArmazenamento: documento.caminhoArmazenamento,
+        })
+      }
+    }
+  }
+
+  const prestacao = await prisma.prestacaoContas.findUnique({
+    where: { id: prestacaoId },
+    select: { extrato: { select: { id: true, caminhoArmazenamento: true } } },
+  })
+  if (prestacao?.extrato) {
+    anexos.push({
+      documentoId: prestacao.extrato.id,
+      caminhoArmazenamento: prestacao.extrato.caminhoArmazenamento,
+    })
+  }
+
+  return anexos
+}
+
+/**
  * O CSV é dos lançamentos da competência, e não do documento: o contador quer
  * a movimentação linha a linha, não a capa e o ofício. Por isso ele não passa
  * por `montarDocumentoPrestacao` — e por isso não exige a configuração da
@@ -71,9 +121,13 @@ async function gerarConteudo(
   }
 
   const documento = await montarDocumentoPrestacao(ctx, prestacao.id)
-  return formato === 'xlsx'
-    ? await gerarXlsxPrestacao(documento)
-    : await gerarPdfPrestacao(documento)
+  if (formato === 'xlsx') return await gerarXlsxPrestacao(documento)
+
+  // Só o PDF ganha apêndice: o modelo do órgão tem seis abas e não comporta
+  // anexo, e o CSV é listagem plana para o contador importar.
+  const folhas = await gerarPdfPrestacao(documento)
+  const anexos = await anexosDaPrestacao(prestacao.id, documento.despesas)
+  return await juntarAnexos(folhas, anexos, { prestacaoId: prestacao.id })
 }
 
 export async function exportarPrestacao(

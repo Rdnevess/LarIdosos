@@ -37,6 +37,11 @@ que impede um lançamento posterior de mudar, em silêncio, um documento já
 protocolado. Reabrir exige motivo, e o motivo sai impresso nas observações do
 documento regerado.
 
+Cada despesa guarda o documento fiscal e o comprovante de pagamento em PDF, e
+cada prestação guarda o extrato bancário. Os três saem como **apêndice da
+exportação em PDF** — na ordem da folha de despesas, e pulados em silêncio
+quando faltam.
+
 O prontuário vive em rota própria (`/residentes/[id]/prontuario`), fora do
 alcance do papel ADMINISTRATIVO. A área `/pendencias` atravessa todos os
 residentes e mostra o que está em aberto: exame solicitado e esquecido é o

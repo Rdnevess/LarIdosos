@@ -9,6 +9,7 @@ import {
   criarFornecedor,
 } from './cadastros.service'
 import { lancarReceita, lancarDespesa } from './lancamentos.service'
+import { anexarComprovante } from './anexos.service'
 import {
   abrirPrestacao,
   calcularSaldoAnterior,
@@ -17,7 +18,10 @@ import {
   reabrirPrestacao,
   listarPrestacoes,
   registrarObservacoes,
+  coberturaDeAnexos,
 } from './prestacoes.service'
+
+const PDF = Buffer.from('%PDF-1.4 nota')
 
 async function cenario(papel: 'COORDENACAO' | 'ADMINISTRATIVO' = 'COORDENACAO') {
   const ctx = await ctxComPapel(papel)
@@ -356,5 +360,89 @@ describe('registrarObservacoes', () => {
     await expect(registrarObservacoes(saude, prestacao.id, 'Qualquer coisa')).rejects.toThrow(
       ErroPermissao
     )
+  })
+})
+
+describe('coberturaDeAnexos', () => {
+  it('conta as despesas da competencia e quantas tem cada anexo, com a prestacao ainda aberta', async () => {
+    // A contagem so serve enquanto a prestacao esta aberta - e o unico
+    // momento em que ainda da para resolver a falta de um anexo. Por isso
+    // mede pelo mesmo conjunto que fecharPrestacao e montarDocumentoPrestacao
+    // usam (contaBancariaId + REALIZADO + faixa de datas da competencia), e
+    // NUNCA por prestacaoContasId - esse campo so o fechamento de verdade
+    // preenche, e a prestacao aqui fica ABERTA de proposito.
+    const { ctx, conta, categoria, fornecedor } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const primeira = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Conta de luz de agosto',
+      valor: 800,
+      data: new Date('2026-08-15'),
+    })
+    await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Manutenção do gerador',
+      valor: 400,
+      data: new Date('2026-08-20'),
+    })
+
+    await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_FISCAL', lancamentoId: primeira.id },
+      { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+
+    const cobertura = await coberturaDeAnexos(ctx, prestacao.id)
+
+    expect(cobertura.despesas).toBe(2)
+    expect(cobertura.comFiscal).toBe(1)
+    expect(cobertura.comComprovante).toBe(0)
+    expect(cobertura.temExtrato).toBe(false)
+  })
+
+  it('conta comprovante de pagamento e extrato quando eles existem', async () => {
+    const { ctx, conta, categoria, fornecedor } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+
+    const despesa = await lancarDespesa(ctx, {
+      contaBancariaId: conta.id,
+      fornecedorId: fornecedor.id,
+      categoriaDespesaId: categoria.id,
+      formaPagamento: 'PIX',
+      descricao: 'Conta de luz de agosto',
+      valor: 800,
+      data: new Date('2026-08-15'),
+    })
+
+    await anexarComprovante(
+      ctx,
+      { tipo: 'DESPESA_COMPROVANTE', lancamentoId: despesa.id },
+      { nomeArquivoOriginal: 'comprovante.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+    await anexarComprovante(
+      ctx,
+      { tipo: 'EXTRATO', prestacaoId: prestacao.id },
+      { nomeArquivoOriginal: 'extrato.pdf', mimeType: 'application/pdf', conteudo: PDF }
+    )
+
+    const cobertura = await coberturaDeAnexos(ctx, prestacao.id)
+
+    expect(cobertura.comComprovante).toBe(1)
+    expect(cobertura.temExtrato).toBe(true)
+  })
+
+  it('recusa o papel SAUDE', async () => {
+    const { ctx, conta } = await cenario()
+    const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
+    const saude = await ctxComPapel('SAUDE')
+
+    await expect(coberturaDeAnexos(saude, prestacao.id)).rejects.toThrow(ErroPermissao)
   })
 })

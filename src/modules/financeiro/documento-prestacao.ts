@@ -29,6 +29,16 @@ export type LinhaDespesa = {
   formaPagamento: string
   data: Date
   valor: number
+  /**
+   * O id do lançamento que gerou esta linha. **Não vai para o papel** — nem o
+   * `.xlsx` nem o PDF o imprimem. Ele existe para o apêndice comprobatório
+   * herdar a ordem desta lista em vez de recalculá-la com uma segunda consulta.
+   *
+   * Duas consultas ordenando a mesma coisa é o defeito que a divisão de turnos
+   * já cobrou uma vez: o produto mudou a ordem e a cópia não, e a diferença só
+   * aparecia numa hora do dia.
+   */
+  lancamentoId: string
 }
 
 export type LinhaReceita = {
@@ -203,6 +213,7 @@ export async function montarDocumentoPrestacao(
           : '',
         data: lancamento.data,
         valor,
+        lancamentoId: lancamento.id,
       })
       despesasDetalhadas.push({
         credor,

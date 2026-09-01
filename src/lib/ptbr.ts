@@ -111,6 +111,8 @@ export const ROTULO_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
   FOTO: 'Foto',
   EXAME: 'Exame',
   COMPROVANTE_FISCAL: 'Comprovante fiscal',
+  COMPROVANTE_PAGAMENTO: 'Comprovante de pagamento',
+  EXTRATO_BANCARIO: 'Extrato bancário',
   CONSELHO_PROFISSIONAL: 'Registro em conselho',
   OUTRO: 'Outro',
 }

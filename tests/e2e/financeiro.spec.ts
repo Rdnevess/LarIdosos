@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
+import { writeFile, readFile, unlink } from 'node:fs/promises'
+import path from 'node:path'
+import { PrismaClient } from '@prisma/client'
+import { PDFDocument } from 'pdf-lib'
 
 /**
  * O caminho inteiro do dinheiro, pela tela: cadastrar a instituição e a conta,
@@ -34,6 +38,71 @@ async function abrirSecao(pagina: Page, titulo: string) {
   await secao.locator('summary').click()
   return secao
 }
+
+/**
+ * O cartão "Lançamentos (N)" da tela `/financeiro`. `section.cartao`, e não só
+ * `section`: o `<section>` que a própria página devolve como raiz também
+ * "contém" o título "Lançamentos", e um `li` solto na página inteira já
+ * ambiguou um teste nesta base. `.cartao` é a classe do componente `<Cartao>`
+ * — só ele carrega essa classe — então escapa da ambiguidade sem depender da
+ * ordem dos elementos no documento.
+ */
+function secaoDeLancamentos(pagina: Page) {
+  return pagina.locator('section.cartao', {
+    has: pagina.getByRole('heading', { name: /^Lançamentos/ }),
+  })
+}
+
+/** Um PDF de uma página, para anexar pela tela. */
+async function pdfDeUmaPagina(): Promise<Buffer> {
+  const doc = await PDFDocument.create()
+  doc.addPage([200, 200])
+  return Buffer.from(await doc.save())
+}
+
+/**
+ * A faxina do que este arquivo passa a criar de verdade: um `Documento` no
+ * banco e um arquivo no volume de uploads, via `setInputFiles`. Nenhum dos
+ * dois é alcançado por `db:limpar-teste` — o script só recolhe usuário,
+ * residente e funcionário por padrão de nome (`scripts/limpar-dados-de-teste.ts`).
+ * `ContaBancaria`, `Lancamento` e `PrestacaoContas` continuam sem faxina aqui:
+ * é resíduo antigo do arquivo, de fora do escopo desta tarefa — a pendência 7
+ * já registra o peso disso em produção; esta faxina é só do que a Tarefa 7
+ * acrescentou.
+ *
+ * Apaga pelo id exato capturado no teste, e não por prefixo no nome do
+ * arquivo: o nome que sobe é sempre "nota.pdf" / "comprovante.pdf", sem a
+ * marca — o id é o único identificador confiável que sobra.
+ */
+if (!process.env.UPLOADS_DIR) process.loadEnvFile('.env')
+const prisma = new PrismaClient()
+let documentoFiscalId: string | null = null
+let documentoComprovanteId: string | null = null
+
+function diretorioDeUploads(): string {
+  return path.resolve(process.env.UPLOADS_DIR ?? './data/uploads')
+}
+
+test.afterAll(async () => {
+  const ids = [documentoFiscalId, documentoComprovanteId].filter(
+    (id): id is string => id !== null
+  )
+  if (ids.length > 0) {
+    const documentos = await prisma.documento.findMany({
+      where: { id: { in: ids } },
+      select: { caminhoArmazenamento: true },
+    })
+    // ON DELETE SET NULL desliga o lançamento sozinho — não precisa zerar o
+    // campo antes.
+    await prisma.documento.deleteMany({ where: { id: { in: ids } } })
+    for (const documento of documentos) {
+      await unlink(path.join(diretorioDeUploads(), documento.caminhoArmazenamento)).catch(
+        () => {}
+      )
+    }
+  }
+  await prisma.$disconnect()
+})
 
 test.describe.configure({ mode: 'serial' })
 
@@ -192,6 +261,92 @@ test('reabrir exige motivo, e o motivo sai no documento regerado', async ({ page
   // `exact`: sem ele, "Aberta" casa também o "Reaberta:" da linha do motivo.
   await expect(reaberta.getByText('Aberta', { exact: true })).toBeVisible()
   await expect(reaberta.getByText(/chegou atrasada/)).toBeVisible()
+})
+
+test('anexa nota e comprovante na despesa, e eles saem no PDF da prestacao', async ({
+  page,
+}, informacoes) => {
+  // A travessia que so a tela prova: anexar pela interface, ver a contagem
+  // mudar nos dois campos (sao colunas separadas do lancamento, e este e o
+  // caso que prova isso), e o documento entregue ao orgao sair com as duas
+  // paginas dos anexos a mais — nao so "maior que zero", que passaria igual
+  // com o juntarAnexos completamente quebrado, ja que a base sozinha tem seis
+  // folhas.
+  //
+  // A prestacao chega aqui reaberta pelo teste anterior — despesa descongelada
+  // de novo —, entao os campos de anexo voltam a aparecer na linha.
+  const nota = informacoes.outputPath('nota.pdf')
+  const comprovante = informacoes.outputPath('comprovante.pdf')
+  await writeFile(nota, await pdfDeUmaPagina())
+  await writeFile(comprovante, await pdfDeUmaPagina())
+
+  const prestacao = await prisma.prestacaoContas.findFirstOrThrow({
+    where: { contaBancaria: { numeroConta: CONTA }, anoCompetencia: 2026, mesCompetencia: 8 },
+    select: { id: true },
+  })
+  // A linha de base, com a prestacao ainda sem anexo nenhum: o endpoint nao
+  // exige "Fechada" para responder, so o papel — e o numero contra o qual o
+  // download de depois de fechar vai ser comparado.
+  const antes = await page.request.get(`/api/prestacoes/${prestacao.id}/pdf`)
+  const paginasAntes = (await PDFDocument.load(await antes.body())).getPageCount()
+
+  // Filtro explicito: "hoje" no relogio da maquina ja passou de agosto de
+  // 2026, e o padrao sem filtro (`mesCorrente()`) mostraria o mes corrente, e
+  // nao o da despesa lancada no teste 3.
+  await page.goto('/financeiro?de=2026-08-01&ate=2026-08-31')
+  const linha = secaoDeLancamentos(page).locator('li', { hasText: DESPESA })
+
+  await linha.getByLabel(/^Documento fiscal/).setInputFiles(nota)
+  await linha.getByRole('button', { name: 'Anexar' }).first().click()
+  await expect(linha.getByRole('link', { name: 'nota.pdf' })).toBeVisible()
+
+  await linha.getByLabel(/^Comprovante de pagamento/).setInputFiles(comprovante)
+  await linha.getByRole('button', { name: 'Anexar' }).first().click()
+  await expect(linha.getByRole('link', { name: 'comprovante.pdf' })).toBeVisible()
+
+  // Guarda os dois ids para a faxina no afterAll: nem o volume de uploads nem
+  // a tabela Documento sao alcancados pelo db:limpar-teste.
+  const lancamento = await prisma.lancamento.findFirstOrThrow({
+    where: { descricao: DESPESA },
+    select: { documentoFiscalId: true, comprovantePagamentoId: true },
+  })
+  documentoFiscalId = lancamento.documentoFiscalId
+  documentoComprovanteId = lancamento.comprovantePagamentoId
+
+  // Filtrado pela conta: o banco de E2E acumula "Banco do Brasil" de rodadas
+  // anteriores, e um `article` solto pegaria o primeiro da lista, nao o desta
+  // rodada.
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const cartao = page.locator('article', { hasText: 'Banco do Brasil' }).first()
+  await expect(cartao).toContainText('1 com documento fiscal')
+  await expect(cartao).toContainText('1 com comprovante')
+  await expect(cartao).toContainText('sem extrato')
+
+  // Fecha para os downloads aparecerem. O PDF baixado tem de ter exatamente
+  // duas paginas a mais que o de antes de anexar qualquer coisa — uma por
+  // anexo, os dois de uma pagina so —, o que so acontece se o anexo realmente
+  // atravessa ate o apendice, e nao so ate o banco.
+  await cartao.getByRole('button', { name: 'Fechar prestação' }).click()
+  const baixado = await Promise.all([
+    page.waitForEvent('download'),
+    cartao.getByRole('link', { name: 'Baixar PDF' }).click(),
+  ])
+  const arquivo = await baixado[0].path()
+  const paginasDepois = (await PDFDocument.load(await readFile(arquivo))).getPageCount()
+  expect(paginasDepois).toBe(paginasAntes + 2)
+})
+
+test('a prestacao fechada nao aceita mais anexo', async ({ page }) => {
+  // Uma regra so: fechar congela o documento entregue ao orgao, e anexo faz
+  // parte dele. O campo nem e oferecido.
+  await page.goto(`/financeiro/prestacoes?conta=${encodeURIComponent(CONTA)}`)
+  const fechada = page.locator('article', { hasText: 'Fechada' }).first()
+
+  // Sem isto, um `.first()` que nao acha `article` nenhum tambem teria zero
+  // filhos com o rotulo do extrato — e o teste passaria por ausencia da
+  // prestacao, nao por ausencia do campo.
+  await expect(fechada).toBeVisible()
+  await expect(fechada.getByLabel(/^Extrato bancário/)).toHaveCount(0)
 })
 
 test('define a contribuição na ficha e a lança pela proposta do mês', async ({ page }) => {

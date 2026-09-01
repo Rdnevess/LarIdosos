@@ -16,6 +16,8 @@ apagar o registro apagaria junto o motivo de ela ter mudado.
 | 4. "à disposição dos condôminos" na declaração | resolvido | 24/08/2026 |
 | 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | resolvido | 31/08/2026, por `override` |
 | 6. O layout extraído carrega categorias do exemplo | aberto — contornado | no extrator, se o modelo mudar |
+| 7. O backup ficou bem mais pesado | aberto — agrava o item 1 da Fase 1 | no teste de restauração, no VPS |
+| 8. Ninguém confere se o anexo é o que diz ser | aberto, deliberado | é trabalho de quem confere |
 
 ## 1. A fidelidade do `.xlsx` só se confirma abrindo os dois lado a lado
 
@@ -146,3 +148,30 @@ fazer se o modelo do órgão mudar e a extração precisar ser refeita.
 **O que não fazer:** editar o arquivo gerado à mão. Ele diz, no topo, que é
 gerado; uma edição manual se perde na primeira regeração e ninguém lembra por
 quê.
+
+## 7. O volume de backup ficou bem mais pesado
+
+**Situação:** os anexos comprobatórios vão para o mesmo volume `lar_uploads` do
+anexo de residente. Uma dúzia de notas por mês, mais os comprovantes e um
+extrato por conta, passam a ser a maior parte do que o backup protege.
+
+**Por que isso importa:** o item 1 das pendências da Fase 1 registra que a
+metade documental do backup **nunca foi exercitada** — nem no VPS, nem na
+verificação parcial de 23/08/2026, que cobriu só o que não dependia de Docker.
+Essa metade acabou de ficar bem maior, e continua sendo a que ninguém testou.
+
+**O que fazer:** nada aqui. É razão a mais para o teste de restauração da Fase 1
+deixar de ser hipótese, e não uma tarefa própria.
+
+## 8. Ninguém confere se o anexo é o que diz ser
+
+**Situação:** um comprovante de pagamento enviado no campo do documento fiscal
+entra no apêndice na posição do documento fiscal, e o sistema não tem como
+notar. O mesmo vale para a nota de outra despesa, ou para um PDF em branco.
+
+**Qual é a exposição:** a contagem de cobertura no cartão da prestação mostra
+que **há** um arquivo, nunca que ele é o arquivo certo. Quem confere continua
+sendo quem confere.
+
+**O que fazer:** nada. Reconhecer conteúdo de PDF é problema de outra ordem, e
+o valor de resolvê-lo não paga o que custaria.

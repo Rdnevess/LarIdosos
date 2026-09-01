@@ -4,8 +4,10 @@ import { listarContasBancarias } from '@/modules/financeiro/instituicao.service'
 import {
   listarPrestacoes,
   calcularSaldoAnterior,
+  coberturaDeAnexos,
 } from '@/modules/financeiro/prestacoes.service'
 import { listarLancamentos } from '@/modules/financeiro/lancamentos.service'
+import { extratosAnexados } from '@/modules/financeiro/anexos.service'
 import { formatarMoeda } from '@/lib/ptbr'
 import { mesPorExtenso } from '@/modules/financeiro/textos-prestacao'
 import {
@@ -15,6 +17,7 @@ import {
   FormularioFecharPrestacao,
   FormularioReabrirPrestacao,
 } from '@/components/formularios-financeiro'
+import { FormularioAnexoFinanceiro } from '@/components/formulario-anexo-financeiro'
 import { fimDoMes } from '@/lib/periodo'
 import { Etiqueta } from '@/components/ui/etiqueta'
 
@@ -79,6 +82,17 @@ export default async function PaginaPrestacoes({
 
   const porConta = new Map(contas.map((conta) => [conta.id, conta]))
 
+  // O nome do arquivo do extrato vem numa consulta só, com todos os ids de
+  // uma vez (`IN`): `extratoId` já está no registro da prestação — é campo
+  // escalar, não precisa de include —, então não há por que buscar o
+  // documento um a um por prestação. A busca em si mora em
+  // `anexos.service.ts`: é leitura de `Documento`, e quem decide quem enxerga
+  // cada um é `papeisQuePodemVer`, não esta tela.
+  const idsExtrato = prestacoes
+    .map((prestacao) => prestacao.extratoId)
+    .filter((id): id is string => id !== null)
+  const porExtrato = await extratosAnexados(ctx, idsExtrato)
+
   const cartoes = await Promise.all(
     prestacoes.map(async (prestacao) => {
       const { receitas, despesas } = await totaisDa(
@@ -94,6 +108,10 @@ export default async function PaginaPrestacoes({
         prestacao.mesCompetencia
       )
       const saldoAnterior = Number(prestacao.saldoAnteriorAjustado ?? prestacao.saldoAnterior)
+      // Uma consulta por prestação, do serviço da Tarefa 5 — ele não expõe
+      // uma variante em lote, e criar uma só para esta tela mexeria em
+      // `prestacoes.service.ts`, fora do escopo desta tarefa.
+      const cobertura = await coberturaDeAnexos(ctx, prestacao.id)
 
       return {
         prestacao,
@@ -102,6 +120,8 @@ export default async function PaginaPrestacoes({
         derivado,
         saldoAnterior,
         saldoDisponivel: Math.round((saldoAnterior + receitas - despesas) * 100) / 100,
+        cobertura,
+        extrato: prestacao.extratoId ? (porExtrato.get(prestacao.extratoId) ?? null) : null,
       }
     })
   )
@@ -133,7 +153,16 @@ export default async function PaginaPrestacoes({
       </details>
 
       {cartoes.map(
-        ({ prestacao, receitas, despesas, derivado, saldoAnterior, saldoDisponivel }) => {
+        ({
+          prestacao,
+          receitas,
+          despesas,
+          derivado,
+          saldoAnterior,
+          saldoDisponivel,
+          cobertura,
+          extrato,
+        }) => {
           const conta = porConta.get(prestacao.contaBancariaId)
           const aberta = prestacao.status === 'ABERTA'
           const ajustado = prestacao.saldoAnteriorAjustado !== null
@@ -178,6 +207,13 @@ export default async function PaginaPrestacoes({
                 </div>
               </dl>
 
+              <p className="text-suporte text-apoio">
+                {cobertura.despesas} despesa{cobertura.despesas === 1 ? '' : 's'} ·{' '}
+                {cobertura.comFiscal} com documento fiscal ·{' '}
+                {cobertura.comComprovante} com comprovante ·{' '}
+                {cobertura.temExtrato ? 'extrato anexado' : 'sem extrato'}
+              </p>
+
               {prestacao.justificativaAjuste && (
                 <p className="text-suporte text-medio">
                   Ajuste do saldo: {prestacao.justificativaAjuste}
@@ -219,6 +255,11 @@ export default async function PaginaPrestacoes({
 
               {aberta ? (
                 <div className="space-y-2">
+                  <FormularioAnexoFinanceiro
+                    alvo={{ tipo: 'EXTRATO', id: prestacao.id }}
+                    rotulo="Extrato bancário"
+                    anexado={extrato ?? null}
+                  />
                   <details>
                     <summary className="cursor-pointer text-suporte text-medio underline">
                       Observações do mês

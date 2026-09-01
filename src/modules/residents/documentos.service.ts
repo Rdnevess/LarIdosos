@@ -18,6 +18,25 @@ const FINANCEIRO_E_PESSOAL: Papel[] = ['COORDENACAO', 'ADMINISTRATIVO']
 const NINGUEM: Papel[] = []
 
 /**
+ * Os tipos que podem ser anexados a uma **pessoa** — residente ou funcionário.
+ *
+ * `COMPROVANTE_PAGAMENTO` e `EXTRATO_BANCARIO` ficam de fora: são anexos de
+ * lançamento e de prestação de contas, e não de gente. A lista existe porque
+ * `tiposQuePodeAnexar` derivava o universo de `Object.values(TipoDocumento)`, e
+ * um tipo novo no schema entrava sozinho no seletor da ficha — o extrato
+ * bancário do Lar seria oferecido como documento de um residente.
+ *
+ * Uma lista só, consumida pelo schema de gravação e pelo seletor. Duas listas
+ * divergiriam, e foi exatamente esse o defeito que `tiposQuePodeAnexar` já
+ * corrigiu uma vez.
+ */
+export const TIPOS_DE_ALVO = [
+  'RG', 'CPF', 'CNS', 'CERTIDAO', 'LAUDO', 'PROCURACAO',
+  'TERMO_RESPONSABILIDADE', 'TERMO_LGPD', 'FOTO', 'EXAME',
+  'COMPROVANTE_FISCAL', 'CONSELHO_PROFISSIONAL', 'OUTRO',
+] as const satisfies readonly TipoDocumento[]
+
+/**
  * A ordem das checagens importa e é deliberada: o vínculo com funcionário vem
  * ANTES do tipo. Um laudo de funcionário — atestado, perícia — é assunto de
  * pessoal, não da equipe que cuida dos idosos; por isso fica visível ao
@@ -40,6 +59,8 @@ export function papeisQuePodemVer(documento: {
   if (documento.tipo === 'CONSELHO_PROFISSIONAL') return NINGUEM
   if (documento.tipo === 'EXAME' || documento.tipo === 'LAUDO') return CLINICO
   if (documento.tipo === 'COMPROVANTE_FISCAL') return FINANCEIRO_E_PESSOAL
+  if (documento.tipo === 'COMPROVANTE_PAGAMENTO') return FINANCEIRO_E_PESSOAL
+  if (documento.tipo === 'EXTRATO_BANCARIO') return FINANCEIRO_E_PESSOAL
   return TODOS
 }
 
@@ -52,10 +73,14 @@ export function papeisQuePodemVer(documento: {
  * seletor omitir os três tipos restritos: a enfermeira não conseguia anexar o
  * laudo do grau de dependência, documento que a fiscalização sanitária cobra.
  *
- * O universo vem de `Object.values(TipoDocumento)`, o enum gerado pelo Prisma
- * a partir de `prisma/schema.prisma`: um tipo novo no schema entra aqui
- * sozinho, e o `Record<TipoDocumento, string>` de `ROTULO_TIPO_DOCUMENTO`
- * (`src/lib/ptbr.ts`) quebra o typecheck se ele não tiver rótulo.
+ * O universo vem de `TIPOS_DE_ALVO`, não de `Object.values(TipoDocumento)`:
+ * `COMPROVANTE_PAGAMENTO` e `EXTRATO_BANCARIO` são anexo de lançamento e de
+ * prestação de contas, não de gente, e um seletor de ficha que os oferecesse
+ * repetiria o mesmo defeito que este comentário descrevia antes — um tipo
+ * novo no schema entrando sozinho no seletor. O `Record<TipoDocumento,
+ * string>` de `ROTULO_TIPO_DOCUMENTO` (`src/lib/ptbr.ts`) continua cobrindo
+ * o enum inteiro, então um tipo sem rótulo ainda quebra o typecheck — só que
+ * agora isso não basta sozinho para colocá-lo no seletor.
  *
  * O alvo importa porque `papeisQuePodemVer` testa `funcionarioId` ANTES do
  * tipo — um LAUDO de funcionário é assunto de pessoal, não da equipe clínica.
@@ -65,18 +90,14 @@ export function tiposQuePodeAnexar(
   papel: Papel,
   alvo: { funcionarioId?: string | null } = {}
 ): TipoDocumento[] {
-  return Object.values(TipoDocumento).filter((tipo) =>
+  return TIPOS_DE_ALVO.filter((tipo) =>
     papeisQuePodemVer({ tipo, funcionarioId: alvo.funcionarioId ?? null }).includes(papel)
   )
 }
 
 const anexoSchema = z
   .object({
-    tipo: z.enum([
-      'RG', 'CPF', 'CNS', 'CERTIDAO', 'LAUDO', 'PROCURACAO',
-      'TERMO_RESPONSABILIDADE', 'TERMO_LGPD', 'FOTO', 'EXAME',
-      'COMPROVANTE_FISCAL', 'CONSELHO_PROFISSIONAL', 'OUTRO',
-    ]),
+    tipo: z.enum(TIPOS_DE_ALVO),
     descricao: z.string().trim().nullish(),
     nomeArquivoOriginal: z.string().trim().min(1, 'Informe o nome do arquivo'),
     mimeType: z.string().trim().min(1),

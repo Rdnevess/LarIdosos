@@ -360,6 +360,61 @@ export async function obterPrestacao(ctx: Ctx, id: string): Promise<PrestacaoCon
   return exigirPrestacao(id)
 }
 
+export type CoberturaAnexos = {
+  despesas: number
+  comFiscal: number
+  comComprovante: number
+  temExtrato: boolean
+}
+
+/**
+ * Quantas despesas da competência já têm cada anexo.
+ *
+ * Não é alerta e não é erro: é contagem, mostrada no cartão da prestação
+ * enquanto ela ainda está aberta. O apêndice do PDF não carimba nada nas
+ * páginas — foi decisão explícita —, então lá a falta de uma nota não se
+ * enxerga: o leitor vê menos páginas, não um buraco. Aqui se enxerga, e aqui
+ * ainda dá para resolver.
+ *
+ * O conjunto é o mesmo que `fecharPrestacao` congela e que
+ * `montarDocumentoPrestacao` imprime — `contaBancariaId` + `REALIZADO` +
+ * `limitesDaCompetencia` —, e não `prestacaoContasId`. Esse campo só é
+ * preenchido no fechamento de verdade; filtrar por ele faria a contagem
+ * devolver zero exatamente na prestação aberta, que é o único momento em que
+ * ela serve para alguma coisa.
+ */
+export async function coberturaDeAnexos(
+  ctx: Ctx,
+  prestacaoId: string
+): Promise<CoberturaAnexos> {
+  exigirPapel(ctx, 'PrestacaoContas', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  const prestacao = await prisma.prestacaoContas.findUnique({
+    where: { id: prestacaoId },
+    select: { contaBancariaId: true, anoCompetencia: true, mesCompetencia: true, extratoId: true },
+  })
+  if (!prestacao) throw new ErroNaoEncontrado('Prestação de contas não encontrada')
+
+  const { inicio, fim } = limitesDaCompetencia(prestacao.anoCompetencia, prestacao.mesCompetencia)
+
+  const despesas = await prisma.lancamento.findMany({
+    where: {
+      contaBancariaId: prestacao.contaBancariaId,
+      natureza: 'DESPESA',
+      status: 'REALIZADO',
+      data: { gte: inicio, lt: fim },
+    },
+    select: { documentoFiscalId: true, comprovantePagamentoId: true },
+  })
+
+  return {
+    despesas: despesas.length,
+    comFiscal: despesas.filter((despesa) => despesa.documentoFiscalId !== null).length,
+    comComprovante: despesas.filter((despesa) => despesa.comprovantePagamentoId !== null).length,
+    temExtrato: prestacao.extratoId !== null,
+  }
+}
+
 export async function listarPrestacoes(
   ctx: Ctx,
   filtros: FiltrosPrestacao

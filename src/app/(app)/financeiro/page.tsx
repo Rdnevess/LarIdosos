@@ -14,6 +14,7 @@ import {
   FormularioDespesa,
   FormularioCancelarLancamento,
 } from '@/components/formularios-financeiro'
+import { FormularioAnexoFinanceiro } from '@/components/formulario-anexo-financeiro'
 import { fimDoDia } from '@/lib/periodo'
 import { Botao } from '@/components/ui/botao'
 import { Cartao } from '@/components/ui/cartao'
@@ -75,12 +76,16 @@ export default async function PaginaFinanceiro({
     }),
   ])
 
-  const lancamentos = await listarLancamentos(ctx, {
-    contaBancariaId: filtros.conta || undefined,
-    de: new Date(`${de}T00:00:00`),
-    ate: fimDoDia(ate),
-    natureza: (filtros.natureza as 'RECEITA' | 'DESPESA') || undefined,
-  })
+  const lancamentos = await listarLancamentos(
+    ctx,
+    {
+      contaBancariaId: filtros.conta || undefined,
+      de: new Date(`${de}T00:00:00`),
+      ate: fimDoDia(ate),
+      natureza: (filtros.natureza as 'RECEITA' | 'DESPESA') || undefined,
+    },
+    { comAnexos: true }
+  )
 
   const porId = new Map<string, string>([
     ...origens.map((o) => [o.id, o.nome] as [string, string]),
@@ -271,6 +276,34 @@ export default async function PaginaFinanceiro({
               </p>
               {lancamento.motivoCancelamento && (
                 <p className="text-apoio">Motivo: {lancamento.motivoCancelamento}</p>
+              )}
+              {lancamento.natureza === 'DESPESA' && !lancamento.prestacaoContasId && (
+                <div className="space-y-2">
+                  <FormularioAnexoFinanceiro
+                    alvo={{ tipo: 'DESPESA_FISCAL', id: lancamento.id }}
+                    rotulo="Documento fiscal"
+                    anexado={
+                      lancamento.documentoFiscal
+                        ? {
+                            id: lancamento.documentoFiscal.id,
+                            nome: lancamento.documentoFiscal.nomeArquivoOriginal,
+                          }
+                        : null
+                    }
+                  />
+                  <FormularioAnexoFinanceiro
+                    alvo={{ tipo: 'DESPESA_COMPROVANTE', id: lancamento.id }}
+                    rotulo="Comprovante de pagamento"
+                    anexado={
+                      lancamento.comprovantePagamento
+                        ? {
+                            id: lancamento.comprovantePagamento.id,
+                            nome: lancamento.comprovantePagamento.nomeArquivoOriginal,
+                          }
+                        : null
+                    }
+                  />
+                </div>
               )}
               {lancamento.status !== 'CANCELADO' && !lancamento.prestacaoContasId && (
                 <details className="mt-2">

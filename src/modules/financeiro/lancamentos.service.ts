@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Lancamento, NaturezaLancamento } from '@prisma/client'
+import { Prisma, type Lancamento, type NaturezaLancamento } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
 import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
@@ -17,6 +17,10 @@ import { registrarAuditoria } from '@/modules/audit/auditoria.service'
  * Exclusão é lógica. Lançamento errado é cancelado com motivo, e o registro
  * fica: um lançamento apagado é um buraco no extrato que ninguém consegue
  * explicar depois.
+ *
+ * O anexo comprobatório não está em nenhum dos dois: ele entra pelo
+ * `anexos.service.ts`, que é quem sabe que nota e comprovante são só de
+ * despesa e que a prestação fechada não aceita mais nada.
  */
 
 const comum = {
@@ -27,7 +31,6 @@ const comum = {
   valor: z.number().positive('O valor precisa ser maior que zero'),
   data: z.date(),
   observacao: z.string().trim().nullish(),
-  documentoId: z.string().cuid().nullish(),
 }
 
 const receitaSchema = z.object({
@@ -198,19 +201,49 @@ export async function cancelarLancamento(
   })
 }
 
+// Traz os dois documentos junto do lançamento porque a tela precisa mostrar
+// (e deixar anexar) nota fiscal e comprovante em cada linha de despesa, sem
+// uma consulta à parte por lançamento.
+const INCLUSAO_ANEXOS = {
+  documentoFiscal: { select: { id: true, nomeArquivoOriginal: true } },
+  comprovantePagamento: { select: { id: true, nomeArquivoOriginal: true } },
+} satisfies Prisma.LancamentoInclude
+
+export type LancamentoComAnexos = Prisma.LancamentoGetPayload<{
+  include: typeof INCLUSAO_ANEXOS
+}>
+
+/**
+ * `comAnexos` é opt-in: a tela de prestações chama esta função só para somar
+ * receitas e despesas e descarta o resto (`totaisDa`, em
+ * `financeiro/prestacoes/page.tsx`) — sem o parâmetro, ela não paga os dois
+ * `include` que só a tela de lançamentos usa.
+ */
 export async function listarLancamentos(
   ctx: Ctx,
   filtros: FiltrosLancamento
-): Promise<Lancamento[]> {
+): Promise<Lancamento[]>
+export async function listarLancamentos(
+  ctx: Ctx,
+  filtros: FiltrosLancamento,
+  opcoes: { comAnexos: true }
+): Promise<LancamentoComAnexos[]>
+export async function listarLancamentos(
+  ctx: Ctx,
+  filtros: FiltrosLancamento,
+  opcoes?: { comAnexos?: boolean }
+): Promise<Lancamento[] | LancamentoComAnexos[]> {
   exigirPapel(ctx, 'Lancamento', 'COORDENACAO', 'ADMINISTRATIVO')
 
-  return prisma.lancamento.findMany({
-    where: {
-      contaBancariaId: filtros.contaBancariaId,
-      natureza: filtros.natureza,
-      data:
-        filtros.de || filtros.ate ? { gte: filtros.de, lte: filtros.ate } : undefined,
-    },
-    orderBy: [{ data: 'desc' }, { id: 'desc' }],
-  })
+  const where = {
+    contaBancariaId: filtros.contaBancariaId,
+    natureza: filtros.natureza,
+    data: filtros.de || filtros.ate ? { gte: filtros.de, lte: filtros.ate } : undefined,
+  }
+  const orderBy = [{ data: 'desc' as const }, { id: 'desc' as const }]
+
+  if (opcoes?.comAnexos) {
+    return prisma.lancamento.findMany({ where, include: INCLUSAO_ANEXOS, orderBy })
+  }
+  return prisma.lancamento.findMany({ where, orderBy })
 }
