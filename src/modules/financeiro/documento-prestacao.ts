@@ -11,11 +11,13 @@ import {
 } from './textos-prestacao'
 
 /**
- * A prestação como estrutura, sem saber nada de `.xlsx` nem de PDF.
+ * A prestação como estrutura, sem saber nada do PDF que a renderiza.
  *
- * **É aqui que os totais são calculados, e em nenhum outro lugar.** Os dois
- * renderizadores recebem números prontos — é o que impede o `.xlsx` e o PDF de
- * divergirem no dia em que alguém corrigir um cálculo em só um deles.
+ * **É aqui que os totais são calculados, e em nenhum outro lugar.** O PDF
+ * recebe números prontos. Até 01/09/2026 havia dois renderizadores — `.xlsx`
+ * e PDF —, e calcular num lugar só era o que os impedia de divergir no dia em
+ * que alguém corrigisse um cálculo em só um deles. O `.xlsx` saiu, mas o
+ * motivo de calcular aqui continua: é o único lugar de onde o PDF lê.
  *
  * O agrupamento de receitas usa `OrigemReceita.rotuloPrestacao`, e não o texto
  * digitado: no Excel o `SUMIF` casa a descrição literal, e "Doação " com espaço
@@ -30,9 +32,9 @@ export type LinhaDespesa = {
   data: Date
   valor: number
   /**
-   * O id do lançamento que gerou esta linha. **Não vai para o papel** — nem o
-   * `.xlsx` nem o PDF o imprimem. Ele existe para o apêndice comprobatório
-   * herdar a ordem desta lista em vez de recalculá-la com uma segunda consulta.
+   * O id do lançamento que gerou esta linha. **Não vai para o papel** — o PDF
+   * não o imprime. Ele existe para o apêndice comprobatório herdar a ordem
+   * desta lista em vez de recalculá-la com uma segunda consulta.
    *
    * Duas consultas ordenando a mesma coisa é o defeito que a divisão de turnos
    * já cobrou uma vez: o produto mudou a ordem e a cópia não, e a diferença só
@@ -85,9 +87,12 @@ export type DocumentoPrestacao = {
     declaracao: string
     observacoes: string
     /**
-     * As observações e a declaração juntas, como vão para a folha. Os dois
-     * campos acima ficam separados para o PDF poder dar a cada um o seu
-     * parágrafo; o `.xlsx` tem uma célula só, e escreve isto.
+     * As observações e a declaração juntas, como vão para a folha — um
+     * `\n\n` separa as duas em parágrafos dentro do mesmo bloco que o PDF
+     * imprime (`pdf-prestacao.ts` só lê este campo). `declaracao` e
+     * `observacoes` continuam expostos à parte porque é o que os testes
+     * conferem: mais simples verificar cada texto isolado do que recortá-lo
+     * de dentro do parágrafo combinado.
      */
     texto: string
     dataPorExtenso: string

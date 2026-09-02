@@ -298,9 +298,6 @@ describe('exportarPrestacao', () => {
   })
 
   it('o csv nao ganha anexo nenhum', async () => {
-    // "So o PDF muda": o CSV e listagem plana para o contador importar, sem
-    // folha nenhuma para levar apendice.
-    //
     // O CSV nem passa por `montarDocumentoPrestacao` — não tem folha para
     // levar apêndice, e o conteúdo é idêntico byte a byte, sem timestamp de
     // formato de planilha para atrapalhar a comparação.
