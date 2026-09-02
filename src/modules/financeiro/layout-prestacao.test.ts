@@ -82,6 +82,20 @@ describe('LAYOUT', () => {
     // A superficie do extrator cresceu: bordas, fontes e alinhamentos sao
     // Records com chave de celula. Nenhum deles pode conter texto livre — se
     // contiver, alguma coisa do exemplo preenchido vazou por um caminho novo.
+    //
+    // As allowlists sao o conjunto que o ECMA-376 define para cada eixo (via
+    // os tipos do proprio ExcelJS), nao so os valores que este modelo usa
+    // hoje — assim uma revisao do modelo que troque de alinhamento nao
+    // quebra o teste à toa, mas texto livre continua barrado.
+    const HORIZONTAIS_VALIDOS = [
+      'left', 'center', 'right', 'fill', 'justify', 'centerContinuous', 'distributed',
+    ]
+    const VERTICAIS_VALIDOS = ['top', 'middle', 'bottom', 'distributed', 'justify']
+    // As familias que o modelo usa hoje. Uma familia nova aqui e
+    // comportamento desejado, nao um teste fragil: e o sinal para alguem
+    // olhar o que mudou no modelo antes do arquivo gerado entrar no git.
+    const FAMILIAS_CONHECIDAS = ['Algerian', 'Arial', 'Calibri', 'Times New Roman']
+
     for (const folha of Object.values(LAYOUT)) {
       for (const lados of Object.values(folha.bordas)) {
         for (const estilo of Object.values(lados)) {
@@ -90,7 +104,16 @@ describe('LAYOUT', () => {
       }
       for (const fonte of Object.values(folha.fontes)) {
         expect(typeof fonte.tamanho).toBe('number')
-        expect(fonte.familia.length).toBeLessThan(40)
+        expect(FAMILIAS_CONHECIDAS).toContain(fonte.familia)
+      }
+      for (const alinhamento of Object.values(folha.alinhamentos)) {
+        if (alinhamento.horizontal !== undefined) {
+          expect(HORIZONTAIS_VALIDOS).toContain(alinhamento.horizontal)
+        }
+        if (alinhamento.vertical !== undefined) {
+          expect(VERTICAIS_VALIDOS).toContain(alinhamento.vertical)
+        }
+        expect(typeof alinhamento.quebra === 'boolean' || alinhamento.quebra === undefined).toBe(true)
       }
     }
   })

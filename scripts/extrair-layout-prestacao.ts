@@ -9,10 +9,13 @@ import ExcelJS from 'exceljs'
  * seria trabalhar no escuro; daí a extração.
  *
  * **O modelo fica em `docs/convenio/`, fora do git.** Só saem daqui faixas de
- * célula, larguras de coluna e textos que são **rótulo fixo** — cabeçalho de
- * coluna, título de seção, palavras como "Total". Uma célula dentro da faixa de
- * dados nunca é copiada, mesmo que pareça inofensiva: o critério é a posição,
- * não o conteúdo, porque conteúdo se julga errado.
+ * célula, larguras de coluna, textos que são **rótulo fixo** — cabeçalho de
+ * coluna, título de seção, palavras como "Total" — e a aparência da célula:
+ * borda, fonte, alinhamento, altura de linha e margem de impressão. Uma
+ * célula dentro da faixa de dados nunca é copiada, mesmo que pareça
+ * inofensiva: o critério é a posição, não o conteúdo, porque conteúdo se
+ * julga errado. Isso vale também para a aparência — só se recolhe estilo de
+ * célula (borda, fonte, alinhamento), nunca o valor que ela guarda.
  *
  * Uso:
  *   npx tsx scripts/extrair-layout-prestacao.ts > src/modules/financeiro/layout-prestacao.ts
