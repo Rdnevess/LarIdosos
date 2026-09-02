@@ -208,7 +208,7 @@ test('lança uma receita e uma despesa, e mostra as duas em reais', async ({ pag
   await expect(page.getByText('R$ 800,00').first()).toBeVisible()
 })
 
-test('abre a prestação, fecha, e baixa os dois arquivos', async ({ page }) => {
+test('abre a prestação, fecha, e baixa o PDF', async ({ page }) => {
   await page.goto('/financeiro/prestacoes')
 
   const abrir = await abrirSecao(page, 'Abrir prestação')
@@ -234,13 +234,7 @@ test('abre a prestação, fecha, e baixa os dois arquivos', async ({ page }) => 
   const fechada = page.getByRole('article').filter({ hasText: 'agosto de 2026' }).first()
   await expect(fechada.getByText('Fechada')).toBeVisible()
 
-  // Os dois formatos, pelo endpoint, com a sessão do navegador.
-  const xlsx = await page.request.get(
-    (await fechada.getByRole('link', { name: 'Baixar .xlsx' }).getAttribute('href')) ?? ''
-  )
-  expect(xlsx.status()).toBe(200)
-  expect(xlsx.headers()['content-type']).toContain('spreadsheetml')
-
+  // Pelo endpoint, com a sessão do navegador.
   const pdf = await page.request.get(
     (await fechada.getByRole('link', { name: 'Baixar PDF' }).getAttribute('href')) ?? ''
   )

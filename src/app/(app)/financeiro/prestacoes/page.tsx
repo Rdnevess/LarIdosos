@@ -228,13 +228,6 @@ export default async function PaginaPrestacoes({
               {!aberta && (
                 <p className="flex flex-wrap gap-3 text-suporte">
                   <Link
-                    href={`/api/prestacoes/${prestacao.id}/xlsx`}
-                    className="underline"
-                    prefetch={false}
-                  >
-                    Baixar .xlsx
-                  </Link>
-                  <Link
                     href={`/api/prestacoes/${prestacao.id}/pdf`}
                     className="underline"
                     prefetch={false}
