@@ -77,4 +77,96 @@ describe('LAYOUT', () => {
     expect(LAYOUT['3-Despesas'].merges.length).toBe(109)
     expect(LAYOUT['5-Conciliação'].merges.length).toBe(117)
   })
+
+  it('os campos novos nao carregam texto de ninguem', () => {
+    // A superficie do extrator cresceu: bordas, fontes e alinhamentos sao
+    // Records com chave de celula. Nenhum deles pode conter texto livre — se
+    // contiver, alguma coisa do exemplo preenchido vazou por um caminho novo.
+    for (const folha of Object.values(LAYOUT)) {
+      for (const lados of Object.values(folha.bordas)) {
+        for (const estilo of Object.values(lados)) {
+          expect(['hair', 'thin', 'medium', 'thick', 'double']).toContain(estilo)
+        }
+      }
+      for (const fonte of Object.values(folha.fontes)) {
+        expect(typeof fonte.tamanho).toBe('number')
+        expect(fonte.familia.length).toBeLessThan(40)
+      }
+    }
+  })
+})
+
+describe('o estilo que o modelo carrega', () => {
+  it('traz as bordas das seis folhas', () => {
+    // O defeito que esta tarefa conserta: o extrator recolhia geometria e
+    // ignorava aparencia, entao o documento entregue nao tinha as linhas que o
+    // modelo do orgao tem. Sao 1431 lados no arquivo original.
+    const lados = Object.values(LAYOUT).flatMap((folha) =>
+      Object.values(folha.bordas).flatMap((b) =>
+        [b.topo, b.esquerda, b.baixo, b.direita].filter(Boolean)
+      )
+    )
+
+    expect(lados.length).toBe(1431)
+  })
+
+  it('o modelo usa um estilo de borda so', () => {
+    // Medido no arquivo: todos os 1431 lados sao `thin`. Se um dia o orgao
+    // revisar o modelo e trouxer outro estilo, este teste avisa — e o
+    // renderizador ja sabe desenhar os outros.
+    const estilos = new Set(
+      Object.values(LAYOUT).flatMap((folha) =>
+        Object.values(folha.bordas).flatMap((b) =>
+          [b.topo, b.esquerda, b.baixo, b.direita].filter(Boolean)
+        )
+      )
+    )
+
+    expect([...estilos]).toEqual(['thin'])
+  })
+
+  it('traz as margens de impressao, que diferem por folha', () => {
+    // A capa usa 0,236 polegada nas laterais; as folhas de lancamento usam
+    // 0,25 e 0,75. Uma margem so para todas deslocaria quatro folhas.
+    expect(LAYOUT['1-Capa'].margens.esquerda).toBeCloseTo(17, 0)
+    expect(LAYOUT['3-Despesas'].margens.topo).toBeCloseTo(54, 0)
+    expect(LAYOUT['3-Despesas'].margens.esquerda).toBeCloseTo(18, 0)
+  })
+
+  it('traz altura de linha e a altura padrao da folha', () => {
+    // Altura do Excel ja e em pontos. Linha sem altura declarada usa o padrao
+    // da folha, que difere: 13,5 na capa, 12,75 nas de lancamento.
+    expect(LAYOUT['1-Capa'].alturaPadrao).toBeCloseTo(13.5, 2)
+    expect(LAYOUT['3-Despesas'].alturaPadrao).toBeCloseTo(12.75, 2)
+    expect(LAYOUT['3-Despesas'].alturas.length).toBeGreaterThan(0)
+  })
+
+  it('traz as fontes, com o nome original preservado', () => {
+    // O mapeamento para as fontes embutidas do PDF acontece no desenho, nao
+    // aqui: o layout guarda o que o modelo diz, e quem traduz e o renderizador.
+    // Assim, o dia em que as fontes originais forem embutidas nao exige
+    // reextrair.
+    const familias = new Set(
+      Object.values(LAYOUT).flatMap((folha) =>
+        Object.values(folha.fontes).map((f) => f.familia)
+      )
+    )
+
+    expect(familias.has('Arial')).toBe(true)
+    expect(familias.has('Times New Roman')).toBe(true)
+  })
+
+  it('so recolhe ate a coluna 12, e nao ate o columnCount', () => {
+    // O ExcelJS relata columnCount de ate 20, contando coluna formatada e
+    // vazia. Conteudo e borda param na 12 nas seis folhas. Recolher ate 20
+    // acrescentaria oito colunas que estourariam a largura da pagina.
+    for (const folha of Object.values(LAYOUT)) {
+      expect(folha.larguras.length).toBe(12)
+      for (const celula of Object.keys(folha.bordas)) {
+        const coluna = celula.replace(/\d+/g, '')
+        expect(coluna.length, `${folha.nome}: ${celula} passa da coluna L`).toBe(1)
+        expect(coluna <= 'L', `${folha.nome}: ${celula} passa da coluna L`).toBe(true)
+      }
+    }
+  })
 })
