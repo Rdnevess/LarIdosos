@@ -49,7 +49,7 @@ pai:
 | `postcss` | 8.4.31 | 8.5.26 | o `next` fixa **exatamente** 8.4.31, e o `15.5.24` também fixa. Quatro avisos, dois altos. O `@tailwindcss/postcss` já rodava 8.5.26 no mesmo build. |
 | `sharp` | 0.34.5 | 0.35.4 | quatro CVEs de libvips, herdadas pelo `sharp` como dependência opcional do `next`. |
 | `deepmerge-ts` | 7.1.5 | 8.0.2 | esgotamento de pilha; chega pelo `@prisma/config`, que chega pelo `prisma`. |
-| `uuid` | 8.3.2 | 11.1.1 | falta de checagem de limites de *buffer*; chega pelo `exceljs`. |
+| `uuid` | 8.3.2 | 11.1.1 | falta de checagem de limites de *buffer*; chega pelo `exceljs`, que em 01/09/2026 virou dependência de desenvolvimento e mesmo assim mantém o override — ver abaixo. |
 
 ### `vitest`, de 2.1.9 para 3.2.7
 
@@ -91,6 +91,19 @@ versão:
 **Quando um pai atualizar, tire o `override` dele em vez de acumular.** A lista
 existe para encolher; uma que só cresce vira uma segunda árvore de dependências,
 mantida à mão e sem ninguém olhando.
+
+**Isso quase enganou o override do `uuid`, em 01/09/2026.** A tarefa que tirou
+a exportação em `.xlsx` do sistema moveu o `exceljs` de `dependencies` para
+`devDependencies` — ele continua no projeto, só que agora serve o extrator de
+layout (`scripts/extrair-layout-prestacao.ts`), não o servidor. Por um
+instante pareceu que a regra acima mandava tirar o override: `npm run
+auditoria`, que só olha produção, zerou sem ele. Mas o `exceljs` não
+atualizou — só mudou de seção no `package.json`, e a árvore inteira, que "continua
+valendo para a máquina de quem desenvolve" (acima), voltou a acusar duas
+moderadas (`uuid <11.1.1`, GHSA-w5hq-g745-h8pq) assim que o override saiu. O
+override ficou. A condição de saída continua sendo a original: o `exceljs`
+publicar uma versão que não arraste o `uuid@8.3.2` — não o `exceljs` mudar de
+lugar na árvore.
 
 ## O que continua aberto
 
