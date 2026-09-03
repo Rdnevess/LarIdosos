@@ -1,9 +1,45 @@
 import { describe, it, expect } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
-import { documentoDeTeste } from '@/../tests/helpers/documento-prestacao'
-import { gerarPdfPrestacao } from './pdf-prestacao'
+import PDFKitDocument from 'pdfkit'
+import { documentoDeTeste, despesaDeTeste } from '@/../tests/helpers/documento-prestacao'
+import type { DocumentoPrestacao } from './documento-prestacao'
+import { gerarPdfPrestacao, desenharFolha, desenharFolhaDeLancamentos } from './pdf-prestacao'
 import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
-import { faixaDe } from './grade-prestacao'
+import { faixaDe, xDaColuna, yDaLinha } from './grade-prestacao'
+
+/** Um `DocumentoPrestacao` com `n` linhas de despesa, para testar o transbordo. */
+function documentoCom(n: number): DocumentoPrestacao {
+  return documentoDeTeste({
+    despesas: Array.from({ length: n }, (_, i) =>
+      despesaDeTeste({ item: i + 1, credor: `Credor ${i + 1}` })
+    ),
+  })
+}
+
+/**
+ * Um PDF onde só o que `desenhar` chama existe — sem passar pelo documento
+ * inteiro de `gerarPdfPrestacao`.
+ *
+ * A partir de Despesas e Receitas (esta tarefa), mais de uma folha desenha
+ * conteúdo de verdade: o buffer do documento completo deixou de servir para
+ * isolar os segmentos de uma folha só, porque as outras contribuem também.
+ * Aqui só entra o que `desenhar` pede.
+ */
+async function bufferIsolado(
+  desenhar: (doc: InstanceType<typeof PDFKitDocument>) => void
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFKitDocument({ size: 'A4', margin: 0, compress: false })
+    const pedacos: Buffer[] = []
+    doc.on('data', (pedaco: Buffer) => pedacos.push(pedaco))
+    doc.on('end', () => resolve(Buffer.concat(pedacos)))
+    doc.on('error', reject)
+
+    desenhar(doc)
+
+    doc.end()
+  })
+}
 
 /**
  * O `pdfkit` escreve os textos em arrays `TJ`, com os caracteres em hexa e os
@@ -84,7 +120,15 @@ describe('a grade desenhada', () => {
     // jeito que desenharFolha desenha - a uniao de lados por faixa -, e nao
     // pela contagem crua de flags por celula, que conta a mesma linha de uma
     // mescla ate doze vezes.
-    const buffer = await gerarPdfPrestacao(documentoDeTeste())
+    //
+    // bufferIsolado, e nao gerarPdfPrestacao: a partir desta tarefa Despesas
+    // e Receitas tambem desenham borda de verdade, e o documento inteiro
+    // deixou de servir pra isolar so as tres folhas estaticas.
+    const buffer = await bufferIsolado((doc) => {
+      desenharFolha(doc, LAYOUT['1-Capa'], {})
+      desenharFolha(doc, LAYOUT['2-Contra-Capa'], {})
+      desenharFolha(doc, LAYOUT['6-Encerramento'], {})
+    })
     const esperado =
       segmentosDaFolha(LAYOUT['1-Capa']) +
       segmentosDaFolha(LAYOUT['2-Contra-Capa']) +
@@ -104,6 +148,34 @@ describe('a grade desenhada', () => {
     // antigo desenhava texto corrido a partir da margem, ignorando o modelo.
     const buffer = await gerarPdfPrestacao(documentoDeTeste())
     expect(extrairTexto(buffer)).toContain('Associação Lar dos Idosos')
+  })
+})
+
+describe('as folhas que crescem', () => {
+  it('tres despesas ainda imprimem as vinte e duas linhas do modelo', async () => {
+    // A folha nunca encolhe abaixo do modelo: e o que o orgao esta acostumado
+    // a receber, e a regra sobreviveu do gerador da planilha.
+    const buffer = await gerarPdfPrestacao(documentoCom(3))
+    expect(await paginasDe(buffer)).toBe(6)
+  })
+
+  it('sessenta despesas transbordam para paginas novas', async () => {
+    // 22 linhas cabem numa folha. Com 60, a folha de despesas vira tres.
+    const poucas = await paginasDe(await gerarPdfPrestacao(documentoCom(3)))
+    const muitas = await paginasDe(await gerarPdfPrestacao(documentoCom(60)))
+
+    expect(muitas).toBeGreaterThan(poucas)
+  })
+
+  it('a pagina de transbordo repete o cabecalho da folha', async () => {
+    // Quem folheia a pagina 4 precisa saber que coluna esta lendo. Contar
+    // quantas vezes "Credor" aparece e o que prova a repeticao.
+    const texto = extrairTexto(await gerarPdfPrestacao(documentoCom(60)))
+    const ocorrencias = (texto.match(/Credor/g) ?? []).length
+
+    // Uma por pagina de despesas, mais as de receitas (que tambem usa "Credor"
+    // no modelo do orgao) e a da conciliacao.
+    expect(ocorrencias).toBeGreaterThan(2)
   })
 })
 
@@ -177,45 +249,46 @@ function violacoesDePerimetro(layout: LayoutFolha): string[] {
 }
 
 /**
- * Violações reais, confirmadas na fonte, fora do que esta tarefa desenha.
+ * Violações reais, confirmadas na fonte, ainda sem o teste de extensão que
+ * prova a folha correta.
  *
  * Não são ruído de extração nem um caso improvável: são formatação salva
  * célula a célula no `.xlsx` original, medida na XML crua, não inferida. Em
  * `5-Conciliação A47:I47`, `A47` tem `borderId=7`, com topo; as oito
- * seguintes, `B47` a `I47`, têm `borderId=8`, sem topo, de forma uniforme.
- * Em `3-Despesas` e `4-Receitas B33:G33`, `B33:E33` têm `borderId=14`, com
- * topo; `F33:G33` têm `borderId=5`, sem topo. O `borderId` é o mesmo
- * mecanismo que motivou `bordasDaFolha` existir: o Excel guarda a borda
- * `direita` de `A1:L2`, na Capa, separada em `L1`/`L2` — cada célula-membro
- * contribui a borda na sua posição dentro do perímetro. Estas três faixas
- * são esse mesmo mecanismo, só que com borda **ausente** numa parte, não
- * borda presente espalhada.
+ * seguintes, `B47` a `I47`, têm `borderId=8`, sem topo, de forma uniforme. O
+ * `borderId` é o mesmo mecanismo que motivou `segmentosDeBorda` existir: o
+ * Excel guarda a borda `direita` de `A1:L2`, na Capa, separada em `L1`/`L2`
+ * — cada célula-membro contribui a borda na sua posição dentro do perímetro.
+ * Esta faixa é esse mesmo mecanismo, só que com borda **ausente** numa
+ * parte, não borda presente espalhada.
  *
- * Por isso a união por OR de `bordasDaFolha` desenharia o traço MAIS LONGO
- * do que o modelo tem, não mais curto: o topo esticado pela largura inteira
- * da faixa, cobrindo `F:G` em Despesas e Receitas e `B:I` em Conciliação,
- * onde o original não tem nada. Isso vai aparecer assim que essas três
- * folhas forem desenhadas — a saída é rastrear a extensão de cada lado, não
- * aceitar o esticamento.
+ * `3-Despesas` e `4-Receitas B33:G33` tinham a mesma característica —
+ * `B33:E33` com topo, `F33:G33` sem — e saíram desta lista: `pdf-prestacao.ts`
+ * não une mais por OR, rastreia a extensão de cada lado célula a célula
+ * (`segmentosDeBorda`), e o describe "o rastreamento de extensao" logo
+ * abaixo prova, pela coordenada realmente desenhada no PDF, que o traço para
+ * em `E` e não estica até `G`. `5-Conciliação` fica porque ninguém ainda
+ * desenhou aquela folha de verdade nem escreveu o teste de extensão
+ * equivalente para ela — outra tarefa.
  *
- * Nenhuma das três está em Capa, Contra-Capa ou Encerramento, as que
- * `desenharFolha` já desenha hoje — por isso a lista abaixo não bloqueia
- * esta tarefa. Ela existe para isso, e não porque o caso seja benigno: uma
- * violação NOVA nas seis folhas ainda reprova este teste, e uma destas três
- * sumir também reprova — sinal de que a lista precisa ser atualizada porque
- * o dado foi corrigido, não ignorado.
+ * Por isso a varredura abaixo pula `3-Despesas` e `4-Receitas` de propósito:
+ * a garantia para as duas não é mais "nenhuma violação escapou por aqui", é
+ * o teste de extensão, mais forte porque confere a coordenada desenhada, não
+ * só a presença/ausência na célula do layout. Uma violação NOVA nas folhas
+ * varridas ainda reprova este teste, e a de Conciliação sumir também reprova
+ * — sinal de que a lista precisa ser atualizada porque o dado foi corrigido
+ * ou a folha ganhou o mesmo teste de extensão, não porque foi ignorada.
  */
 const VIOLACOES_CONHECIDAS = [
-  '3-Despesas B33:G33 lado topo: presente em 4/6 celulas do perimetro',
-  '4-Receitas B33:G33 lado topo: presente em 4/6 celulas do perimetro',
   '5-Conciliação A47:I47 lado topo: presente em 1/9 celulas do perimetro',
 ].sort()
 
 describe('a premissa de uniao por lado em bordasDaFolha', () => {
-  it('cada lado presente numa faixa mesclada cobre todo aquele trecho do perimetro, nas seis folhas', () => {
-    const violacoes = (Object.keys(LAYOUT) as NomeFolha[])
-      .flatMap((nome) => violacoesDePerimetro(LAYOUT[nome]))
-      .sort()
+  it('cada lado presente numa faixa mesclada cobre todo aquele trecho do perimetro, fora de despesas e receitas', () => {
+    const folhasVarridas = (Object.keys(LAYOUT) as NomeFolha[]).filter(
+      (nome) => nome !== '3-Despesas' && nome !== '4-Receitas'
+    )
+    const violacoes = folhasVarridas.flatMap((nome) => violacoesDePerimetro(LAYOUT[nome])).sort()
     expect(violacoes, violacoes.join('\n')).toEqual(VIOLACOES_CONHECIDAS)
   })
 
@@ -223,5 +296,65 @@ describe('a premissa de uniao por lado em bordasDaFolha', () => {
     const folhasDesenhadas: NomeFolha[] = ['1-Capa', '2-Contra-Capa', '6-Encerramento']
     const violacoes = folhasDesenhadas.flatMap((nome) => violacoesDePerimetro(LAYOUT[nome]))
     expect(violacoes, violacoes.join('\n')).toEqual([])
+  })
+})
+
+type SegmentoBruto = { x1: number; y1: number; x2: number; y2: number }
+
+/**
+ * Os segmentos `moveTo` + `lineTo` do conteúdo do PDF, como números.
+ *
+ * Mesma técnica de `contarSegmentos`: em teste o PDF sai sem compressão, e
+ * cada borda que `desenharFolha` desenha emite exatamente um par contíguo
+ * "x y m" seguido de "x y l" — `moveTo` e `lineTo`, sem nada entre os dois.
+ */
+function segmentosBrutos(buffer: Buffer): SegmentoBruto[] {
+  const texto = buffer.toString('latin1')
+  const pares = texto.match(/[\d.]+ [\d.]+ m\n[\d.]+ [\d.]+ l/g) ?? []
+  return pares.map((par) => {
+    const [x1, y1, x2, y2] = (par.match(/[\d.]+/g) ?? []).map(Number)
+    return { x1, y1, x2, y2 }
+  })
+}
+
+describe('o rastreamento de extensao no topo de B33:G33', () => {
+  it('para no fim de E — nao estica ate G como a uniao por OR desenharia', async () => {
+    // Medido na XML crua do .xlsx: B33:E33 tem borderId=14, com topo;
+    // F33:G33 tem borderId=5, sem topo — o mesmo caso que motivou tirar
+    // Despesas e Receitas de VIOLACOES_CONHECIDAS, agora provado pela
+    // coordenada realmente desenhada, nao so pela presenca na celula.
+    const layout = LAYOUT['3-Despesas']
+    const y = yDaLinha(layout, 33)
+    const xInicioB = xDaColuna(layout, 2)
+    const xFimE = xDaColuna(layout, 6) // fim de E = inicio de F: onde o modelo para
+    const xFimG = xDaColuna(layout, 8) // fim de G = inicio de H: o esticamento que a uniao por OR desenharia
+
+    // bufferIsolado, e nao gerarPdfPrestacao: 4-Receitas tem, na mesma
+    // posicao, uma borda "baixo" real na ultima linha de dado (B32:E32) que
+    // coincide em coordenada com o topo de B33:G33 — outra faixa, outro
+    // motivo, mesmo traco visual. Isolar so Despesas evita esse falso match.
+    const documento = documentoCom(3)
+    const linhas = documento.despesas.map((despesa) => ({
+      descricao: despesa.credor,
+      documento: despesa.documento,
+      complemento: despesa.formaPagamento,
+      data: despesa.data,
+      valor: despesa.valor,
+    }))
+    const buffer = await bufferIsolado((doc) => {
+      desenharFolhaDeLancamentos(doc, layout, documento, linhas)
+    })
+    const segmentos = segmentosBrutos(buffer)
+
+    const topoDoTotal = segmentos.filter(
+      (s) =>
+        Math.abs(s.y1 - y) < 0.01 &&
+        Math.abs(s.y2 - y) < 0.01 &&
+        Math.abs(s.x1 - xInicioB) < 0.01
+    )
+
+    expect(topoDoTotal, JSON.stringify(topoDoTotal)).toHaveLength(1)
+    expect(topoDoTotal[0].x2).toBeCloseTo(xFimE, 3)
+    expect(topoDoTotal[0].x2).not.toBeCloseTo(xFimG, 3)
   })
 })
