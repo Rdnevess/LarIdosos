@@ -121,7 +121,11 @@ describe('caixaDa', () => {
   it('nenhuma caixa das seis folhas sai da pagina', () => {
     // A guarda de conjunto: se alguma celula cair fora do papel, o documento
     // sai cortado e ninguem repara ate a fiscalizacao reparar. Cobre os dois
-    // eixos - uma folha invertida verticalmente ainda passaria so pelo x.
+    // eixos, mas prova so isso: nada escapa de [0, ALTURA_PAGINA]. Ela e cega
+    // ao sentido do eixo Y - qualquer convencao autoconsistente, certa ou
+    // invertida, respeita os mesmos limites, porque a altura da pagina e a
+    // mesma nos dois sentidos. Quem prova o sentido sao os testes acima: a
+    // ordenacao de yDaLinha (linha 1 antes da linha 2) e a caixa de A11:L16.
     for (const folha of Object.values(LAYOUT)) {
       for (const celula of Object.keys(folha.bordas)) {
         const c = caixaDa(folha, celula)
