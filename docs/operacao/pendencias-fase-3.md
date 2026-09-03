@@ -10,51 +10,49 @@ apagar o registro apagaria junto o motivo de ela ter mudado.
 
 | # | Estado | Onde se resolve |
 |---|---|---|
-| 1. Fidelidade do `.xlsx` ao modelo do órgão | aberto — só se confirma abrindo os dois | na primeira entrega real, com o órgão |
-| 2. O PDF não é pixel a pixel igual ao `.xlsx` | aberto, deliberado | não se resolve sem 400 MB de conversor |
+| 1. Fidelidade do `.xlsx` ao modelo do órgão | resolvido por eliminação | 01/09/2026, o `.xlsx` saiu |
+| 2. O PDF não é pixel a pixel igual ao `.xlsx` | resolvido por eliminação | 01/09/2026, o `.xlsx` saiu |
 | 3. Categorias de despesa como lista aberta | aberto, deliberado | se a conciliação virar sopa de categorias |
 | 4. "à disposição dos condôminos" na declaração | resolvido | 24/08/2026 |
 | 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | resolvido | 31/08/2026, por `override` |
 | 6. O layout extraído carrega categorias do exemplo | aberto — contornado | no extrator, se o modelo mudar |
 | 7. O backup ficou bem mais pesado | aberto — agrava o item 1 da Fase 1 | no teste de restauração, no VPS |
 | 8. Ninguém confere se o anexo é o que diz ser | aberto, deliberado | é trabalho de quem confere |
+| 9. As letras do PDF não são as do modelo | aberto, deliberado | se o órgão recusar por isso |
+| 10. Rótulo mais largo que a célula é truncado | aberto, medido | se o órgão notar |
 
-## 1. A fidelidade do `.xlsx` só se confirma abrindo os dois lado a lado
+## 1. A fidelidade do `.xlsx` ao modelo do órgão — resolvido por eliminação
 
-**Situação:** o layout foi extraído do modelo real — nomes de folha, faixas de
-merge, larguras de coluna e rótulos fixos — e o renderizador o reconstrói
-célula a célula. Há teste conferindo as seis folhas, a ausência de fórmula, a
-data como data, o crescimento além das 22 linhas e o total batendo com o
-documento.
+**Resolvido em 01/09/2026, por eliminação.** O item perguntava se o `.xlsx`
+gerado parecia com o modelo do órgão — e a resposta só se confirmava abrindo
+os dois lado a lado. O `.xlsx` saiu do sistema (`Remove a exportacao em
+xlsx`), e o item perdeu o objeto: não há mais planilha para comparar.
 
-**O que os testes não conseguem afirmar:** que o arquivo *parece* com o modelo.
-Fonte, negrito, borda, alinhamento vertical, altura de linha e área de
-impressão não foram extraídos — o script leva geometria e texto, não estilo. O
-documento sai correto e legível; não sai visualmente idêntico.
+**Para onde a pergunta migrou:** para o PDF. Ele passou a reproduzir a grade
+do modelo célula a célula — mesmas faixas de mescla, larguras de coluna,
+rótulos fixos e bordas que o `.xlsx` reproduzia — e agora é ele o documento
+entregue ao órgão. A conferência continua sendo a mesma coisa que era antes,
+só que contra outro arquivo: humana, olho no olho, contra
+`docs/convenio/Modelo Prestacao Contas.pdf`. Nenhum teste automatizado faz
+essa checagem — não há `poppler` nesta máquina para abrir um PDF como imagem.
 
-**Como resolver:** na primeira entrega real, abrir o gerado e o modelo lado a
-lado, e anotar as diferenças que o órgão notar. Só então vale acrescentar
-extração de estilo — antes disso seria trabalho contra uma lista imaginada.
+**Onde ficou o que essa conferência já encontrou:** os itens 9 e 10 registram
+as duas diferenças que apareceram na primeira rodada — tipografia e
+transbordo de rótulo.
 
-**O que não fazer:** ajustar estilo por palpite. Cada propriedade a mais no
-layout é uma a mais para regerar quando o modelo mudar.
+## 2. O PDF não é pixel a pixel igual ao `.xlsx` — resolvido por eliminação
 
-## 2. O PDF não é pixel a pixel igual ao `.xlsx`
+**Resolvido em 01/09/2026, por eliminação.** Sem `.xlsx`, não sobra um
+segundo documento para o PDF divergir dele.
 
-**Situação:** os dois saem do mesmo documento em memória, com os mesmos números
-e os mesmos textos, mas o PDF é desenhado do zero pelo `pdfkit` — tabela com
-largura própria, paginação própria, tipografia própria.
-
-**Por que está assim:** converter o `.xlsx` com LibreOffice ou Chromium daria
-fidelidade perfeita e custaria uns 400 MB na imagem Docker mais um subprocesso,
-num VPS único que também roda banco e aplicação.
-
-**Por que não é problema:** **o que vai ao órgão é o `.xlsx`.** O PDF serve ao
-arquivo interno, à conferência e à assinatura física — usos em que "os mesmos
-números, legíveis e assináveis" é exatamente o requisito.
-
-**Quando revisitar:** se o órgão passar a exigir PDF. Aí a conta muda, e vale
-pagar os 400 MB.
+**O que continua valendo:** a decisão que sustentava este item. Não embarcar
+um conversor de 400 MB (LibreOffice ou Chromium) continua certo — só que a
+fidelidade que o PDF tem hoje contra o modelo do órgão não veio de converter
+um formato no outro. Veio de o renderizador desenhar a mesma grade que o
+`.xlsx` desenhava, célula a célula, a partir do mesmo layout extraído do
+modelo real. O problema que o conversor resolveria — dois documentos que
+podem divergir — deixou de existir por um caminho mais barato que pagar os
+400 MB.
 
 ## 3. Categoria de despesa é lista aberta, e pode virar sopa
 
@@ -175,3 +173,54 @@ sendo quem confere.
 
 **O que fazer:** nada. Reconhecer conteúdo de PDF é problema de outra ordem, e
 o valor de resolvê-lo não paga o que custaria.
+
+## 9. As letras do PDF não são as do modelo
+
+**Situação:** o modelo do órgão usa cinco tipografias — Algerian 16 no título
+da capa, Times New Roman 10, Arial 10/11/14 e Calibri 12. O PDF gerado mapeia
+todas para as fontes embutidas do formato: Arial e Calibri viram Helvetica,
+Times New Roman vira Times, e o Algerian do título vira Times negrito.
+
+**Qual é a exposição:** tamanho, peso, posição, alinhamento e as bordas são
+idênticos ao modelo; só o desenho das letras difere. Quem comparar lado a lado
+vê o mesmo documento com o título em outra letra.
+
+**Por que ficou assim:** embutir as originais exige os arquivos `.ttf` de
+Algerian e Calibri e o direito de distribuí-los dentro de um documento. As duas
+vêm do Windows, e a licença não é obviamente permissiva. Foi decisão do dono do
+projeto, com a alternativa na mesa.
+
+**O que fazer, se o órgão recusar:** obter os arquivos e confirmar o direito de
+embuti-los. O renderizador aceita a troca sem mudança estrutural — o layout já
+guarda o nome original de cada fonte, e só o mapeamento em `fonteDoPdf` muda.
+
+## 10. Rótulo mais largo que a célula é truncado com reticências
+
+**Situação:** no Excel, texto que não cabe na largura da célula transborda
+visualmente para as células vizinhas vazias, ao imprimir. O renderizador deste
+projeto (`desenharFolha`, em `pdf-prestacao.ts`) não reproduz esse
+comportamento: corta o texto na largura da própria célula, com reticências —
+decisão já registrada no código, e tomada no lugar de encolher a fonte, para
+não quebrar a hierarquia tipográfica que o resto da grade reproduz.
+
+**Qual é a exposição:** medido nos 101 rótulos fixos do layout, **3** sofrem
+disso, sempre o mesmo texto — "Unidade Executora:", nas células `3-Despesas
+A34`, `4-Receitas A34` e `5-Conciliação A51`. Cada uma precisa de
+aproximadamente 87,4 pt para caber inteiro numa célula de ~42,5 pt, e as 11
+colunas à direita, na mesma linha, estão vazias no modelo — é para lá que o
+Excel deixaria o texto transbordar ao imprimir.
+
+Há um quarto caso, de outra natureza: `1-Capa A11` ("PRESTAÇÃO DE CONTAS")
+excede em ~31 pt até a maior mescla já existente ali — não há célula vazia ao
+lado para onde transbordar, então o corte é o único desfecho possível, com ou
+sem a mudança abaixo.
+
+**Por que ficou assim:** reproduzir o transbordo do Excel exige medir a largura
+do texto, somar a largura das células vazias à direita na mesma linha, e
+decidir até onde estender antes de cortar — uma régua de layout que o
+`pdfkit` não oferece pronta, e que não foi construída nesta travessia.
+
+**O que fazer, se o órgão recusar:** implementar o transbordo para os três
+casos de `A34`/`A51`, reaproveitando a medição de largura que a truncagem já
+faz para decidir onde cortar. O quarto caso (`1-Capa A11`) não se resolve por
+transbordo — precisaria de fonte menor ali, ou de aceitar o corte.

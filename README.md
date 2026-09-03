@@ -19,18 +19,17 @@ turno, registro dose a dose e relatório de aderência.
 
 E o **financeiro**: contas bancárias, lançamentos de receita e despesa,
 contribuição do residente e a **prestação de contas mensal no formato que o
-órgão conveniador exige** — gerada pelo sistema, em `.xlsx` e em PDF, sem
-ninguém copiar número de planilha em planilha.
+órgão conveniador exige** — gerada pelo sistema em duas saídas, sem ninguém
+copiar número de planilha em planilha.
 
-**O `.xlsx` é o que vai ao órgão; o PDF serve ao arquivo interno e à
-assinatura física.** Os dois saem do mesmo documento em memória, onde os
-totais são calculados uma única vez — é o que impede os dois de divergirem no
-dia em que alguém corrigir um cálculo em só um deles. A planilha sai com
-**valores, nunca fórmulas**: as fórmulas do modelo são a parte frágil (soma de
-faixa fixa, agrupamento por texto literal, um `XLOOKUP` que já aponta para
-`#REF!`), e uma planilha entregue com fórmula pode recalcular errado na máquina
-de quem a abrir. Há ainda um **CSV para o contador**, com ponto e vírgula e
-BOM, porque o escritório dele importa arquivo e não usa o sistema.
+**O PDF é o documento entregue ao órgão** — reproduz o modelo dele célula a
+célula, com as mesmas bordas, faixas de mescla e rótulos fixos, e os
+comprovantes anexados no apêndice — **e o CSV é a listagem plana que o
+contador importa**, com ponto e vírgula e BOM, porque o escritório dele
+importa arquivo e não usa o sistema. O `.xlsx` saiu em 01/09/2026: ele
+reproduzia a geometria do modelo mas nunca a aparência dele, e manter dois
+renderizadores para o mesmo problema virou trabalho a mais sem uso — o PDF
+passou a ser o único, e agora fiel.
 
 Fechar a prestação **congela** os lançamentos realizados da competência, e é o
 que impede um lançamento posterior de mudar, em silêncio, um documento já
