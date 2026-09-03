@@ -8,6 +8,7 @@ import {
   desenharFolha,
   desenharFolhaDeLancamentos,
   desenharConciliacao,
+  linhaTraduzida,
 } from './pdf-prestacao'
 import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
 import { faixaDe, xDaColuna, yDaLinha } from './grade-prestacao'
@@ -410,6 +411,22 @@ describe('a conciliacao', () => {
       expect(texto).toContain(despesa.credor)
       expect(texto).toContain(despesa.categoria)
     }
+  })
+
+  it('linhaTraduzida nunca propaga rotulos do modelo, isolado de desenharFolha e de valores', () => {
+    // O teste de volume acima prova a garantia fim a fim, mas passa por
+    // desenharConciliacao, que sempre escreve `valores` nas mesmas celulas
+    // que a linha do modelo ocuparia — entao um vazamento em `linhaTraduzida`
+    // sozinha ficaria mascarado pelo dado real, e nada acusaria a regressao.
+    // Este teste chama linhaTraduzida direto, sem desenharFolha e sem
+    // `valores`, para prender especificamente a camada interna: F24, no
+    // layout real, e "Salário" — uma das categorias do exemplo alheio.
+    const layout = LAYOUT['5-Conciliação']
+    expect(layout.rotulos.F24).toBe('Salário')
+
+    const traduzida = linhaTraduzida(layout, 24, 999)
+
+    expect(traduzida.rotulos).toEqual({})
   })
 
   it('assina na ordem inversa das folhas de lancamento', async () => {

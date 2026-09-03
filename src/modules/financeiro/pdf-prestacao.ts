@@ -470,8 +470,13 @@ function linhaDaCelula(celula: string): number {
  * sai vazio de propósito — herdar texto do modelo aqui reabriria a fuga de
  * conteúdo alheio que esta folha existe para fechar; quem chama fornece o
  * texto de cada célula por fora, em `valores`.
+ *
+ * Exportada para o teste chamar esta função sozinha e conferir `rotulos`
+ * vazio direto no retorno — a camada interna da garantia anti-vazamento,
+ * sem passar por `desenharFolha`/`valores` (a camada externa, que já tem
+ * teste próprio e não deve ser a única a detectar uma regressão aqui).
  */
-function linhaTraduzida(layout: LayoutFolha, linhaModelo: number, linhaAlvo: number): LayoutFolha {
+export function linhaTraduzida(layout: LayoutFolha, linhaModelo: number, linhaAlvo: number): LayoutFolha {
   const traduzir = <T,>(registro: Record<string, T>): Record<string, T> => {
     const resultado: Record<string, T> = {}
     for (const [celula, valor] of Object.entries(registro)) {
