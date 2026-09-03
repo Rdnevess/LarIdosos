@@ -1,325 +1,185 @@
 import PDFDocument from 'pdfkit'
-import { formatarData } from '@/lib/ptbr'
 import type { DocumentoPrestacao } from './documento-prestacao'
+import { LAYOUT, type LayoutFolha, type EstiloBorda, type LadosComBorda } from './layout-prestacao'
+import { caixaDa, faixaDe } from './grade-prestacao'
 
 /**
- * O mesmo documento do `.xlsx`, desenhado para impressão e assinatura.
+ * O modelo do órgão, desenhado célula a célula para impressão e assinatura.
  *
- * **Não é pixel a pixel igual**, e não precisa ser: o que vai ao órgão é o
- * `.xlsx`. Este PDF serve ao arquivo interno, à conferência e à assinatura
- * física.
+ * **É o único formato que vai ao órgão desde 01/09/2026** — o `.xlsx` saiu
+ * (ver o cabeçalho de `exportar.ts`). Este renderizador não desenha mais
+ * texto corrido a partir de uma margem fixa: ele lê a grade extraída do
+ * modelo (`layout-prestacao.ts`) e a geometria pura que a converte em pontos
+ * de PDF (`grade-prestacao.ts`), e desenha cada rótulo na caixa da sua
+ * célula, com as bordas do original.
  *
- * `pdfkit`, e não conversão do `.xlsx`: converter com LibreOffice ou Chromium
- * daria fidelidade perfeita e custaria uns 400 MB na imagem Docker mais um
- * subprocesso, num VPS único.
+ * `pdfkit`, e não conversão do modelo `.xlsx`: converter com LibreOffice ou
+ * Chromium daria fidelidade perfeita e custaria uns 400 MB na imagem Docker
+ * mais um subprocesso, num VPS único.
  *
- * As fontes são as padrão do PDF (`Helvetica`, `Helvetica-Bold`). Elas usam
- * WinAnsi, que cobre os acentos do português — nenhum arquivo de fonte a
- * embarcar, e nenhuma caixa vazia no lugar do "ç". Há teste.
+ * As fontes são as cinco embutidas do PDF que `fonteDoPdf` mapeia a partir
+ * das do modelo — nenhum arquivo de fonte a embarcar. Elas usam WinAnsi, que
+ * cobre os acentos do português; o teste da capa confere um trecho acentuado
+ * decodificado de volta do PDF.
  */
 
 type Doc = InstanceType<typeof PDFDocument>
 
-const MARGEM = 40
-const LARGURA_UTIL = 595.28 - MARGEM * 2
-
-function moeda(valor: number): string {
-  return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function titulo(doc: Doc, texto: string): void {
-  doc.font('Helvetica-Bold').fontSize(13).text(texto, { align: 'center' })
-  doc.moveDown(1)
-}
-
-function cabecalhoDaFolha(doc: Doc, documento: DocumentoPrestacao, subtitulo: string): void {
-  doc.font('Helvetica-Bold').fontSize(11).text(documento.oficio.orgaoDestinatario)
-  doc.font('Helvetica').fontSize(10).text(`Unidade Executora: ${documento.capa.razaoSocial}`)
-  doc.moveDown(0.5)
-  titulo(doc, subtitulo)
+const ESPESSURA: Record<EstiloBorda, number> = {
+  hair: 0.25,
+  thin: 0.5,
+  medium: 1,
+  thick: 1.5,
+  double: 0.5,
 }
 
 /**
- * O bloco de assinaturas ao pé da folha, na ordem que o modelo usa naquela
- * folha — a conciliação e o encerramento assinam com o tesoureiro à esquerda.
+ * As cinco tipografias do modelo mapeadas para as embutidas do PDF.
+ *
+ * Nenhum arquivo de fonte é embutido: Algerian e Calibri são do Windows, e
+ * distribuí-las dentro de um documento é questão de licença antes de ser
+ * técnica. Tamanho, peso e posição são preservados exatamente; só o desenho
+ * das letras difere, e a §9 da spec registra o que isso custa.
  */
-function assinaturas(doc: Doc, esquerda: [string, string], direita: [string, string]): void {
-  const y = Math.max(doc.y + 30, 640)
-  const largura = LARGURA_UTIL / 2 - 20
-
-  doc.font('Helvetica').fontSize(10)
-  doc.text('______________________________', MARGEM, y, { width: largura, align: 'center' })
-  doc.text(esquerda[0], MARGEM, y + 16, { width: largura, align: 'center' })
-  doc.text(esquerda[1], MARGEM, y + 30, { width: largura, align: 'center' })
-
-  const x = MARGEM + LARGURA_UTIL / 2 + 20
-  doc.text('______________________________', x, y, { width: largura, align: 'center' })
-  doc.text(direita[0], x, y + 16, { width: largura, align: 'center' })
-  doc.text(direita[1], x, y + 30, { width: largura, align: 'center' })
+function fonteDoPdf(familia: string, negrito: boolean, italico: boolean): string {
+  const serifada = familia === 'Times New Roman' || familia === 'Algerian'
+  if (familia === 'Algerian') return 'Times-Bold'
+  if (serifada) {
+    if (negrito && italico) return 'Times-BoldItalic'
+    if (negrito) return 'Times-Bold'
+    if (italico) return 'Times-Italic'
+    return 'Times-Roman'
+  }
+  if (negrito && italico) return 'Helvetica-BoldOblique'
+  if (negrito) return 'Helvetica-Bold'
+  if (italico) return 'Helvetica-Oblique'
+  return 'Helvetica'
 }
 
-type Coluna = { titulo: string; largura: number; alinhamento?: 'left' | 'right' }
+/**
+ * Os lados de borda de cada faixa, com os das células-membro unidos na âncora.
+ *
+ * O Excel guarda a borda de uma caixa mesclada espalhada pelas células do
+ * perímetro, não inteira na âncora: numa faixa `A1:L2`, `A1` carrega `topo` e
+ * `esquerda`, mas `direita` mora em `L1`/`L2` e `baixo` seguiria em `A2`/`L2`
+ * se a caixa o tivesse. Desenhar só o que a âncora tem, sozinha, perde os
+ * lados que vieram de outra célula do mesmo merge — a caixa sai faltando
+ * lado. Por isso a união: cada célula do `bordas` extraído contribui os
+ * lados que carrega para a âncora da sua faixa, e é a âncora que desenha.
+ */
+function bordasDaFolha(layout: LayoutFolha): Map<string, LadosComBorda> {
+  const porAncora = new Map<string, LadosComBorda>()
+
+  for (const [celula, lados] of Object.entries(layout.bordas)) {
+    const ancora = faixaDe(layout, celula).split(':')[0]
+    const atual = porAncora.get(ancora) ?? {}
+    porAncora.set(ancora, {
+      topo: atual.topo ?? lados.topo,
+      baixo: atual.baixo ?? lados.baixo,
+      esquerda: atual.esquerda ?? lados.esquerda,
+      direita: atual.direita ?? lados.direita,
+    })
+  }
+
+  return porAncora
+}
 
 /**
- * Uma tabela que pagina sozinha, repetindo o cabeçalho. É o que sustenta o mês
- * de quarenta lançamentos sem ninguém precisar mexer em nada.
+ * Desenha uma folha do modelo: bordas primeiro, texto depois.
+ *
+ * Bordas antes de propósito — um texto desenhado antes ficaria por baixo da
+ * linha da célula seguinte.
+ *
+ * As coordenadas de `caixaDa` já vêm no sistema de eixos do pdfkit: origem
+ * no canto superior esquerdo, `y` crescendo para baixo — a mesma direção da
+ * planilha. Não há inversão de eixo a fazer aqui; ver o comentário de
+ * `yDaLinha` em `grade-prestacao.ts` sobre como isso foi medido.
  */
-function tabela(
+function desenharFolha(
   doc: Doc,
-  colunas: Coluna[],
-  linhas: string[][],
-  total: { rotulo: string; valor: string }
+  layout: LayoutFolha,
+  valores: Record<string, string>
 ): void {
-  const alturaDaLinha = 16
-  const ultimaLinhaUtil = 700
+  for (const [celula, lados] of bordasDaFolha(layout)) {
+    const c = caixaDa(layout, celula)
 
-  /**
-   * O `y` é capturado **uma vez** e reusado por todas as colunas, igual ao laço
-   * do corpo logo abaixo.
-   *
-   * Antes, o laço lia `doc.y` a cada coluna e devolvia `alturaDaLinha` para
-   * desfazer o avanço — mas `doc.text` avança a altura real da linha, que em
-   * corpo 9 é 10,71 pt, e não 16. Sobravam −5,29 pt por coluna, acumulados: na
-   * folha de Despesas, com seis colunas, a última saía 26 pt acima da primeira,
-   * e o corpo da tabela começava acima do próprio cabeçalho.
-   *
-   * `lineBreak: false`, e não `continued: false`: um título comprido numa
-   * coluna estreita quebraria em duas linhas e voltaria a mexer no `doc.y`.
-   */
-  const escreverCabecalho = () => {
-    let x = MARGEM
-    const y = doc.y
-    doc.font('Helvetica-Bold').fontSize(9)
-    for (const coluna of colunas) {
-      doc.text(coluna.titulo, x, y, {
-        width: coluna.largura,
-        align: coluna.alinhamento ?? 'left',
-        lineBreak: false,
-      })
-      x += coluna.largura
+    const segmentos: [number, number, number, number, EstiloBorda][] = []
+    if (lados.topo) segmentos.push([c.x, c.y, c.x + c.largura, c.y, lados.topo])
+    if (lados.baixo) {
+      segmentos.push([c.x, c.y + c.altura, c.x + c.largura, c.y + c.altura, lados.baixo])
     }
-    doc.y = y + alturaDaLinha
-    doc.moveTo(MARGEM, doc.y).lineTo(MARGEM + LARGURA_UTIL, doc.y).stroke()
-    doc.y += 4
-  }
-
-  escreverCabecalho()
-  doc.font('Helvetica').fontSize(9)
-
-  for (const linha of linhas) {
-    if (doc.y > ultimaLinhaUtil) {
-      doc.addPage()
-      escreverCabecalho()
-      doc.font('Helvetica').fontSize(9)
+    if (lados.esquerda) segmentos.push([c.x, c.y, c.x, c.y + c.altura, lados.esquerda])
+    if (lados.direita) {
+      segmentos.push([c.x + c.largura, c.y, c.x + c.largura, c.y + c.altura, lados.direita])
     }
 
-    let x = MARGEM
-    const y = doc.y
-    colunas.forEach((coluna, indice) => {
-      doc.text(linha[indice] ?? '', x, y, {
-        width: coluna.largura,
-        align: coluna.alinhamento ?? 'left',
-        lineBreak: false,
+    for (const [x1, y1, x2, y2, estilo] of segmentos) {
+      doc.lineWidth(ESPESSURA[estilo]).moveTo(x1, y1).lineTo(x2, y2).stroke()
+    }
+  }
+
+  const textos = { ...layout.rotulos, ...valores }
+  for (const [celula, texto] of Object.entries(textos)) {
+    if (!texto) continue
+    const c = caixaDa(layout, celula)
+    const fonte = layout.fontes[celula]
+    const alinhamento = layout.alinhamentos[celula]
+
+    // Texto que não cabe: quebra em linhas quando a célula do modelo diz
+    // `quebra`, e senão é truncado com reticências.
+    //
+    // A §5 da spec diz "reduzido até caber ou quebrado", e reduzir foi
+    // descartado aqui de propósito: encolher a fonte de uma célula a deixaria
+    // num tamanho que nenhuma vizinha tem, quebrando justamente a hierarquia
+    // tipográfica que esta mudança existe para reproduzir. Truncar é honesto —
+    // e a reticência aparece, então quem confere vê que faltou espaço, em vez
+    // de ler um texto silenciosamente menor.
+    doc
+      .font(fonteDoPdf(fonte?.familia ?? 'Arial', fonte?.negrito ?? false, fonte?.italico ?? false))
+      .fontSize(fonte?.tamanho ?? 10)
+      .text(texto, c.x + 2, c.y + 2, {
+        width: c.largura - 4,
+        height: c.altura,
+        align: alinhamento?.horizontal ?? 'left',
+        lineBreak: alinhamento?.quebra ?? false,
+        ellipsis: true,
       })
-      x += coluna.largura
-    })
-    doc.y = y + alturaDaLinha
   }
-
-  doc.moveTo(MARGEM, doc.y).lineTo(MARGEM + LARGURA_UTIL, doc.y).stroke()
-  doc.y += 4
-
-  const y = doc.y
-  doc.font('Helvetica-Bold').fontSize(10)
-  doc.text(total.rotulo, MARGEM, y, { width: LARGURA_UTIL - 90, align: 'right' })
-  doc.text(total.valor, MARGEM + LARGURA_UTIL - 90, y, { width: 90, align: 'right' })
-  doc.y = y + alturaDaLinha
 }
 
-function paginaCapa(doc: Doc, documento: DocumentoPrestacao): void {
-  doc.font('Helvetica-Bold').fontSize(16).text(documento.capa.razaoSocial, { align: 'center' })
-  doc
-    .font('Helvetica')
-    .fontSize(10)
-    .text(`CNPJ: ${documento.capa.cnpj} - ${documento.capa.endereco}`, { align: 'center' })
-
-  doc.moveDown(6)
-  doc.font('Helvetica-Bold').fontSize(22).text('PRESTAÇÃO DE CONTAS', { align: 'center' })
-  doc.moveDown(3)
-  doc.fontSize(18).text(documento.capa.mesPorExtenso.toUpperCase(), { align: 'center' })
-  doc.fontSize(18).text(String(documento.capa.ano), { align: 'center' })
-  doc.moveDown(4)
-  doc
-    .font('Helvetica')
-    .fontSize(12)
-    .text(`Conta Corrente nº ${documento.capa.conta}`, { align: 'center' })
-}
-
-function paginaContraCapa(doc: Doc, documento: DocumentoPrestacao): void {
-  doc.font('Helvetica-Bold').fontSize(12).text(documento.capa.razaoSocial, { align: 'center' })
-  doc.moveDown(2)
-
-  doc
-    .font('Helvetica')
-    .fontSize(10)
-    .text(`${documento.oficio.cidade}, ${documento.oficio.dataPorExtenso}.`, { align: 'right' })
-  doc.moveDown(2)
-  doc.text(documento.oficio.orgaoDestinatario)
-  doc.moveDown(1)
-  doc.font('Helvetica-Bold').text('Assunto: Prestação de Contas')
-  doc.moveDown(2)
-
-  doc.font('Helvetica').fontSize(10).text(documento.oficio.texto, { align: 'justify' })
-
-  assinaturas(
-    doc,
-    [documento.oficio.presidente, 'Presidente'],
-    [documento.oficio.tesoureiro, 'Tesoureiro']
-  )
-}
-
-function paginaDespesas(doc: Doc, documento: DocumentoPrestacao): void {
-  cabecalhoDaFolha(doc, documento, 'DESPESAS')
-
-  tabela(
-    doc,
-    [
-      { titulo: 'Item', largura: 35 },
-      { titulo: 'Credor', largura: 180 },
-      { titulo: 'CNPJ/CPF', largura: 110 },
-      { titulo: 'CH/OB', largura: 70 },
-      { titulo: 'Data', largura: 60 },
-      { titulo: 'Valor (R$)', largura: 60, alinhamento: 'right' },
-    ],
-    documento.despesas.map((despesa) => [
-      String(despesa.item),
-      despesa.credor,
-      despesa.documento,
-      despesa.formaPagamento,
-      formatarData(despesa.data),
-      moeda(despesa.valor),
-    ]),
-    { rotulo: 'Total', valor: moeda(documento.conciliacao.totalDespesas) }
-  )
-
-  assinaturas(
-    doc,
-    [documento.oficio.presidente, 'Presidente'],
-    [documento.oficio.tesoureiro, 'Tesoureiro']
-  )
-}
-
-function paginaReceitas(doc: Doc, documento: DocumentoPrestacao): void {
-  cabecalhoDaFolha(doc, documento, 'RECEBIMENTOS')
-
-  tabela(
-    doc,
-    [
-      { titulo: 'Item', largura: 35 },
-      { titulo: 'Origem', largura: 250 },
-      { titulo: 'CNPJ/CPF', largura: 120 },
-      { titulo: 'Data', largura: 60 },
-      { titulo: 'Valor (R$)', largura: 50, alinhamento: 'right' },
-    ],
-    documento.receitas.map((receita) => [
-      String(receita.item),
-      receita.origem,
-      receita.documento,
-      formatarData(receita.data),
-      moeda(receita.valor),
-    ]),
-    { rotulo: 'Total', valor: moeda(documento.conciliacao.totalReceitas) }
-  )
-
-  assinaturas(
-    doc,
-    [documento.oficio.presidente, 'Presidente'],
-    [documento.oficio.tesoureiro, 'Tesoureiro']
-  )
-}
-
-function paginaConciliacao(doc: Doc, documento: DocumentoPrestacao): void {
-  const dados = documento.conciliacao
-  cabecalhoDaFolha(doc, documento, 'CONCILIAÇÃO BANCÁRIA')
-
-  doc
-    .font('Helvetica')
-    .fontSize(10)
-    .text(
-      `Período de ${formatarData(dados.periodo.de)} a ${formatarData(dados.periodo.ate)}`,
-      { align: 'center' }
-    )
-  doc.moveDown(1)
-  doc.font('Helvetica-Bold').text('Dados Bancários')
-  doc
-    .font('Helvetica')
-    .text(`Banco: ${dados.banco}    Agência: ${dados.agencia}    Conta Corrente nº ${dados.conta}`)
-  doc.moveDown(1)
-
-  const linha = (rotulo: string, valor: number, negrito = false, recuo = 0) => {
-    const y = doc.y
-    doc.font(negrito ? 'Helvetica-Bold' : 'Helvetica').fontSize(10)
-    doc.text(rotulo, MARGEM + recuo, y, { width: LARGURA_UTIL - 100 - recuo })
-    doc.text(moeda(valor), MARGEM + LARGURA_UTIL - 100, y, { width: 100, align: 'right' })
-    doc.y = y + 16
+/** Os valores da capa: célula do modelo → texto desta prestação. */
+function valoresDaCapa(documento: DocumentoPrestacao): Record<string, string> {
+  return {
+    A1: documento.capa.razaoSocial,
+    A3: `CNPJ: ${documento.capa.cnpj} - ${documento.capa.endereco}`,
+    A23: documento.capa.mesPorExtenso.toUpperCase(),
+    A29: String(documento.capa.ano),
+    A51: `Conta Corrente nº ${documento.capa.conta}`,
   }
-
-  doc.font('Helvetica-Bold').fontSize(11).text('Movimentação Bancária')
-  doc.moveDown(0.5)
-
-  linha('Saldo Anterior', dados.saldoAnterior, true)
-  linha('(+) Recebimentos', dados.totalReceitas, true)
-  for (const recebimento of dados.recebimentosPorOrigem) {
-    linha(recebimento.rotulo, recebimento.valor, false, 20)
-  }
-  linha(
-    'Total de Saldo + Receitas',
-    Math.round((dados.saldoAnterior + dados.totalReceitas) * 100) / 100,
-    true
-  )
-
-  doc.moveDown(1)
-  doc.font('Helvetica-Bold').fontSize(11).text('( - ) Despesas')
-  doc.moveDown(0.5)
-  for (const despesa of dados.despesasDetalhadas) {
-    linha(`${despesa.credor} — ${despesa.categoria}`, despesa.valor, false, 20)
-  }
-  linha('Total de Despesas', dados.totalDespesas, true)
-
-  doc.moveDown(1)
-  linha('Saldo Disponível', dados.saldoDisponivel, true)
-
-  // A conciliação assina na ordem inversa das folhas de lançamento: é como o
-  // modelo faz, e o documento entregue precisa parecer com o que o órgão espera.
-  assinaturas(
-    doc,
-    [documento.oficio.tesoureiro, 'Tesoureiro'],
-    [documento.oficio.presidente, 'Presidente']
-  )
 }
 
-function paginaEncerramento(doc: Doc, documento: DocumentoPrestacao): void {
-  doc.font('Helvetica-Bold').fontSize(12).text(documento.capa.razaoSocial, { align: 'center' })
-  doc.moveDown(2)
-  titulo(doc, 'DECLARAÇÃO DE GUARDA E CONSERVAÇÃO DOS DOCUMENTOS CONTÁBEIS')
+/** Os valores da contra-capa: o ofício de encaminhamento e as assinaturas. */
+function valoresDaContraCapa(documento: DocumentoPrestacao): Record<string, string> {
+  return {
+    A1: documento.capa.razaoSocial,
+    A5: `${documento.oficio.cidade}, ${documento.oficio.dataPorExtenso}.`,
+    A8: documento.oficio.orgaoDestinatario,
+    A16: documento.oficio.texto,
+    A39: documento.oficio.presidente,
+    G39: documento.oficio.tesoureiro,
+  }
+}
 
-  doc.font('Helvetica').fontSize(10).text(`Unidade Executora: ${documento.capa.razaoSocial}`)
-  doc.moveDown(2)
-  // As observações do mês e a declaração, na ordem em que vão à folha.
-  doc.fontSize(11).text(documento.encerramento.texto, { align: 'justify' })
-
-  doc.moveDown(3)
-  doc
-    .fontSize(10)
-    .text(`${documento.oficio.cidade}, ${documento.encerramento.dataPorExtenso}.`, {
-      align: 'right',
-    })
-
-  assinaturas(
-    doc,
-    [documento.encerramento.tesoureiro, 'Tesoureiro'],
-    [documento.encerramento.presidente, 'Presidente']
-  )
+/** Os valores do encerramento: a declaração de guarda e as assinaturas. */
+function valoresDoEncerramento(documento: DocumentoPrestacao): Record<string, string> {
+  return {
+    A1: documento.capa.razaoSocial,
+    A8: documento.capa.razaoSocial,
+    A11: documento.encerramento.texto,
+    A23: `${documento.oficio.cidade}, ${documento.encerramento.dataPorExtenso}.`,
+    A29: documento.encerramento.tesoureiro,
+    G29: documento.encerramento.presidente,
+  }
 }
 
 export function gerarPdfPrestacao(documento: DocumentoPrestacao): Promise<Buffer> {
@@ -328,7 +188,9 @@ export function gerarPdfPrestacao(documento: DocumentoPrestacao): Promise<Buffer
     // do buffer sem embarcar um leitor de PDF só para isso.
     const doc = new PDFDocument({
       size: 'A4',
-      margin: MARGEM,
+      // A margem agora é de cada folha, e já está embutida na caixa que
+      // `caixaDa` devolve — o documento nasce sem margem própria.
+      margin: 0,
       compress: process.env.NODE_ENV !== 'test',
       info: {
         Title: `Prestação de Contas — ${documento.capa.mesPorExtenso} de ${documento.capa.ano}`,
@@ -341,19 +203,21 @@ export function gerarPdfPrestacao(documento: DocumentoPrestacao): Promise<Buffer
     doc.on('end', () => resolve(Buffer.concat(pedacos)))
     doc.on('error', reject)
 
-    const paginas = [
-      paginaCapa,
-      paginaContraCapa,
-      paginaDespesas,
-      paginaReceitas,
-      paginaConciliacao,
-      paginaEncerramento,
-    ]
+    desenharFolha(doc, LAYOUT['1-Capa'], valoresDaCapa(documento))
 
-    paginas.forEach((montar, indice) => {
-      if (indice > 0) doc.addPage()
-      montar(doc, documento)
-    })
+    doc.addPage()
+    desenharFolha(doc, LAYOUT['2-Contra-Capa'], valoresDaContraCapa(documento))
+
+    // Despesas, Receitas e Conciliação são as três folhas com faixa de dados
+    // que cresce pelo volume de lançamentos — ficam para a próxima tarefa,
+    // que decide como `linhasQueCabem` pagina cada uma. Por ora entram em
+    // branco, só para o documento ter as seis folhas do modelo.
+    doc.addPage() // 3-Despesas
+    doc.addPage() // 4-Receitas
+    doc.addPage() // 5-Conciliação
+
+    doc.addPage() // 6-Encerramento
+    desenharFolha(doc, LAYOUT['6-Encerramento'], valoresDoEncerramento(documento))
 
     doc.end()
   })
