@@ -3,7 +3,12 @@ import { PDFDocument } from 'pdf-lib'
 import PDFKitDocument from 'pdfkit'
 import { documentoDeTeste, despesaDeTeste } from '@/../tests/helpers/documento-prestacao'
 import type { DocumentoPrestacao } from './documento-prestacao'
-import { gerarPdfPrestacao, desenharFolha, desenharFolhaDeLancamentos } from './pdf-prestacao'
+import {
+  gerarPdfPrestacao,
+  desenharFolha,
+  desenharFolhaDeLancamentos,
+  desenharConciliacao,
+} from './pdf-prestacao'
 import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
 import { faixaDe, xDaColuna, yDaLinha } from './grade-prestacao'
 
@@ -253,40 +258,38 @@ function violacoesDePerimetro(layout: LayoutFolha): string[] {
  * prova a folha correta.
  *
  * Não são ruído de extração nem um caso improvável: são formatação salva
- * célula a célula no `.xlsx` original, medida na XML crua, não inferida. Em
- * `5-Conciliação A47:I47`, `A47` tem `borderId=7`, com topo; as oito
- * seguintes, `B47` a `I47`, têm `borderId=8`, sem topo, de forma uniforme. O
- * `borderId` é o mesmo mecanismo que motivou `segmentosDeBorda` existir: o
- * Excel guarda a borda `direita` de `A1:L2`, na Capa, separada em `L1`/`L2`
- * — cada célula-membro contribui a borda na sua posição dentro do perímetro.
- * Esta faixa é esse mesmo mecanismo, só que com borda **ausente** numa
- * parte, não borda presente espalhada.
+ * célula a célula no `.xlsx` original, medida na XML crua, não inferida.
  *
- * `3-Despesas` e `4-Receitas B33:G33` tinham a mesma característica —
- * `B33:E33` com topo, `F33:G33` sem — e saíram desta lista: `pdf-prestacao.ts`
- * não une mais por OR, rastreia a extensão de cada lado célula a célula
- * (`segmentosDeBorda`), e o describe "o rastreamento de extensao" logo
- * abaixo prova, pela coordenada realmente desenhada no PDF, que o traço para
- * em `E` e não estica até `G`. `5-Conciliação` fica porque ninguém ainda
- * desenhou aquela folha de verdade nem escreveu o teste de extensão
- * equivalente para ela — outra tarefa.
+ * `3-Despesas`/`4-Receitas B33:G33` (`B33:E33` com topo, `F33:G33` sem) e
+ * `5-Conciliação A47:I47` (`A47` tem `borderId=7`, com topo; as oito
+ * seguintes, `B47` a `I47`, têm `borderId=8`, sem topo) têm a mesma
+ * característica, e as três saíram desta lista pelo mesmo motivo:
+ * `pdf-prestacao.ts` não une mais por OR, rastreia a extensão de cada lado
+ * célula a célula (`segmentosDeBorda`), e um describe "o rastreamento de
+ * extensao" — um para `B33:G33`, outro para `A47:I47` — prova, pela
+ * coordenada realmente desenhada no PDF, que o traço para onde o modelo para
+ * e não estica até o fim da faixa mesclada.
  *
- * Por isso a varredura abaixo pula `3-Despesas` e `4-Receitas` de propósito:
- * a garantia para as duas não é mais "nenhuma violação escapou por aqui", é
- * o teste de extensão, mais forte porque confere a coordenada desenhada, não
- * só a presença/ausência na célula do layout. Uma violação NOVA nas folhas
- * varridas ainda reprova este teste, e a de Conciliação sumir também reprova
- * — sinal de que a lista precisa ser atualizada porque o dado foi corrigido
- * ou a folha ganhou o mesmo teste de extensão, não porque foi ignorada.
+ * O `borderId` é o mesmo mecanismo que motivou `segmentosDeBorda` existir: o
+ * Excel guarda a borda `direita` de `A1:L2`, na Capa, separada em `L1`/`L2` —
+ * cada célula-membro contribui a borda na sua posição dentro do perímetro.
+ * `B33:G33` e `A47:I47` são esse mesmo mecanismo, só que com borda
+ * **ausente** numa parte, não borda presente espalhada.
+ *
+ * Por isso a varredura abaixo pula as três de propósito: a garantia para
+ * elas não é mais "nenhuma violação escapou por aqui", é o teste de
+ * extensão, mais forte porque confere a coordenada desenhada, não só a
+ * presença/ausência na célula do layout. Uma violação NOVA nas folhas
+ * varridas ainda reprova este teste — sinal de que a lista precisa ser
+ * atualizada porque o dado foi corrigido ou a folha ganhou o mesmo teste de
+ * extensão, não porque foi ignorada.
  */
-const VIOLACOES_CONHECIDAS = [
-  '5-Conciliação A47:I47 lado topo: presente em 1/9 celulas do perimetro',
-].sort()
+const VIOLACOES_CONHECIDAS: string[] = []
 
 describe('a premissa de uniao por lado em bordasDaFolha', () => {
-  it('cada lado presente numa faixa mesclada cobre todo aquele trecho do perimetro, fora de despesas e receitas', () => {
+  it('cada lado presente numa faixa mesclada cobre todo aquele trecho do perimetro, fora de despesas, receitas e conciliacao', () => {
     const folhasVarridas = (Object.keys(LAYOUT) as NomeFolha[]).filter(
-      (nome) => nome !== '3-Despesas' && nome !== '4-Receitas'
+      (nome) => nome !== '3-Despesas' && nome !== '4-Receitas' && nome !== '5-Conciliação'
     )
     const violacoes = folhasVarridas.flatMap((nome) => violacoesDePerimetro(LAYOUT[nome])).sort()
     expect(violacoes, violacoes.join('\n')).toEqual(VIOLACOES_CONHECIDAS)
@@ -316,6 +319,35 @@ function segmentosBrutos(buffer: Buffer): SegmentoBruto[] {
     return { x1, y1, x2, y2 }
   })
 }
+
+describe('a conciliacao', () => {
+  it('empilha saldo, recebimentos por origem, despesas e os totais', async () => {
+    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+
+    expect(texto).toContain('Saldo Anterior')
+    expect(texto).toContain('Total de Saldo + Receitas')
+    expect(texto).toContain('Total de Despesas')
+    expect(texto).toContain('Saldo Disponível')
+  })
+
+  it('nao imprime as categorias do exemplo preenchido', async () => {
+    // O layout extraido traz, da linha 24 em diante, as categorias de outra
+    // prestacao — "Salario", "Diaria", "Taxa bancaria". Sao genericas, entao
+    // passaram pela barreira de CPF/CNPJ, mas continuam sendo conteudo alheio.
+    // A conciliacao e composta, nunca copiada.
+    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+
+    expect(texto).not.toContain('Servico reforma cozinha')
+    expect(texto).not.toContain('Peça para conserto')
+  })
+
+  it('assina na ordem inversa das folhas de lancamento', async () => {
+    // Tesoureiro a esquerda, presidente a direita: e como o modelo faz, e o
+    // documento entregue precisa parecer com o que o orgao espera.
+    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+    expect(texto.indexOf('Tesoureiro')).toBeLessThan(texto.lastIndexOf('Presidente'))
+  })
+})
 
 describe('o rastreamento de extensao no topo de B33:G33', () => {
   it('para no fim de E — nao estica ate G como a uniao por OR desenharia', async () => {
@@ -356,5 +388,39 @@ describe('o rastreamento de extensao no topo de B33:G33', () => {
     expect(topoDoTotal, JSON.stringify(topoDoTotal)).toHaveLength(1)
     expect(topoDoTotal[0].x2).toBeCloseTo(xFimE, 3)
     expect(topoDoTotal[0].x2).not.toBeCloseTo(xFimG, 3)
+  })
+})
+
+describe('o rastreamento de extensao no topo de A47:I47 na conciliacao', () => {
+  it('para no fim de A — nao estica ate I como a uniao por OR desenharia', async () => {
+    // Medido na XML crua do .xlsx: A47 tem borderId=7, com topo; B47:I47 tem
+    // borderId=8, sem topo — a mesma familia de caso de B33:G33, provada aqui
+    // pela coordenada realmente desenhada na conciliacao.
+    const layout = LAYOUT['5-Conciliação']
+
+    // documentoDeTeste() nao tem recebimentos nem despesas detalhadas: a
+    // linha 47 do modelo ("Total de Despesas") sai na linha 21 da folha
+    // real, porque a posicao e calculada pelo volume, nao copiada do modelo.
+    const linhaAlvo = 21
+    const y = yDaLinha(layout, linhaAlvo)
+    const xInicioA = xDaColuna(layout, 1)
+    const xFimA = xDaColuna(layout, 2) // fim de A = inicio de B: onde o modelo para
+    const xFimI = xDaColuna(layout, 10) // fim de I = inicio de J: o esticamento que a uniao por OR desenharia
+
+    const buffer = await bufferIsolado((doc) => {
+      desenharConciliacao(doc, layout, documentoDeTeste())
+    })
+    const segmentos = segmentosBrutos(buffer)
+
+    const topoDoTotal = segmentos.filter(
+      (s) =>
+        Math.abs(s.y1 - y) < 0.01 &&
+        Math.abs(s.y2 - y) < 0.01 &&
+        Math.abs(s.x1 - xInicioA) < 0.01
+    )
+
+    expect(topoDoTotal, JSON.stringify(topoDoTotal)).toHaveLength(1)
+    expect(topoDoTotal[0].x2).toBeCloseTo(xFimA, 3)
+    expect(topoDoTotal[0].x2).not.toBeCloseTo(xFimI, 3)
   })
 })

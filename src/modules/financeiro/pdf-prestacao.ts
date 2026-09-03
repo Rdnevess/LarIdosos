@@ -453,6 +453,209 @@ export function desenharFolhaDeLancamentos(
   }
 }
 
+/** A linha de uma célula do modelo — só os dígitos de "A20", sem a coluna. */
+function linhaDaCelula(celula: string): number {
+  return partesDaCelula(celula).linha
+}
+
+/**
+ * Traduz a aparência de uma linha do modelo — bordas, fontes, alinhamentos e
+ * as faixas mescladas que a ancoram — para a linha onde a conciliação
+ * realmente a desenha.
+ *
+ * A conciliação é composta, não copiada: o volume real de origens de receita
+ * e de despesas quase nunca cai na mesma linha do exemplo que o layout
+ * extraiu, então a posição de saída (`linhaAlvo`) e a linha de onde o estilo
+ * vem (`linhaModelo`) são números diferentes na maioria das folhas. `rotulos`
+ * sai vazio de propósito — herdar texto do modelo aqui reabriria a fuga de
+ * conteúdo alheio que esta folha existe para fechar; quem chama fornece o
+ * texto de cada célula por fora, em `valores`.
+ */
+function linhaTraduzida(layout: LayoutFolha, linhaModelo: number, linhaAlvo: number): LayoutFolha {
+  const traduzir = <T,>(registro: Record<string, T>): Record<string, T> => {
+    const resultado: Record<string, T> = {}
+    for (const [celula, valor] of Object.entries(registro)) {
+      const partes = partesDaCelula(celula)
+      if (partes.linha !== linhaModelo) continue
+      resultado[celulaDaParte(partes.coluna, linhaAlvo)] = valor
+    }
+    return resultado
+  }
+
+  const traduzirFaixa = (faixa: string): string | null => {
+    const [inicio, fim] = faixa.split(':')
+    if (linhaDaCelula(inicio) !== linhaModelo || linhaDaCelula(fim) !== linhaModelo) return null
+    const a = partesDaCelula(inicio)
+    const b = partesDaCelula(fim)
+    return `${celulaDaParte(a.coluna, linhaAlvo)}:${celulaDaParte(b.coluna, linhaAlvo)}`
+  }
+
+  return {
+    ...layout,
+    merges: layout.merges.map(traduzirFaixa).filter((faixa): faixa is string => faixa !== null),
+    rotulos: {},
+    bordas: traduzir(layout.bordas),
+    fontes: traduzir(layout.fontes),
+    alinhamentos: traduzir(layout.alinhamentos),
+    faixaDados: undefined,
+  }
+}
+
+/** Desenha uma linha da conciliação com o estilo de `linhaModelo`, na posição `linhaAlvo`. */
+function desenharLinhaComposta(
+  doc: Doc,
+  layout: LayoutFolha,
+  linhaModelo: number,
+  linhaAlvo: number,
+  valores: Record<string, string>
+): void {
+  desenharFolha(doc, linhaTraduzida(layout, linhaModelo, linhaAlvo), valores)
+}
+
+/** Os valores do cabeçalho da conciliação: dados bancários e o período. */
+function valoresDoCabecalhoDaConciliacao(documento: DocumentoPrestacao): Record<string, string> {
+  const { conciliacao } = documento
+  return {
+    A1: documento.capa.razaoSocial,
+    A7: `Período de ${formatarData(conciliacao.periodo.de)} a ${formatarData(conciliacao.periodo.ate)}`,
+    A10: conciliacao.banco,
+    E10: conciliacao.agencia,
+    I10: conciliacao.conta,
+  }
+}
+
+/**
+ * A conciliação: a única folha composta do modelo — suas linhas dependem de
+ * quantas origens de receita e quantas despesas a competência teve.
+ *
+ * **Composta, nunca copiada.** O layout extraído traz, da linha 13 em diante,
+ * o exemplo preenchido de outra prestação — as categorias "Salário",
+ * "Diária", "Taxa bancária", "Serviço reforma cozinha" de outra instituição.
+ * São genéricas, e por isso passaram pela barreira de CPF/CNPJ do extrator,
+ * mas continuam sendo conteúdo alheio. Por isso `desenharLinhaComposta` nunca
+ * herda `layout.rotulos` na zona dinâmica: cada rótulo legítimo (`rotulo`,
+ * abaixo) é lido de uma célula fixa do modelo, mas colocado na linha que o
+ * volume real calcula, nunca na linha onde o exemplo o deixou.
+ *
+ * **A ordem é a de `montarConciliacao`** em
+ * `git show master:src/modules/financeiro/xlsx-prestacao.ts`, o gerador da
+ * planilha que saiu: saldo anterior, recebimentos (uma linha por origem),
+ * total de saldo mais receitas, despesas (cabeçalho credor/categoria, uma
+ * linha por despesa), total de despesas, saldo disponível, unidade executora
+ * e as assinaturas invertidas — tesoureiro à esquerda, presidente à direita,
+ * o oposto do rodapé das folhas de lançamento.
+ *
+ * **Os intervalos do modelo** (recebimentos entre as linhas 15 e 18,
+ * despesas entre 24 e 46) vêm de `layout.merges`: são as faixas `B15:F15` a
+ * `B18:F18`, e `B24:E24` a `B46:E46`. Uma linha que passe do fim desse
+ * intervalo herda o estilo da última — é a mesma célula que fecha a caixa no
+ * modelo, só repetida.
+ */
+export function desenharConciliacao(
+  doc: Doc,
+  layout: LayoutFolha,
+  documento: DocumentoPrestacao
+): void {
+  const { conciliacao: dados } = documento
+  const rotulo = (celula: string) => layout.rotulos[celula] ?? ''
+
+  desenharFolha(
+    doc,
+    recorteDeLinhas(layout, 1, 12),
+    valoresDoCabecalhoDaConciliacao(documento)
+  )
+
+  let linha = 13
+
+  desenharLinhaComposta(doc, layout, 13, linha, {
+    [`A${linha}`]: rotulo('A13'),
+    [`J${linha}`]: formatarMoeda(dados.saldoAnterior),
+  })
+  linha++
+
+  desenharLinhaComposta(doc, layout, 14, linha, {
+    [`A${linha}`]: rotulo('A14'),
+    [`J${linha}`]: formatarMoeda(dados.totalReceitas),
+  })
+  linha++
+
+  const primeiraLinhaRecebimento = 15
+  const ultimaLinhaRecebimentoDoModelo = 18
+  dados.recebimentosPorOrigem.forEach((recebimento, indice) => {
+    const linhaModelo = Math.min(primeiraLinhaRecebimento + indice, ultimaLinhaRecebimentoDoModelo)
+    desenharLinhaComposta(doc, layout, linhaModelo, linha, {
+      [`B${linha}`]: recebimento.rotulo,
+      [`J${linha}`]: formatarMoeda(recebimento.valor),
+    })
+    linha++
+  })
+
+  linha++ // linha em branco, como o gerador da planilha deixava antes do total
+  desenharLinhaComposta(doc, layout, 20, linha, {
+    [`A${linha}`]: rotulo('A20'),
+    [`J${linha}`]: formatarMoeda(dados.saldoAnterior + dados.totalReceitas),
+  })
+  linha += 2
+
+  desenharLinhaComposta(doc, layout, 22, linha, {
+    [`A${linha}`]: rotulo('A22'),
+  })
+  linha++
+
+  // B23 vem em branco no modelo; a coluna é a do credor, texto fixo aqui.
+  desenharLinhaComposta(doc, layout, 23, linha, {
+    [`B${linha}`]: 'Credor',
+    [`F${linha}`]: rotulo('F23'),
+  })
+  linha++
+
+  const primeiraLinhaDespesa = 24
+  const ultimaLinhaDespesaDoModelo = 46
+  dados.despesasDetalhadas.forEach((despesa, indice) => {
+    const linhaModelo = Math.min(primeiraLinhaDespesa + indice, ultimaLinhaDespesaDoModelo)
+    desenharLinhaComposta(doc, layout, linhaModelo, linha, {
+      [`B${linha}`]: despesa.credor,
+      [`F${linha}`]: despesa.categoria,
+      [`J${linha}`]: formatarMoeda(despesa.valor),
+    })
+    linha++
+  })
+
+  linha++ // linha em branco, como o gerador da planilha deixava antes do total
+  desenharLinhaComposta(doc, layout, 47, linha, {
+    [`A${linha}`]: rotulo('A47'),
+    [`J${linha}`]: formatarMoeda(dados.totalDespesas),
+  })
+  linha += 2
+
+  desenharLinhaComposta(doc, layout, 49, linha, {
+    [`A${linha}`]: rotulo('A49'),
+    [`J${linha}`]: formatarMoeda(dados.saldoDisponivel),
+  })
+  linha += 2
+
+  desenharLinhaComposta(doc, layout, 51, linha, {
+    [`A${linha}`]: rotulo('A51'),
+    [`B${linha}`]: documento.capa.razaoSocial,
+  })
+  linha += 3
+
+  // A conciliação assina na ordem inversa das folhas de lançamento: tesoureiro
+  // à esquerda, presidente à direita. É como o modelo faz.
+  desenharLinhaComposta(doc, layout, 54, linha, {
+    [`A${linha}`]: rotulo('A54'),
+    [`G${linha}`]: rotulo('G54'),
+  })
+  desenharLinhaComposta(doc, layout, 55, linha + 1, {
+    [`A${linha + 1}`]: documento.oficio.tesoureiro,
+    [`G${linha + 1}`]: documento.oficio.presidente,
+  })
+  desenharLinhaComposta(doc, layout, 56, linha + 2, {
+    [`A${linha + 2}`]: rotulo('A56'),
+    [`G${linha + 2}`]: rotulo('G56'),
+  })
+}
+
 /** Os valores da capa: célula do modelo → texto desta prestação. */
 function valoresDaCapa(documento: DocumentoPrestacao): Record<string, string> {
   return {
@@ -520,10 +723,8 @@ export function gerarPdfPrestacao(documento: DocumentoPrestacao): Promise<Buffer
     doc.addPage()
     desenharFolhaDeLancamentos(doc, LAYOUT['4-Receitas'], documento, linhasDeReceitas(documento))
 
-    // Conciliação também tem faixa de dados que cresce pelo volume — fica
-    // para outra tarefa. Por ora entra em branco, só para o documento ter as
-    // seis folhas do modelo.
-    doc.addPage() // 5-Conciliação
+    doc.addPage()
+    desenharConciliacao(doc, LAYOUT['5-Conciliação'], documento)
 
     doc.addPage() // 6-Encerramento
     desenharFolha(doc, LAYOUT['6-Encerramento'], valoresDoEncerramento(documento))
