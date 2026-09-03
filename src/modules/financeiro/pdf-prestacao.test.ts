@@ -341,6 +341,77 @@ describe('a conciliacao', () => {
     expect(texto).not.toContain('Peça para conserto')
   })
 
+  it('nao imprime as categorias do exemplo alheio com volume real acima do modelo', async () => {
+    // O teste anterior usa documentoDeTeste(), cujo fixture tem
+    // recebimentosPorOrigem e despesasDetalhadas vazios — os dois forEach de
+    // desenharConciliacao rodam zero vezes, e linhaTraduzida nunca e chamada
+    // com linhaModelo 15-18 nem 24-46, exatamente onde moram "Salário",
+    // "Diária", "Peça para conserto" e "Serviço reforma cozinha" no layout
+    // extraido. Aquele teste passa por ausencia de caso, nao porque a
+    // traducao foi exercitada.
+    //
+    // Aqui o volume passa do exemplo do modelo (4 origens, 23 despesas): oito
+    // recebimentos e trinta despesas, para o Math.min de linhaTraduzida
+    // entrar em acao — o mesmo caminho de transbordo que roda em producao
+    // sempre que o mes tiver mais de 4 origens ou mais de 23 despesas.
+    const recebimentos = [
+      'Mensalidades de Associados',
+      'Doações Pontuais',
+      'Eventos Beneficentes',
+      'Convênios Municipais',
+      'Juros de Aplicação',
+      'Reembolsos Diversos',
+      'Patrocínios Empresariais',
+      'Rendimentos de Aplicação',
+    ].map((rotulo, indice) => ({ rotulo, valor: (indice + 1) * 100 }))
+
+    const despesas = Array.from({ length: 30 }, (_, indice) => ({
+      credor: `Credor Legitimo ${indice + 1}`,
+      categoria: `Categoria Legitima ${indice + 1}`,
+      valor: (indice + 1) * 10,
+    }))
+
+    const base = documentoDeTeste()
+    const documento: DocumentoPrestacao = {
+      ...base,
+      conciliacao: {
+        ...base.conciliacao,
+        recebimentosPorOrigem: recebimentos,
+        despesasDetalhadas: despesas,
+        totalReceitas: recebimentos.reduce((soma, r) => soma + r.valor, 0),
+        totalDespesas: despesas.reduce((soma, d) => soma + d.valor, 0),
+      },
+    }
+
+    const texto = extrairTexto(await gerarPdfPrestacao(documento))
+
+    // Nenhuma categoria do exemplo alheio (F24:F41 no layout extraido) vaza,
+    // mesmo com a traducao efetivamente exercitada acima do fim do modelo.
+    for (const categoriaAlheia of [
+      'Salário',
+      'Diária',
+      'Peça para conserto',
+      'Prestação de Serviços de terceiros',
+      'Taxa bancária',
+      'Serviço reforma cozinha',
+      'Energia',
+      'Água e Esgoto',
+      'Compra de móveis',
+    ]) {
+      expect(texto).not.toContain(categoriaAlheia)
+    }
+
+    // E os dados legitimos que injetamos aparecem de verdade — sem esta
+    // metade, um renderizador que nao desenhasse nada tambem passaria acima.
+    for (const recebimento of recebimentos) {
+      expect(texto).toContain(recebimento.rotulo)
+    }
+    for (const despesa of despesas) {
+      expect(texto).toContain(despesa.credor)
+      expect(texto).toContain(despesa.categoria)
+    }
+  })
+
   it('assina na ordem inversa das folhas de lancamento', async () => {
     // Tesoureiro a esquerda, presidente a direita: e como o modelo faz, e o
     // documento entregue precisa parecer com o que o orgao espera.
