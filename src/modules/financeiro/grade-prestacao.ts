@@ -49,16 +49,20 @@ export function alturaDaLinha(layout: LayoutFolha, linha: number): number {
 }
 
 /**
- * O topo da linha, em coordenada de PDF.
+ * O topo da linha, a partir do topo da página.
  *
- * O `y` da planilha cresce para baixo e o do PDF para cima. A inversão fica
- * aqui, uma vez só: espalhá-la pelo renderizador produziria uma folha de
- * cabeça para baixo no dia em que alguém esquecesse de inverter.
+ * Medido, não suposto: o pdfkit expõe a página com origem no canto superior
+ * esquerdo e `y` crescendo para baixo — lido direto do content stream de um
+ * PDF mínimo, que abre com `1 0 0 -1 0 841.89 cm` (o flip vertical que a
+ * própria biblioteca já aplica antes de expor coordenadas a quem chama). A
+ * documentação do formato PDF descreve a origem crua como o canto inferior
+ * esquerdo, mas o pdfkit não expõe esse eixo — e é a mesma direção da
+ * planilha. Não há inversão a fazer aqui.
  */
 export function yDaLinha(layout: LayoutFolha, linha: number): number {
   let percorrido = 0
   for (let n = 1; n < linha; n++) percorrido += alturaDaLinha(layout, n)
-  return ALTURA_PAGINA - layout.margens.topo - percorrido
+  return layout.margens.topo + percorrido
 }
 
 /** A faixa mesclada que contém a célula, ou a própria célula. */
@@ -94,7 +98,7 @@ export function caixaDa(layout: LayoutFolha, celula: string): Caixa {
   let altura = 0
   for (let n = a.linha; n <= b.linha; n++) altura += alturaDaLinha(layout, n)
 
-  return { x, y: topo - altura, largura: direita - x, altura }
+  return { x, y: topo, largura: direita - x, altura }
 }
 
 /**
@@ -108,6 +112,6 @@ export function linhasQueCabem(
   primeiraLinha: number,
   alturaLinha: number
 ): number {
-  const disponivel = yDaLinha(layout, primeiraLinha) - layout.margens.baixo
+  const disponivel = ALTURA_PAGINA - layout.margens.baixo - yDaLinha(layout, primeiraLinha)
   return Math.max(0, Math.floor(disponivel / alturaLinha))
 }

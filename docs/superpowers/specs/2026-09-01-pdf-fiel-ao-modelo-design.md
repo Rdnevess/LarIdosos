@@ -159,8 +159,13 @@ export function linhasQueCabem(layout: LayoutFolha, primeiraLinha: number): numb
 export function faixaDe(layout: LayoutFolha, celula: string): string
 ```
 
-O `y` cresce para baixo na planilha e para cima no PDF — a inversão mora aqui,
-uma vez, como já mora em `posicaoY` do gráfico de tendência.
+**Medido, não suposto.** O pdfkit expõe a página com origem no canto superior
+esquerdo e `y` crescendo para baixo — a mesma direção da planilha. Confirmado
+lendo o content stream de um PDF mínimo: a biblioteca já abre com
+`1 0 0 -1 0 841.89 cm`, o flip vertical, antes de expor coordenadas a quem
+chama. A documentação do formato PDF descreve a origem crua como o canto
+inferior esquerdo, mas o pdfkit não expõe esse eixo — e não há inversão
+nenhuma a fazer no módulo puro.
 
 ## 5. O renderizador
 
@@ -243,7 +248,8 @@ base antes — o teste da travessia E2E já faz assim.
 - **A conversão**: largura 8,14 dá 46,49 pt; doze colunas cabem na largura útil
   de cada uma das seis folhas, com a margem daquela folha.
 - **A caixa de uma célula mesclada** é a união das células, e não a primeira.
-- **A inversão do eixo**: a linha 1 fica no alto da página.
+- **A linha 1 fica no alto da página**: sem inversão de eixo — o pdfkit já
+  expõe `y` crescendo para baixo a partir do topo, igual à planilha.
 - **Cada borda extraída vira um segmento desenhado** — a contagem de segmentos
   do PDF bate com a contagem de lados com estilo no layout.
 - **O transbordo**: 22 lançamentos dão uma página; 60 dão três, com o cabeçalho
