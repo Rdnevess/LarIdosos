@@ -66,6 +66,18 @@ function fonteDoPdf(familia: string, negrito: boolean, italico: boolean): string
  * lados que vieram de outra célula do mesmo merge — a caixa sai faltando
  * lado. Por isso a união: cada célula do `bordas` extraído contribui os
  * lados que carrega para a âncora da sua faixa, e é a âncora que desenha.
+ *
+ * **A união é por OR simples, lado a lado — não rastreia extensão.** Ela
+ * pressupõe que, quando um lado aparece em alguma célula da faixa, ele cobre
+ * TODO aquele trecho do perímetro (a linha inteira do topo, a coluna inteira
+ * da esquerda etc.), porque é isso que desenha: um traço do começo ao fim da
+ * caixa. Numa faixa com borda parcial — um lado presente só numa parte do
+ * perímetro, como `esquerda` só na primeira de três linhas — o traço sairia
+ * do tamanho da faixa inteira onde o modelo só tinha borda num pedaço dela.
+ * Vale para as três folhas que esta função desenha hoje (testado em
+ * `pdf-prestacao.test.ts`, que varre as seis folhas do `LAYOUT` atrás de
+ * violação); já existe borda parcial fora do que é desenhado hoje, listada
+ * como violação conhecida nesse teste.
  */
 function bordasDaFolha(layout: LayoutFolha): Map<string, LadosComBorda> {
   const porAncora = new Map<string, LadosComBorda>()

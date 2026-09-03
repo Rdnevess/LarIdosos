@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
 import { documentoDeTeste } from '@/../tests/helpers/documento-prestacao'
 import { gerarPdfPrestacao } from './pdf-prestacao'
-import { LAYOUT } from './layout-prestacao'
+import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
+import { faixaDe } from './grade-prestacao'
 
 /**
  * O `pdfkit` escreve os textos em arrays `TJ`, com os caracteres em hexa e os
@@ -44,17 +45,53 @@ async function paginasDe(buffer: Buffer): Promise<number> {
   return (await PDFDocument.load(buffer)).getPageCount()
 }
 
-describe('a grade desenhada', () => {
-  it('desenha um segmento para cada lado com borda da capa', async () => {
-    // A prova de que a fidelidade chegou ao papel: a contagem de segmentos do
-    // PDF bate com a contagem de lados no layout. Sem isto, "tem bordas" seria
-    // impressao, e esta maquina nem consegue abrir o PDF como imagem.
-    const buffer = await gerarPdfPrestacao(documentoDeTeste())
-    const lados = Object.values(LAYOUT['1-Capa'].bordas)
-      .flatMap((b) => [b.topo, b.esquerda, b.baixo, b.direita].filter(Boolean)).length
+/**
+ * Quantos segmentos `desenharFolha` emite para esta folha: para cada faixa
+ * com borda, os lados de todas as suas células-membro unidos por OR — a
+ * mesma conta que `bordasDaFolha`, em `pdf-prestacao.ts`, faz antes de
+ * desenhar. Reimplementada aqui, e não importada de lá, para o teste
+ * verificar o resultado com uma conta independente, não com a mesma função
+ * que está sob teste.
+ */
+function segmentosDaFolha(layout: LayoutFolha): number {
+  const porAncora = new Map<
+    string,
+    { topo?: boolean; baixo?: boolean; esquerda?: boolean; direita?: boolean }
+  >()
 
-    expect(lados).toBeGreaterThan(0)
-    expect(contarSegmentos(buffer)).toBeGreaterThanOrEqual(lados)
+  for (const [celula, lados] of Object.entries(layout.bordas)) {
+    const ancora = faixaDe(layout, celula).split(':')[0]
+    const atual = porAncora.get(ancora) ?? {}
+    porAncora.set(ancora, {
+      topo: atual.topo || Boolean(lados.topo),
+      baixo: atual.baixo || Boolean(lados.baixo),
+      esquerda: atual.esquerda || Boolean(lados.esquerda),
+      direita: atual.direita || Boolean(lados.direita),
+    })
+  }
+
+  let total = 0
+  for (const lados of porAncora.values()) {
+    total += [lados.topo, lados.baixo, lados.esquerda, lados.direita].filter(Boolean).length
+  }
+  return total
+}
+
+describe('a grade desenhada', () => {
+  it('a contagem de segmentos bate exatamente com a uniao de lados das tres folhas estaticas', async () => {
+    // Igualdade, nao piso: um piso frouxo deixaria uma regressao que perde
+    // ate alguns lados passar despercebida. O esperado e calculado do mesmo
+    // jeito que desenharFolha desenha - a uniao de lados por faixa -, e nao
+    // pela contagem crua de flags por celula, que conta a mesma linha de uma
+    // mescla ate doze vezes.
+    const buffer = await gerarPdfPrestacao(documentoDeTeste())
+    const esperado =
+      segmentosDaFolha(LAYOUT['1-Capa']) +
+      segmentosDaFolha(LAYOUT['2-Contra-Capa']) +
+      segmentosDaFolha(LAYOUT['6-Encerramento'])
+
+    expect(esperado).toBeGreaterThan(0)
+    expect(contarSegmentos(buffer)).toBe(esperado)
   })
 
   it('o documento tem ao menos as seis folhas do modelo', async () => {
@@ -67,5 +104,113 @@ describe('a grade desenhada', () => {
     // antigo desenhava texto corrido a partir da margem, ignorando o modelo.
     const buffer = await gerarPdfPrestacao(documentoDeTeste())
     expect(extrairTexto(buffer)).toContain('Associação Lar dos Idosos')
+  })
+})
+
+type LadoBorda = 'topo' | 'baixo' | 'esquerda' | 'direita'
+
+/** "B11" -> { coluna: 2, linha: 11 }. Espelha `partesDa`, privada em grade-prestacao.ts. */
+function partesDaCelula(celula: string): { coluna: number; linha: number } {
+  const [, letras, digitos] = celula.match(/^([A-Z]+)(\d+)$/) ?? []
+  if (!letras || !digitos) throw new Error(`Célula fora do formato: ${celula}`)
+  let coluna = 0
+  for (const letra of letras) coluna = coluna * 26 + (letra.charCodeAt(0) - 64)
+  return { coluna, linha: Number(digitos) }
+}
+
+/** { coluna: 2, linha: 11 } -> "B11". O inverso de `partesDaCelula`. */
+function celulaDaParte(coluna: number, linha: number): string {
+  let c = coluna
+  let letras = ''
+  while (c > 0) {
+    const resto = (c - 1) % 26
+    letras = String.fromCharCode(65 + resto) + letras
+    c = Math.floor((c - 1) / 26)
+  }
+  return `${letras}${linha}`
+}
+
+/**
+ * As violações da premissa de `bordasDaFolha`: ela une por OR os lados das
+ * células de uma faixa mesclada, o que só desenha a caixa certa se cada lado
+ * presente cobrir TODO aquele trecho do perímetro — senão o traço sai com o
+ * comprimento inteiro da faixa onde o modelo só tinha borda numa parte dela.
+ *
+ * Varre as seis folhas do `LAYOUT` para pegar isso antes de o PDF sair
+ * errado, se um layout revisado algum dia trouxer borda parcial.
+ */
+function violacoesDePerimetro(layout: LayoutFolha): string[] {
+  const violacoes: string[] = []
+
+  for (const faixa of layout.merges) {
+    const [inicio, fim] = faixa.split(':')
+    const a = partesDaCelula(inicio)
+    const b = partesDaCelula(fim)
+
+    const bordaPresente = (celula: string, lado: LadoBorda) =>
+      Boolean(layout.bordas[celula]?.[lado])
+
+    const colunas = Array.from({ length: b.coluna - a.coluna + 1 }, (_, i) => a.coluna + i)
+    const linhas = Array.from({ length: b.linha - a.linha + 1 }, (_, i) => a.linha + i)
+
+    const arestas: { lado: LadoBorda; celulas: string[] }[] = [
+      { lado: 'topo', celulas: colunas.map((coluna) => celulaDaParte(coluna, a.linha)) },
+      { lado: 'baixo', celulas: colunas.map((coluna) => celulaDaParte(coluna, b.linha)) },
+      { lado: 'esquerda', celulas: linhas.map((linha) => celulaDaParte(a.coluna, linha)) },
+      { lado: 'direita', celulas: linhas.map((linha) => celulaDaParte(b.coluna, linha)) },
+    ]
+
+    for (const { lado, celulas } of arestas) {
+      const presencas = celulas.map((celula) => bordaPresente(celula, lado))
+      const algumaPresente = presencas.some(Boolean)
+      const todasPresentes = presencas.every(Boolean)
+      if (algumaPresente && !todasPresentes) {
+        const quantas = presencas.filter(Boolean).length
+        violacoes.push(
+          `${layout.nome} ${faixa} lado ${lado}: presente em ${quantas}/${celulas.length} celulas do perimetro`
+        )
+      }
+    }
+  }
+
+  return violacoes
+}
+
+/**
+ * Violações já existentes no modelo, fora do que esta tarefa desenha.
+ *
+ * As três pertencem a Despesas, Receitas e Conciliação — as folhas com faixa
+ * de dados que `gerarPdfPrestacao` ainda deixa em branco (ver o comentário
+ * lá). Nelas, uma linha de total do modelo original tem borda só numa parte
+ * da largura da faixa mesclada (`B33:G33` com `topo` em 4 das 6 células;
+ * `A47:I47` com `topo` em 1 das 9) — o tipo de borda parcial que a união por
+ * OR de `bordasDaFolha` desenha errado, com o traço esticado até a faixa
+ * inteira.
+ *
+ * Isto é dívida do modelo original, não desta tarefa: nenhuma delas está em
+ * Capa, Contra-Capa ou Encerramento, as três que `desenharFolha` já desenha
+ * hoje. A lista existe para a guarda continuar útil sem bloquear a tarefa
+ * por um problema que não é dela: uma violação NOVA nas seis folhas ainda
+ * reprova este teste, e uma destas três sumir também reprova — sinal de que
+ * a lista precisa ser atualizada porque o dado foi corrigido.
+ */
+const VIOLACOES_CONHECIDAS = [
+  '3-Despesas B33:G33 lado topo: presente em 4/6 celulas do perimetro',
+  '4-Receitas B33:G33 lado topo: presente em 4/6 celulas do perimetro',
+  '5-Conciliação A47:I47 lado topo: presente em 1/9 celulas do perimetro',
+].sort()
+
+describe('a premissa de uniao por lado em bordasDaFolha', () => {
+  it('cada lado presente numa faixa mesclada cobre todo aquele trecho do perimetro, nas seis folhas', () => {
+    const violacoes = (Object.keys(LAYOUT) as NomeFolha[])
+      .flatMap((nome) => violacoesDePerimetro(LAYOUT[nome]))
+      .sort()
+    expect(violacoes, violacoes.join('\n')).toEqual(VIOLACOES_CONHECIDAS)
+  })
+
+  it('nas tres folhas que a grade ja desenha, nenhuma violacao escapa pela lista conhecida', () => {
+    const folhasDesenhadas: NomeFolha[] = ['1-Capa', '2-Contra-Capa', '6-Encerramento']
+    const violacoes = folhasDesenhadas.flatMap((nome) => violacoesDePerimetro(LAYOUT[nome]))
+    expect(violacoes, violacoes.join('\n')).toEqual([])
   })
 })
