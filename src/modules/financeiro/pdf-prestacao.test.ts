@@ -177,22 +177,33 @@ function violacoesDePerimetro(layout: LayoutFolha): string[] {
 }
 
 /**
- * Violações já existentes no modelo, fora do que esta tarefa desenha.
+ * Violações reais, confirmadas na fonte, fora do que esta tarefa desenha.
  *
- * As três pertencem a Despesas, Receitas e Conciliação — as folhas com faixa
- * de dados que `gerarPdfPrestacao` ainda deixa em branco (ver o comentário
- * lá). Nelas, uma linha de total do modelo original tem borda só numa parte
- * da largura da faixa mesclada (`B33:G33` com `topo` em 4 das 6 células;
- * `A47:I47` com `topo` em 1 das 9) — o tipo de borda parcial que a união por
- * OR de `bordasDaFolha` desenha errado, com o traço esticado até a faixa
- * inteira.
+ * Não são ruído de extração nem um caso improvável: são formatação salva
+ * célula a célula no `.xlsx` original, medida na XML crua, não inferida. Em
+ * `5-Conciliação A47:I47`, `A47` tem `borderId=7`, com topo; as oito
+ * seguintes, `B47` a `I47`, têm `borderId=8`, sem topo, de forma uniforme.
+ * Em `3-Despesas` e `4-Receitas B33:G33`, `B33:E33` têm `borderId=14`, com
+ * topo; `F33:G33` têm `borderId=5`, sem topo. O `borderId` é o mesmo
+ * mecanismo que motivou `bordasDaFolha` existir: o Excel guarda a borda
+ * `direita` de `A1:L2`, na Capa, separada em `L1`/`L2` — cada célula-membro
+ * contribui a borda na sua posição dentro do perímetro. Estas três faixas
+ * são esse mesmo mecanismo, só que com borda **ausente** numa parte, não
+ * borda presente espalhada.
  *
- * Isto é dívida do modelo original, não desta tarefa: nenhuma delas está em
- * Capa, Contra-Capa ou Encerramento, as três que `desenharFolha` já desenha
- * hoje. A lista existe para a guarda continuar útil sem bloquear a tarefa
- * por um problema que não é dela: uma violação NOVA nas seis folhas ainda
- * reprova este teste, e uma destas três sumir também reprova — sinal de que
- * a lista precisa ser atualizada porque o dado foi corrigido.
+ * Por isso a união por OR de `bordasDaFolha` desenharia o traço MAIS LONGO
+ * do que o modelo tem, não mais curto: o topo esticado pela largura inteira
+ * da faixa, cobrindo `F:G` em Despesas e Receitas e `B:I` em Conciliação,
+ * onde o original não tem nada. Isso vai aparecer assim que essas três
+ * folhas forem desenhadas — a saída é rastrear a extensão de cada lado, não
+ * aceitar o esticamento.
+ *
+ * Nenhuma das três está em Capa, Contra-Capa ou Encerramento, as que
+ * `desenharFolha` já desenha hoje — por isso a lista abaixo não bloqueia
+ * esta tarefa. Ela existe para isso, e não porque o caso seja benigno: uma
+ * violação NOVA nas seis folhas ainda reprova este teste, e uma destas três
+ * sumir também reprova — sinal de que a lista precisa ser atualizada porque
+ * o dado foi corrigido, não ignorado.
  */
 const VIOLACOES_CONHECIDAS = [
   '3-Despesas B33:G33 lado topo: presente em 4/6 celulas do perimetro',
