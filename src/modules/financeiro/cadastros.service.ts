@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { CategoriaDespesa, Fornecedor, OrigemReceita } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
-import { ErroNaoEncontrado } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { validar } from '@/lib/validacao'
 import { validarCpf, validarCnpj, somenteDigitos } from '@/lib/ptbr'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
@@ -45,6 +45,24 @@ const fornecedorSchema = z
   )
 
 export type DadosOrigemReceita = z.input<typeof origemSchema>
+/**
+ * O nome reduzido ao que ele de fato distingue: sem caixa, sem acento e sem
+ * espaço sobrando. "Água e Esgoto", "agua e esgoto" e "ÁGUA  E  ESGOTO" caem
+ * todos em `agua e esgoto`.
+ *
+ * Serve à guarda de duplicata da categoria de despesa, e a nada mais: é
+ * comparação, nunca armazenamento. O nome guardado é o que a pessoa digitou,
+ * acento e caixa inclusive, porque é ele que sai no documento do órgão.
+ */
+function nomeNormalizado(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export type DadosCategoriaDespesa = z.input<typeof categoriaSchema>
 export type DadosFornecedor = z.input<typeof fornecedorSchema>
 
@@ -93,6 +111,23 @@ export async function criarCategoriaDespesa(
   exigirPapel(ctx, 'CategoriaDespesa', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(categoriaSchema, dados)
 
+  // A pendência 3 decidiu não fechar a lista: a equipe cadastra categoria nova
+  // sem depender de um deploy que ninguém ali faz. O que se barra aqui é só a
+  // duplicata textual — a mesma categoria escrita de outro jeito parte o
+  // subtotal da conciliação em duas linhas, e o documento entregue ao órgão
+  // mostra "Energia 400,00" e "energia 350,00" onde havia uma despesa só.
+  //
+  // A comparação inclui a categoria desativada: sem isso, desativar "Energia"
+  // e cadastrá-la de novo devolveria as duas à base, uma morta e uma viva,
+  // com os lançamentos repartidos entre elas — exatamente a sopa que a
+  // desativação tinha ido arrumar.
+  const existentes = await prisma.categoriaDespesa.findMany({ select: { nome: true } })
+  const alvo = nomeNormalizado(entrada.nome)
+  const colidente = existentes.find((c) => nomeNormalizado(c.nome) === alvo)
+  if (colidente) {
+    throw new ErroValidacao(`Já existe a categoria "${colidente.nome}".`)
+  }
+
   return prisma.$transaction(async (tx) => {
     const criada = await tx.categoriaDespesa.create({
       data: { ...entrada, criadoPorId: ctx.usuarioId },
@@ -116,6 +151,76 @@ export async function listarCategoriasDespesa(ctx: Ctx): Promise<CategoriaDespes
   // Ordem alfabética brasileira: sem o `localeCompare` com `pt-BR`, "Água"
   // cairia depois de "Salário".
   return ativas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+/**
+ * Junta duas categorias que são a mesma coisa: reclassifica os lançamentos de
+ * `deId` para `paraId` e desativa a de origem.
+ *
+ * É o conserto que a pendência 3 prescreve, e o motivo de ele não ser só
+ * "desativar": desativada, a duplicada some do formulário, mas os lançamentos
+ * continuam apontando para ela — e o nome dela continua saindo na conciliação
+ * da prestação, que é justamente onde a sopa aparece.
+ *
+ * **O que não se mexe:** lançamento de prestação FECHADA fica onde está. Um
+ * documento já protocolado mostrou "Luz", e vai continuar mostrando "Luz" —
+ * reescrever isso seria falsificar o que foi entregue ao órgão. A mesclagem
+ * vale dali para frente, e `mantidos` conta quantos ficaram para trás, para
+ * que quem operou saiba que a limpeza não foi total.
+ */
+export async function mesclarCategoriasDespesa(
+  ctx: Ctx,
+  { deId, paraId }: { deId: string; paraId: string }
+): Promise<{ reclassificados: number; mantidos: number }> {
+  exigirPapel(ctx, 'CategoriaDespesa', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  if (deId === paraId) {
+    throw new ErroValidacao('Escolha duas categorias diferentes.')
+  }
+
+  const [de, para] = await Promise.all([
+    prisma.categoriaDespesa.findUnique({ where: { id: deId } }),
+    prisma.categoriaDespesa.findUnique({ where: { id: paraId } }),
+  ])
+  if (!de || !para) throw new ErroNaoEncontrado('Categoria não encontrada')
+
+  // A origem pode estar desativada — mesclar depois de desativar é o caminho
+  // natural de quem já tinha tentado arrumar. O destino, não: mandar os
+  // lançamentos para uma categoria morta trocaria uma duplicada por outra, e
+  // eles sumiriam do formulário sem sumir do documento.
+  if (!para.ativa) {
+    throw new ErroValidacao(`A categoria "${para.nome}" está desativada.`)
+  }
+
+  const daOrigem = await prisma.lancamento.findMany({
+    where: { categoriaDespesaId: deId },
+    select: { id: true, prestacaoContas: { select: { status: true } } },
+  })
+  const moveis = daOrigem.filter((l) => l.prestacaoContas?.status !== 'FECHADA')
+  const mantidos = daOrigem.length - moveis.length
+
+  await prisma.$transaction(async (tx) => {
+    if (moveis.length > 0) {
+      await tx.lancamento.updateMany({
+        where: { id: { in: moveis.map((l) => l.id) } },
+        data: { categoriaDespesaId: paraId },
+      })
+    }
+    await tx.categoriaDespesa.update({ where: { id: deId }, data: { ativa: false } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'ATUALIZAR',
+      entidade: 'CategoriaDespesa',
+      entidadeId: deId,
+      diff: {
+        mescladaEm: { de: de.nome, para: para.nome },
+        reclassificados: { de: null, para: String(moveis.length) },
+        mantidosPorPrestacaoFechada: { de: null, para: String(mantidos) },
+      },
+    })
+  })
+
+  return { reclassificados: moveis.length, mantidos }
 }
 
 export async function criarFornecedor(

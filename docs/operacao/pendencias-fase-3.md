@@ -54,23 +54,50 @@ modelo real. O problema que o conversor resolveria — dois documentos que
 podem divergir — deixou de existir por um caminho mais barato que pagar os
 400 MB.
 
-## 3. Categoria de despesa é lista aberta, e pode virar sopa
+## 3. Categoria de despesa era lista aberta sem conserto — resolvido
 
-**Situação:** qualquer pessoa com papel COORDENACAO ou ADMINISTRATIVO cadastra
-categoria nova, sem aprovação. Nada impede "Energia", "Luz" e "Conta de luz"
-coexistirem.
+**Resolvido** em 04/09/2026, seguindo o que este próprio item prescrevia:
+**não** fechar a lista. Fechá-la obrigaria um *deploy* para cadastrar categoria
+nova, num sistema operado por uma equipe pequena que não tem quem faça
+*deploy* — seria trocar um problema de organização por um de dependência
+técnica.
 
-**Por que está assim:** a alternativa — lista fechada no código — obrigaria um
-*deploy* para cadastrar uma categoria nova, num sistema operado por uma equipe
-pequena que não tem quem faça *deploy*. Seria trocar um problema de organização
-por um de dependência técnica.
+O que faltava era o resto da receita: o item mandava "desativar as duplicadas e
+reclassificar os lançamentos", e o sistema só sabia desativar. Desativar
+sozinho não resolve nada: os lançamentos continuam apontando para a duplicada,
+e o nome dela continua saindo na conciliação da prestação — que é exatamente
+onde a sopa aparece.
 
-**Como saber se deu errado:** a conciliação da prestação lista as categorias.
-Se elas começarem a se repetir com nomes diferentes, o documento entregue ao
-órgão mostra isso na cara — é o próprio relatório que denuncia.
+**O que passou a existir:**
 
-**O que fazer então:** desativar as duplicadas e reclassificar os lançamentos,
-não fechar a lista.
+1. **Guarda contra duplicata textual, na criação.** "Energia", "energia" e
+   "ENERGIA " caem no mesmo nome normalizado (sem caixa, sem acento, sem espaço
+   sobrando) e a segunda é recusada, com a mensagem nomeando a que já existe.
+   Nome genuinamente novo continua entrando sem pedir licença a ninguém — a
+   lista segue aberta. A comparação inclui a categoria desativada: sem isso,
+   desativar "Energia" e cadastrá-la de novo devolveria as duas à base.
+
+2. **Mesclagem, na tela de cadastros.** Move os lançamentos de uma categoria
+   para outra e desativa a de origem, sem precisar de alguém com acesso ao
+   banco.
+
+**O que a mesclagem não faz, de propósito:** lançamento de prestação **FECHADA**
+fica onde está. Um documento já protocolado mostrou "Luz" e continua mostrando
+"Luz"; reescrever isso seria falsificar o que foi entregue ao órgão. A operação
+devolve quantos foram reclassificados e quantos ficaram — "0 lançamentos
+reclassificados. 1 ficou onde estava, em prestação fechada." —, porque engolir
+esse número faria a tela mentir por omissão sobre uma limpeza que não foi
+total.
+
+**Continua valendo como rede:** a conciliação lista as categorias. Se elas
+voltarem a se repetir com nomes *diferentes* ("Energia" e "Conta de luz"), que
+nenhuma normalização pega, o documento entregue ao órgão mostra isso na cara — é
+o próprio relatório que denuncia, e a mesclagem é o que conserta.
+
+**Fica registrado o que não foi feito:** origem de receita tem a mesma forma e o
+mesmo risco — o agrupamento da prestação usa `rotuloPrestacao`, e duas origens
+com rótulos que só diferem por acento partiriam o subtotal do mesmo jeito. Não
+recebeu a guarda nem a mesclagem, porque estava fora do que este item pedia.
 
 ## 4. "à disposição dos condôminos" na declaração — resolvido
 
