@@ -12,6 +12,7 @@ import {
 import {
   criarOrigemReceita,
   criarCategoriaDespesa,
+  mesclarCategoriasDespesa,
   criarFornecedor,
 } from '@/modules/financeiro/cadastros.service'
 import {
@@ -135,6 +136,38 @@ export async function acaoCriarCategoria(
 
   revalidatePath('/financeiro/cadastros')
   return resultado
+}
+
+export async function acaoMesclarCategorias(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  let resumo = ''
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    const { reclassificados, mantidos } = await mesclarCategoriasDespesa(ctx, {
+      deId: exigirTexto(dados, 'deId'),
+      paraId: exigirTexto(dados, 'paraId'),
+    })
+
+    const movidos =
+      reclassificados === 1 ? '1 lançamento reclassificado' : `${reclassificados} lançamentos reclassificados`
+    // O número de presos é a parte que não pode sumir: sem ele, quem operou
+    // acha que a duplicada desapareceu do documento, e ela continua lá nas
+    // competências já fechadas.
+    const presos =
+      mantidos === 0
+        ? ''
+        : mantidos === 1
+          ? '. 1 ficou onde estava, em prestação fechada.'
+          : `. ${mantidos} ficaram onde estavam, em prestações fechadas.`
+
+    resumo = `${movidos}${presos || '.'}`
+  })
+
+  revalidatePath('/financeiro/cadastros')
+  return resultado.sucesso ? { ...resultado, mensagem: resumo } : resultado
 }
 
 export async function acaoCriarFornecedor(

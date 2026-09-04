@@ -15,6 +15,7 @@ import {
   FormularioConta,
   FormularioOrigem,
   FormularioCategoria,
+  FormularioMesclarCategorias,
   FormularioFornecedor,
 } from '@/components/formularios-financeiro'
 
@@ -139,6 +140,18 @@ export default async function PaginaCadastrosFinanceiro() {
           )}
         </ul>
         <FormularioCategoria />
+
+        {/* Só faz sentido com duas na lista: mesclar exige uma origem e um
+            destino, e oferecer o formulário com uma categoria só seria
+            prometer uma operação impossível. */}
+        {categorias.length > 1 && (
+          <div className="mt-6 border-t pt-6">
+            <h3 className="mb-3 text-secao text-forte">Juntar duplicadas</h3>
+            <FormularioMesclarCategorias
+              categorias={categorias.map((c) => ({ valor: c.id, rotulo: c.nome }))}
+            />
+          </div>
+        )}
       </Secao>
 
       <Secao

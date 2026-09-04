@@ -373,3 +373,49 @@ test('define a contribuição na ficha e a lança pela proposta do mês', async 
   await linha.getByRole('button', { name: 'Lançar contribuição' }).click()
   await expect(linha.getByText('Já lançado')).toBeVisible()
 })
+
+test('recusa categoria repetida, dizendo qual ja existe', async ({ page }) => {
+  // A pendencia 3 decidiu nao fechar a lista. O que se fecha e so a porta da
+  // duplicata textual, e a mensagem tem que nomear a categoria que ja existe —
+  // senao quem cadastrou fica sem saber o que procurar na lista.
+  await page.goto('/financeiro/cadastros')
+
+  const categorias = await abrirSecao(page, 'Categorias de despesa')
+  await categorias.getByLabel(/^Nome/).fill(CATEGORIA.toUpperCase())
+  await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
+
+  await expect(categorias.getByRole('alert')).toContainText('Já existe a categoria')
+  await expect(categorias.getByRole('alert')).toContainText(CATEGORIA)
+})
+
+test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page }) => {
+  // O conserto inteiro da pendencia 3, pela tela: a duplicada sai da lista e os
+  // lancamentos passam para a categoria boa — menos os de prestacao fechada,
+  // que ficam onde estao. A despesa criada la em cima entrou na prestacao que
+  // o teste do PDF fechou, entao e exatamente esse o caso exercitado aqui.
+  const DESTINO = `Energia eletrica ${marca}`
+  await page.goto('/financeiro/cadastros')
+
+  const categorias = await abrirSecao(page, 'Categorias de despesa')
+  await categorias.getByLabel(/^Nome/).fill(DESTINO)
+  await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
+  await expect(page.getByText(DESTINO).first()).toBeVisible()
+
+  // `abrirSecao` alterna o <details>: chamar de novo fecharia a seção que
+  // acabou de ser aberta. O localizador da criação continua valendo.
+  const juntar = categorias
+  await juntar.getByLabel(/^Categoria a eliminar/).selectOption({ label: CATEGORIA })
+  await juntar.getByLabel(/^Passa a ser/).selectOption({ label: DESTINO })
+  await juntar.getByRole('button', { name: 'Mesclar categorias' }).click()
+
+  // Dois `role=status` convivem na seção: o "Registro salvo." do cadastro e o
+  // resumo da mesclagem. O filtro escolhe o segundo pelo que só ele diz.
+  const aviso = juntar.getByRole('status').filter({ hasText: 'reclassificad' })
+  await expect(aviso).toBeVisible()
+  await expect(aviso).toContainText('prestação fechada')
+
+  // E a eliminada sai da lista, que e o que impede alguem de escolhe-la de novo.
+  await page.reload()
+  const depois = await abrirSecao(page, 'Categorias de despesa')
+  await expect(depois.getByRole('listitem').filter({ hasText: CATEGORIA })).toHaveCount(0)
+})

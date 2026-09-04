@@ -5,6 +5,7 @@ import {
   acaoCriarConta,
   acaoCriarOrigem,
   acaoCriarCategoria,
+  acaoMesclarCategorias,
   acaoCriarFornecedor,
   acaoLancarReceita,
   acaoLancarDespesa,
@@ -140,6 +141,30 @@ export function FormularioCategoria() {
       colunas={1}
       rotuloBotao="Cadastrar categoria"
       campos={[{ nome: 'nome', rotulo: 'Nome', obrigatorio: true }]}
+    />
+  )
+}
+
+/**
+ * Junta duas categorias que são a mesma coisa escrita de dois jeitos.
+ *
+ * A guarda de duplicata impede que uma nova entre repetida, mas não desfaz o
+ * que já está na base — e é aqui que a equipe desfaz, sem precisar de alguém
+ * com acesso ao banco.
+ */
+export function FormularioMesclarCategorias({ categorias }: { categorias: Opcao[] }) {
+  return (
+    <FormularioSimples
+      acao={acaoMesclarCategorias}
+      prefixoId="mesclar-categoria"
+      colunas={2}
+      variante="perigo"
+      rotuloBotao="Mesclar categorias"
+      aviso="Os lançamentos passam para a categoria de destino e a de origem é desativada. Lançamentos de prestação já fechada não mudam — o que foi entregue ao órgão continua como foi."
+      campos={[
+        { nome: 'deId', rotulo: 'Categoria a eliminar', obrigatorio: true, opcoes: categorias },
+        { nome: 'paraId', rotulo: 'Passa a ser', obrigatorio: true, opcoes: categorias },
+      ]}
     />
   )
 }

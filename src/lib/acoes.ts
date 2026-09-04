@@ -1,6 +1,12 @@
 import { ErroNaoEncontrado, ErroPermissao, ErroValidacao } from './erros'
 
-export type EstadoAcao = { erro?: string; sucesso?: boolean }
+/**
+ * `mensagem` é o sucesso que precisa dizer mais do que "salvou": a mesclagem
+ * de categorias devolve quantos lançamentos mudaram de lugar e quantos
+ * ficaram presos a uma prestação fechada, e engolir esse número faria a tela
+ * mentir por omissão sobre uma limpeza que não foi total.
+ */
+export type EstadoAcao = { erro?: string; sucesso?: boolean; mensagem?: string }
 
 /**
  * Adapta a camada de serviço ao formulário: erro de domínio vira mensagem para

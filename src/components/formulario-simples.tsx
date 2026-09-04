@@ -58,7 +58,7 @@ export function FormularioSimples({
 
       {estado?.sucesso && (
         <p role="status" className="text-suporte text-sucesso">
-          Registro salvo.
+          {estado.mensagem ?? 'Registro salvo.'}
         </p>
       )}
 
