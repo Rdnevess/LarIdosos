@@ -7,9 +7,9 @@ import type {
 /**
  * Um `DocumentoPrestacao` completo, montado à mão.
  *
- * Os dois renderizadores — `.xlsx` e PDF — não tocam o banco: recebem o
- * documento pronto. Montá-lo aqui é o que faz o teste deles falhar por causa
- * do desenho da folha, e nunca por causa de uma consulta.
+ * O PDF não toca o banco: recebe o documento pronto. Montá-lo aqui é o que
+ * faz o teste dele falhar por causa do desenho da folha, e nunca por causa de
+ * uma consulta.
  */
 export function documentoDeTeste(
   sobrescritas: Partial<DocumentoPrestacao> = {}

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { PDFDocument } from 'pdf-lib'
-import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
 import { ErroPermissao } from '@/lib/erros'
 import { ctxComPapel } from '@/../tests/helpers/fabricas'
@@ -28,14 +27,6 @@ async function pdfCom(paginas: number, largura = 200): Promise<Buffer> {
 async function largurasDe(buffer: Buffer): Promise<number[]> {
   const doc = await PDFDocument.load(buffer)
   return doc.getPages().map((pagina) => pagina.getWidth())
-}
-
-async function reabrirXlsx(buffer: Buffer): Promise<ExcelJS.Workbook> {
-  const wb = new ExcelJS.Workbook()
-  // O `exceljs` embute uma versão antiga de `@types/node`, e o `Buffer` dele
-  // não é o `Buffer<ArrayBufferLike>` deste projeto. O dado é o mesmo.
-  await wb.xlsx.load(buffer as unknown as Parameters<typeof wb.xlsx.load>[0])
-  return wb
 }
 
 /**
@@ -122,15 +113,17 @@ async function cenario() {
 }
 
 describe('exportarPrestacao', () => {
-  it('gera o .xlsx com nome de arquivo que diz conta e competência', async () => {
+  it('recusa o formato xlsx, que deixou de existir', async () => {
+    // A exportacao em planilha saiu: o documento entregue ao orgao passou a ser
+    // o PDF, que agora reproduz o modelo. Este teste existe para o formato nao
+    // voltar por acidente — e para quem procurar "xlsx" no repositorio achar a
+    // decisao, e nao um buraco.
     const { ctx, conta } = await cenario()
     const prestacao = await abrirPrestacao(ctx, conta.id, 2026, 8)
 
-    const { buffer, nomeArquivo, mimeType } = await exportarPrestacao(ctx, prestacao.id, 'xlsx')
-
-    expect(nomeArquivo).toBe('prestacao-98765-4-2026-08.xlsx')
-    expect(mimeType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    expect(buffer.length).toBeGreaterThan(1000)
+    await expect(
+      exportarPrestacao(ctx, prestacao.id, 'xlsx' as never)
+    ).rejects.toThrow('Formato não suportado: xlsx')
   })
 
   it('gera o PDF, com a mesma competência no nome', async () => {
@@ -201,7 +194,7 @@ describe('exportarPrestacao', () => {
     const prestacao = await abrirPrestacao(admin, conta.id, 2026, 8)
     const ctx = await ctxComPapel('SAUDE')
 
-    await expect(exportarPrestacao(ctx, prestacao.id, 'xlsx')).rejects.toThrow(ErroPermissao)
+    await expect(exportarPrestacao(ctx, prestacao.id, 'pdf')).rejects.toThrow(ErroPermissao)
   })
 
   it('não deixa o nome do arquivo escapar da pasta', async () => {
@@ -304,21 +297,12 @@ describe('exportarPrestacao', () => {
     expect((await PDFDocument.load(comAnexo.buffer)).getPageCount()).toBe(antes + 1)
   })
 
-  it('o xlsx e o csv nao ganham anexo nenhum', async () => {
-    // "So o PDF muda": o modelo do orgao tem seis abas e nao comporta anexo, e o
-    // CSV e listagem plana para o contador importar.
-    //
-    // `buffer.length` nao prova isso — dois .xlsx diferentes podem pesar
-    // igual — e `Buffer.compare` tambem nao serve: o ExcelJS grava
-    // `created`/`modified` em `docProps/core.xml`, e duas exportacoes da
-    // mesma prestacao em segundos de relogio diferentes ja saem byte a byte
-    // diferentes (medido: 18415 x 18418 bytes com 1.5s de intervalo). A
-    // asserção estrutural — as seis folhas certas, com os nomes certos — e o
-    // que prova que nenhum apendice vazou para a planilha, sem depender do
-    // relogio.
+  it('o csv nao ganha anexo nenhum', async () => {
+    // O CSV nem passa por `montarDocumentoPrestacao` — não tem folha para
+    // levar apêndice, e o conteúdo é idêntico byte a byte, sem timestamp de
+    // formato de planilha para atrapalhar a comparação.
     const { ctx: coordenacao, prestacaoId, despesaId } = await cenarioComDespesas()
 
-    const xlsxAntes = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
     const csvAntes = await exportarPrestacao(coordenacao, prestacaoId, 'csv')
 
     await anexarComprovante(
@@ -327,27 +311,8 @@ describe('exportarPrestacao', () => {
       { nomeArquivoOriginal: 'nota.pdf', mimeType: 'application/pdf', conteudo: await pdfCom(2) }
     )
 
-    const xlsxDepois = await exportarPrestacao(coordenacao, prestacaoId, 'xlsx')
     const csvDepois = await exportarPrestacao(coordenacao, prestacaoId, 'csv')
 
-    const NOMES_DAS_SEIS_FOLHAS = [
-      '1-Capa',
-      '2-Contra-Capa',
-      '3-Despesas',
-      '4-Receitas',
-      '5-Conciliação',
-      '6-Encerramento',
-    ]
-    expect((await reabrirXlsx(xlsxAntes.buffer)).worksheets.map((f) => f.name)).toEqual(
-      NOMES_DAS_SEIS_FOLHAS
-    )
-    expect((await reabrirXlsx(xlsxDepois.buffer)).worksheets.map((f) => f.name)).toEqual(
-      NOMES_DAS_SEIS_FOLHAS
-    )
-
-    // O CSV nem passa por `montarDocumentoPrestacao` — não tem folha para
-    // levar apêndice, e o conteúdo é idêntico byte a byte, sem timestamp de
-    // formato de planilha para atrapalhar a comparação.
     expect(csvDepois.buffer.toString('utf8')).toBe(csvAntes.buffer.toString('utf8'))
   })
 })

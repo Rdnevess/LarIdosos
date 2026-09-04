@@ -9,10 +9,13 @@ import ExcelJS from 'exceljs'
  * seria trabalhar no escuro; daí a extração.
  *
  * **O modelo fica em `docs/convenio/`, fora do git.** Só saem daqui faixas de
- * célula, larguras de coluna e textos que são **rótulo fixo** — cabeçalho de
- * coluna, título de seção, palavras como "Total". Uma célula dentro da faixa de
- * dados nunca é copiada, mesmo que pareça inofensiva: o critério é a posição,
- * não o conteúdo, porque conteúdo se julga errado.
+ * célula, larguras de coluna, textos que são **rótulo fixo** — cabeçalho de
+ * coluna, título de seção, palavras como "Total" — e a aparência da célula:
+ * borda, fonte, alinhamento, altura de linha e margem de impressão. Uma
+ * célula dentro da faixa de dados nunca é copiada, mesmo que pareça
+ * inofensiva: o critério é a posição, não o conteúdo, porque conteúdo se
+ * julga errado. Isso vale também para a aparência — só se recolhe estilo de
+ * célula (borda, fonte, alinhamento), nunca o valor que ela guarda.
  *
  * Uso:
  *   npx tsx scripts/extrair-layout-prestacao.ts > src/modules/financeiro/layout-prestacao.ts
@@ -27,6 +30,12 @@ const CAMINHO_MODELO = 'docs/convenio/Modelo Prestação Contas.xlsx'
 const FOLHAS_QUE_CRESCEM = ['3-Despesas', '4-Receitas']
 
 type FaixaDados = { primeiraLinha: number; ultimaLinha: number }
+
+type EstiloBorda = 'hair' | 'thin' | 'medium' | 'thick' | 'double'
+type LadosComBorda = { topo?: EstiloBorda; esquerda?: EstiloBorda; baixo?: EstiloBorda; direita?: EstiloBorda }
+type FonteCelula = { familia: string; tamanho: number; negrito: boolean; italico: boolean }
+type AlinhamentoCelula = { horizontal?: 'left' | 'center' | 'right' | 'justify'; vertical?: 'top' | 'middle' | 'bottom'; quebra?: boolean }
+type MargensFolha = { esquerda: number; direita: number; topo: number; baixo: number }
 
 /**
  * A faixa de dados vai da linha seguinte ao cabeçalho de coluna (a que tem
@@ -145,13 +154,113 @@ function extrairRotulos(
   return rotulos
 }
 
-function larguras(folha: ExcelJS.Worksheet): { coluna: number; largura: number }[] {
+function larguras(folha: ExcelJS.Worksheet, ateColuna: number): { coluna: number; largura: number }[] {
   const resultado: { coluna: number; largura: number }[] = []
-  for (let i = 1; i <= folha.columnCount; i += 1) {
+  for (let i = 1; i <= ateColuna; i += 1) {
     const largura = folha.getColumn(i).width
     if (typeof largura === 'number') resultado.push({ coluna: i, largura })
   }
   return resultado
+}
+
+/** A última coluna com conteúdo ou borda. O `columnCount` conta coluna vazia. */
+function ultimaColunaUsada(folha: ExcelJS.Worksheet): number {
+  let ultima = 0
+  folha.eachRow({ includeEmpty: true }, (linha) => {
+    linha.eachCell({ includeEmpty: true }, (celula) => {
+      const valor = celula.value
+      const b = celula.border
+      const temBorda = Boolean(b && (b.top || b.left || b.bottom || b.right))
+      const temValor = valor !== null && valor !== undefined && valor !== ''
+      if (temBorda || temValor) ultima = Math.max(ultima, celula.fullAddress.col)
+    })
+  })
+  return ultima
+}
+
+/**
+ * Polegada para ponto: o `pageSetup` do Excel mede margem em polegadas.
+ *
+ * Arredonda a duas casas: a polegada vem de um valor em centímetros do
+ * Excel, e a conversão gera dízima (ex.: 0,6cm → 17,007874015748033pt). Sem
+ * arredondar, a sequência de dígitos sem separador colide com o regex que
+ * protege contra CPF/CNPJ — falso positivo, não dado de ninguém.
+ */
+function emPontos(polegadas: number | undefined, padrao: number): number {
+  return Math.round((polegadas ?? padrao) * 72 * 100) / 100
+}
+
+function coletarMargens(folha: ExcelJS.Worksheet): MargensFolha {
+  const m = folha.pageSetup?.margins
+  return {
+    esquerda: emPontos(m?.left, 0.25),
+    direita: emPontos(m?.right, 0.25),
+    topo: emPontos(m?.top, 0.75),
+    baixo: emPontos(m?.bottom, 0.75),
+  }
+}
+
+function coletarBordas(folha: ExcelJS.Worksheet, ateColuna: number): Record<string, LadosComBorda> {
+  const bordas: Record<string, LadosComBorda> = {}
+  folha.eachRow({ includeEmpty: true }, (linha) => {
+    linha.eachCell({ includeEmpty: true }, (celula) => {
+      if (celula.fullAddress.col > ateColuna) return
+      const b = celula.border
+      if (!b) return
+      const lados: LadosComBorda = {}
+      if (b.top?.style) lados.topo = b.top.style as EstiloBorda
+      if (b.left?.style) lados.esquerda = b.left.style as EstiloBorda
+      if (b.bottom?.style) lados.baixo = b.bottom.style as EstiloBorda
+      if (b.right?.style) lados.direita = b.right.style as EstiloBorda
+      if (Object.keys(lados).length > 0) bordas[celula.address] = lados
+    })
+  })
+  return bordas
+}
+
+/** Só a aparência da fonte: `celula.value` nunca é lido aqui. */
+function coletarFontes(folha: ExcelJS.Worksheet, ateColuna: number): Record<string, FonteCelula> {
+  const fontes: Record<string, FonteCelula> = {}
+  folha.eachRow({ includeEmpty: true }, (linha) => {
+    linha.eachCell({ includeEmpty: true }, (celula) => {
+      if (celula.fullAddress.col > ateColuna) return
+      const f = celula.font
+      if (!f) return
+      fontes[celula.address] = {
+        familia: f.name ?? 'Arial',
+        tamanho: f.size ?? 10,
+        negrito: Boolean(f.bold),
+        italico: Boolean(f.italic),
+      }
+    })
+  })
+  return fontes
+}
+
+/** Só a disposição do texto na célula: `celula.value` nunca é lido aqui. */
+function coletarAlinhamentos(folha: ExcelJS.Worksheet, ateColuna: number): Record<string, AlinhamentoCelula> {
+  const alinhamentos: Record<string, AlinhamentoCelula> = {}
+  folha.eachRow({ includeEmpty: true }, (linha) => {
+    linha.eachCell({ includeEmpty: true }, (celula) => {
+      if (celula.fullAddress.col > ateColuna) return
+      const a = celula.alignment
+      if (!a) return
+      const alinhamento: AlinhamentoCelula = {}
+      if (a.horizontal) alinhamento.horizontal = a.horizontal as AlinhamentoCelula['horizontal']
+      if (a.vertical) alinhamento.vertical = a.vertical as AlinhamentoCelula['vertical']
+      if (a.wrapText) alinhamento.quebra = true
+      if (Object.keys(alinhamento).length > 0) alinhamentos[celula.address] = alinhamento
+    })
+  })
+  return alinhamentos
+}
+
+function coletarAlturas(folha: ExcelJS.Worksheet): { linha: number; altura: number }[] {
+  const alturas: { linha: number; altura: number }[] = []
+  folha.eachRow({ includeEmpty: true }, (linha, n) => {
+    if (linha.height) alturas.push({ linha: n, altura: linha.height })
+  })
+  return alturas
 }
 
 async function principal(): Promise<void> {
@@ -164,13 +273,20 @@ async function principal(): Promise<void> {
       : undefined
 
     const merges = ((folha.model as { merges?: string[] }).merges ?? []).slice().sort()
+    const ultimaColuna = ultimaColunaUsada(folha)
 
     return {
       nome: folha.name,
       merges,
-      larguras: larguras(folha),
+      larguras: larguras(folha, ultimaColuna),
       rotulos: extrairRotulos(folha, faixa, merges),
       faixaDados: faixa,
+      alturas: coletarAlturas(folha),
+      alturaPadrao: folha.properties?.defaultRowHeight ?? 12.75,
+      bordas: coletarBordas(folha, ultimaColuna),
+      fontes: coletarFontes(folha, ultimaColuna),
+      alinhamentos: coletarAlinhamentos(folha, ultimaColuna),
+      margens: coletarMargens(folha),
     }
   })
 
@@ -181,10 +297,17 @@ async function principal(): Promise<void> {
  * \`npx tsx scripts/extrair-layout-prestacao.ts\` contra o modelo em
  * \`docs/convenio/\`, que fica fora do git.
  *
- * Só contém faixas de célula, larguras de coluna e rótulos fixos. Nenhuma
- * célula da faixa de dados é copiada — há teste conferindo que nenhum CPF ou
- * CNPJ escapou.
+ * Só contém faixas de célula, larguras de coluna, rótulos fixos e a
+ * aparência (borda, fonte, alinhamento, altura, margem). Nenhuma célula da
+ * faixa de dados é copiada — há teste conferindo que nenhum CPF ou CNPJ
+ * escapou.
  */
+
+export type EstiloBorda = 'hair' | 'thin' | 'medium' | 'thick' | 'double'
+export type LadosComBorda = { topo?: EstiloBorda; esquerda?: EstiloBorda; baixo?: EstiloBorda; direita?: EstiloBorda }
+export type FonteCelula = { familia: string; tamanho: number; negrito: boolean; italico: boolean }
+export type AlinhamentoCelula = { horizontal?: 'left' | 'center' | 'right' | 'justify'; vertical?: 'top' | 'middle' | 'bottom'; quebra?: boolean }
+export type MargensFolha = { esquerda: number; direita: number; topo: number; baixo: number }
 
 export type LayoutFolha = {
   nome: string
@@ -194,6 +317,18 @@ export type LayoutFolha = {
   rotulos: Record<string, string>
   /** Onde começa e termina a faixa que cresce com o volume de lançamentos. */
   faixaDados?: { primeiraLinha: number; ultimaLinha: number }
+  /** Linhas com altura declarada, diferente do padrão da folha. */
+  alturas: { linha: number; altura: number }[]
+  /** Altura, em pontos, das linhas sem altura declarada. */
+  alturaPadrao: number
+  /** Célula → lados com borda. Só estilo, nunca dado de ninguém. */
+  bordas: Record<string, LadosComBorda>
+  /** Célula → fonte. Só aparência, nunca dado de ninguém. */
+  fontes: Record<string, FonteCelula>
+  /** Célula → alinhamento. Só disposição, nunca dado de ninguém. */
+  alinhamentos: Record<string, AlinhamentoCelula>
+  /** Margens de impressão, em pontos. */
+  margens: MargensFolha
 }
 
 export type NomeFolha =

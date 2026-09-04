@@ -1,28 +1,42 @@
 import { prisma } from '@/lib/prisma'
 import { exigirPapel, type Ctx } from '@/lib/contexto'
-import { ErroNaoEncontrado } from '@/lib/erros'
+import { ErroNaoEncontrado, ErroValidacao } from '@/lib/erros'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { montarDocumentoPrestacao, type LinhaDespesa } from './documento-prestacao'
-import { gerarXlsxPrestacao } from './xlsx-prestacao'
 import { gerarPdfPrestacao } from './pdf-prestacao'
 import { fimDoMes } from '@/lib/periodo'
 import { gerarCsvLancamentos } from './csv-lancamentos'
 import { juntarAnexos, type AnexoParaJuntar } from './anexos-prestacao'
 
 /**
- * A saída do documento pronto: `.xlsx` para o órgão, PDF para o arquivo e a
- * assinatura.
+ * A saída do documento pronto: PDF para o órgão, o arquivo e a assinatura.
  *
  * **Exportar é auditado.** `EXPORTAR` existe no enum desde a Fase 1 e nunca
  * tinha sido usada; é o registro de que um documento saiu do sistema, com quem
  * o gerou e em que formato. Numa prestação de contas, saber quem gerou a via
  * que foi protocolada é o começo de qualquer conferência.
+ *
+ * **A planilha saiu em 01/09/2026.** Ela reproduzia a geometria do modelo do
+ * órgão e nunca a aparência dele — as bordas do original nunca foram
+ * capturadas. Em vez de consertar dois renderizadores, o projeto passou a ter
+ * um: o PDF, agora fiel. O CSV fica, porque atende outra pessoa (o contador,
+ * que importa) e nunca passou pelo modelo.
  */
 
-export type FormatoExportacao = 'xlsx' | 'pdf' | 'csv'
+export type FormatoExportacao = 'pdf' | 'csv'
+
+/**
+ * A rota (`/api/prestacoes/[id]/[formato]/route.ts`) já filtra o formato
+ * antes de chegar aqui, mas ela não é a única chamadora possível — um script,
+ * um teste ou uma segunda rota no futuro podiam passar um formato
+ * desconhecido. Sem esta lista, `gerarConteudo` caía no ramo do PDF por
+ * omissão e devolvia um documento com `Content-Type` indefinido em vez de uma
+ * recusa. Esta lista é do serviço, não a mesma da rota: a da rota decide 404,
+ * esta decide `ErroValidacao` — são respostas diferentes para quem chama.
+ */
+const FORMATOS: FormatoExportacao[] = ['pdf', 'csv']
 
 const MIME: Record<FormatoExportacao, string> = {
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pdf: 'application/pdf',
   // `charset=utf-8` junto do BOM que o CSV já carrega: os dois dizem a mesma
   // coisa, e programas diferentes acreditam em um ou no outro.
@@ -121,7 +135,6 @@ async function gerarConteudo(
   }
 
   const documento = await montarDocumentoPrestacao(ctx, prestacao.id)
-  if (formato === 'xlsx') return await gerarXlsxPrestacao(documento)
 
   // Só o PDF ganha apêndice: o modelo do órgão tem seis abas e não comporta
   // anexo, e o CSV é listagem plana para o contador importar.
@@ -136,6 +149,10 @@ export async function exportarPrestacao(
   formato: FormatoExportacao
 ): Promise<PrestacaoExportada> {
   exigirPapel(ctx, 'PrestacaoContas', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  if (!FORMATOS.includes(formato)) {
+    throw new ErroValidacao(`Formato não suportado: ${formato}`)
+  }
 
   const prestacao = await prisma.prestacaoContas.findUnique({
     where: { id: prestacaoId },
