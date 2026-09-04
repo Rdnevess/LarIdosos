@@ -497,14 +497,15 @@ describe('a conciliacao', () => {
       expect(texto).toContain(despesa.categoria)
     }
 
-    // "Esta no papel", nao so no buffer: extrairTexto le os operadores TJ do
-    // stream inteiro, e o pdfkit nao se recusa a emitir texto em coordenada
-    // fora da pagina — foi exatamente esse o bloqueio (a conciliacao sem
-    // addPage). Este volume (38 linhas somadas) passa do limiar de 28 medido
-    // no bloqueio, entao so aparece por completo, em todas as paginas, se a
-    // conciliacao de fato tiver transbordado — uma unica pagina do tamanho
-    // de sempre nao teria espaco para as 38 linhas mais cabecalho e rodape.
-    expect(await paginasDe(buffer)).toBeGreaterThan(6) // as seis do modelo + ao menos uma de transbordo
+    // Este volume abre paginas alem das seis do modelo. CUIDADO com o que
+    // isso prova: medido por mutacao, tirar o transbordo da conciliacao NAO
+    // derruba esta assercao — as paginas extras vem da folha de Despesas,
+    // que sozinha ja transborda com trinta linhas contra as vinte e duas do
+    // modelo. Aqui isso serve so para confirmar que o caminho de volume foi
+    // exercitado; quem garante que a conciliacao nao desenha fora do papel e
+    // a guarda "a conciliacao nunca desenha fora da pagina", que le as
+    // coordenadas e fica vermelha quando o transbordo some.
+    expect(await paginasDe(buffer)).toBeGreaterThan(6)
   })
 
   it('linhaTraduzida nunca propaga rotulos do modelo, isolado de desenharFolha e de valores', () => {
