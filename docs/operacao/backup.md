@@ -431,14 +431,51 @@ primeira execução na VPS saiba o que já não precisa ser suspeito:
 | Ciclo `gzip` → `gpg --symmetric AES256 --passphrase-file` → `gpg -d` → `gunzip -t`, com as flags exatas dos dois scripts | 630 linhas de auditoria e 45 residentes do banco de desenvolvimento | volta íntegro |
 | `--clean --if-exists` + `psql -v ON_ERROR_STOP=1` restaurando **sobre banco já povoado** — a hipótese em que o comentário do passo [4/6] de `restaurar.sh` se apoia | restauração aplicada duas vezes seguidas no mesmo banco | saída 0 nas duas, contagens idênticas, sem duplicar |
 
-**O que isso não prova, e por isso a linha acima segue `_PENDENTE_`:** nada
-que dependa de Docker — `docker volume inspect lar_uploads`, o `pg_dump` de
-dentro do contêiner, o tar do volume de uploads, a troca do volume no passo
-[5/6] com o `chown 1001:1001`, o `stop`/`start app` — nem o envio pelo
-`rclone`, nem o cron, nem a restauração dos documentos, que é metade do que o
-backup protege. A versão do `pg_dump` verificada é a da máquina de
+### A metade documental, exercitada em 04/09/2026
+
+A máquina de desenvolvimento passou a ter Docker, e a metade que o parágrafo
+abaixo apontava como **nunca exercitada em momento nenhum** — a dos documentos
+anexados — foi ao teste. Contra um volume descartável (`lar_uploads_sonda`,
+criado e removido; o `lar_uploads` de produção não existe nesta máquina e não
+foi tocado), com conteúdo no formato real: subpastas por ano e mês, nomes com
+acento e cedilha, um diretório oculto e um arquivo de 3 MB.
+
+| O que | Como | Resultado |
+|---|---|---|
+| `tar czf` do volume, do passo [2/6] de `backup.sh` | `docker run -v lar_uploads_sonda:/dados alpine:3.20` | pacote gerado |
+| `tar tzf` de validação, que o `backup.sh` faz para não enviar tarball corrompido | idem | íntegro |
+| `gpg --symmetric --cipher-algo AES256` e `gpg -d`, com as flags exatas dos dois scripts | ida e volta do tarball | volta íntegro |
+| **A troca do passo [5/6] de `restaurar.sh`, o bloco inteiro e verbatim** | volume previamente sujo com conteúdo diferente | ver abaixo |
+
+O passo [5/6] é o que nunca tinha sido exercitado, e é o que mais podia dar
+errado: ele esvazia o volume e repõe. Verificado, item a item:
+
+- os **seis arquivos voltaram byte a byte** — `md5sum` idêntico em todos;
+- **nomes com acento sobreviveram** (`comprovante-pagamento-ação.pdf`,
+  `procuração-João-Água.pdf`), que é o caso que uma troca de codificação entre
+  `tar` e sistema de arquivos quebraria em silêncio;
+- **o diretório oculto sobreviveu** — é para isso que existem as três linhas
+  `mv /dados/.novo/.[!.]*` e `..?*`, e sem elas o `.oculto` ficaria para trás;
+- **o conteúdo errado que estava no volume foi removido**, e não sobreviveu ao
+  lado do restaurado;
+- **o dono terminou `1001:1001`** nos seis, como o contêiner `app` precisa.
+
+**O que esta verificação não é:** ela rodou os blocos `docker run` e `gpg`
+extraídos dos scripts, não `sh scripts/backup.sh` de ponta a ponta — o caminho
+completo exige `.env.producao`, `docker compose` e o contêiner do Postgres de
+pé. Continua valendo tudo o que o parágrafo seguinte diz, menos a frase sobre a
+restauração dos documentos.
+
+**O que continua sem prova, e por isso a linha acima segue `_PENDENTE_`:** o
+`pg_dump` de dentro do contêiner, o `docker compose stop`/`start app`, o envio
+pelo `rclone`, o cron, e o `docker volume inspect lar_uploads` contra o volume
+de produção de verdade — com a aplicação escrevendo nele, e não com arquivos
+postos à mão. A versão do `pg_dump` verificada é a da máquina de
 desenvolvimento; a que roda em produção é a do contêiner, e só a execução real
 confirma que são compatíveis.
+
+Nenhum dos dois scripts foi executado de ponta a ponta: o que se exercitou
+foram os blocos que eles contêm.
 
 Repita o teste completo **a cada 6 meses**. A partir do segundo teste
 (quando já houver residentes reais cadastrados), **não repita os passos
