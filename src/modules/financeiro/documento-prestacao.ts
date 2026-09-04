@@ -13,11 +13,25 @@ import {
 /**
  * A prestação como estrutura, sem saber nada do PDF que a renderiza.
  *
- * **É aqui que os totais são calculados, e em nenhum outro lugar.** O PDF
+ * **É aqui que os totais são somados, e em nenhum outro lugar.** O PDF
  * recebe números prontos. Até 01/09/2026 havia dois renderizadores — `.xlsx`
- * e PDF —, e calcular num lugar só era o que os impedia de divergir no dia em
+ * e PDF —, e somar num lugar só era o que os impedia de divergir no dia em
  * que alguém corrigisse um cálculo em só um deles. O `.xlsx` saiu, mas o
- * motivo de calcular aqui continua: é o único lugar de onde o PDF lê.
+ * motivo continua: se a regra de agregação mudar (uma categoria que deixa de
+ * entrar, um estorno que passa a abater), ela muda aqui e o documento inteiro
+ * acompanha.
+ *
+ * Até 04/09/2026 isso não era verdade: `desenharRodape` refazia a soma da
+ * folha com um `reduce` próprio sobre as mesmas linhas. Os números concordavam
+ * — medido em 400 mil sorteios, `formatarMoeda` arredonda igual a `duasCasas`
+ * —, mas a segunda soma era uma regra de agregação paralela, livre para
+ * discordar desta na primeira vez que alguém mexesse só num lado. Hoje o total
+ * viaja como parâmetro.
+ *
+ * O que o renderizador ainda faz de aritmética é combinar totais já fechados
+ * ("Total de Saldo + Receitas" é `saldoAnterior + totalReceitas`). Isso não é
+ * uma segunda agregação: não percorre lançamento nenhum, e não tem como
+ * discordar da regra daqui.
  *
  * O agrupamento de receitas usa `OrigemReceita.rotuloPrestacao`, e não o texto
  * digitado: no Excel o `SUMIF` casa a descrição literal, e "Doação " com espaço

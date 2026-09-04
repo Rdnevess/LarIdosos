@@ -12,6 +12,7 @@ import {
 } from './pdf-prestacao'
 import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
 import { faixaDe, xDaColuna, yDaLinha, ALTURA_PAGINA } from './grade-prestacao'
+import { formatarMoeda } from '@/lib/ptbr'
 
 /**
  * Um `DocumentoPrestacao` com `n` linhas de despesa, para testar o transbordo.
@@ -251,15 +252,54 @@ describe('as folhas que crescem', () => {
     const documentoCheio = documentoCom(22)
 
     const bufferTres = await bufferIsolado((doc) =>
-      desenharFolhaDeLancamentos(doc, layout, documentoTres, linhasDeDespesasDoTeste(documentoTres))
+      desenharFolhaDeLancamentos(
+        doc,
+        layout,
+        documentoTres,
+        linhasDeDespesasDoTeste(documentoTres),
+        documentoTres.conciliacao.totalDespesas
+      )
     )
     const bufferCheio = await bufferIsolado((doc) =>
-      desenharFolhaDeLancamentos(doc, layout, documentoCheio, linhasDeDespesasDoTeste(documentoCheio))
+      desenharFolhaDeLancamentos(
+        doc,
+        layout,
+        documentoCheio,
+        linhasDeDespesasDoTeste(documentoCheio),
+        documentoCheio.conciliacao.totalDespesas
+      )
     )
 
     expect(await paginasDe(bufferTres)).toBe(1)
     expect(contarSegmentos(bufferTres)).toBeGreaterThan(0)
     expect(contarSegmentos(bufferTres)).toBe(contarSegmentos(bufferCheio))
+  })
+
+  it('o total do rodape vem do documento, e nao de uma soma refeita aqui', async () => {
+    // A regra de agregacao mora em documento-prestacao.ts. Este teste prende
+    // isso: o documento declara um total que NAO bate com a soma das linhas
+    // (o que acontece de verdade quando a regra exclui alguma coisa — uma
+    // categoria que deixa de entrar, um estorno que abate). O rodape tem que
+    // imprimir o total declarado. Se alguem reintroduzir um `reduce` proprio
+    // aqui, sai a soma das linhas e este teste fica vermelho.
+    const documento = documentoCom(3)
+    const somaDasLinhas = documento.despesas.reduce((s, d) => s + d.valor, 0)
+    const totalDeclarado = somaDasLinhas - 250
+    expect(totalDeclarado).not.toBe(somaDasLinhas)
+
+    const buffer = await bufferIsolado((doc) =>
+      desenharFolhaDeLancamentos(
+        doc,
+        LAYOUT['3-Despesas'],
+        documento,
+        linhasDeDespesasDoTeste(documento),
+        totalDeclarado
+      )
+    )
+    const texto = extrairTexto(buffer)
+
+    expect(texto).toContain(formatarMoeda(totalDeclarado))
+    expect(texto).not.toContain(formatarMoeda(somaDasLinhas))
   })
 
   it('sessenta despesas transbordam para paginas novas', async () => {
@@ -284,7 +324,13 @@ describe('as folhas que crescem', () => {
     const layout = LAYOUT['3-Despesas']
     const documento = documentoCom(60)
     const buffer = await bufferIsolado((doc) =>
-      desenharFolhaDeLancamentos(doc, layout, documento, linhasDeDespesasDoTeste(documento))
+      desenharFolhaDeLancamentos(
+        doc,
+        layout,
+        documento,
+        linhasDeDespesasDoTeste(documento),
+        documento.conciliacao.totalDespesas
+      )
     )
 
     const paginas = await paginasDe(buffer)
@@ -591,7 +637,7 @@ describe('o rastreamento de extensao no topo de B33:G33', () => {
       valor: despesa.valor,
     }))
     const buffer = await bufferIsolado((doc) => {
-      desenharFolhaDeLancamentos(doc, layout, documento, linhas)
+      desenharFolhaDeLancamentos(doc, layout, documento, linhas, documento.conciliacao.totalDespesas)
     })
     const segmentos = segmentosBrutos(buffer)
 

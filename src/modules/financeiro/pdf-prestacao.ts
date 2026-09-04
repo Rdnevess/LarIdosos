@@ -521,16 +521,19 @@ function desenharLinhaDeDado(
  * abaixo, em `A` e `G`. Os rótulos fixos do modelo ("Total", "Unidade
  * Executora:", as linhas de assinatura, "Presidente"/"Tesoureiro") já vêm do
  * `layout.rotulos` do recorte — não precisam ser repetidos aqui.
+ *
+ * O `total` chega pronto, de `documento-prestacao.ts`, e não é somado aqui:
+ * a regra de agregação mora num lugar só, e uma soma paralela nesta função
+ * seria livre para discordar dela. Ver o cabeçalho daquele módulo.
  */
 function desenharRodape(
   doc: Doc,
   layout: LayoutFolha,
   documento: DocumentoPrestacao,
-  linhas: LinhaDeLancamento[]
+  total: number
 ): void {
   const { ultimaLinha } = layout.faixaDados!
   const linhaTotal = ultimaLinha + 1
-  const total = linhas.reduce((soma, linha) => soma + linha.valor, 0)
 
   const recorte = recorteDeLinhas(layout, linhaTotal, linhaTotal + 5)
   desenharFolha(doc, recorte, {
@@ -564,7 +567,8 @@ export function desenharFolhaDeLancamentos(
   doc: Doc,
   layout: LayoutFolha,
   documento: DocumentoPrestacao,
-  linhas: LinhaDeLancamento[]
+  linhas: LinhaDeLancamento[],
+  total: number
 ): void {
   const { primeiraLinha, ultimaLinha } = layout.faixaDados!
   const doModelo = ultimaLinha - primeiraLinha + 1
@@ -587,7 +591,7 @@ export function desenharFolhaDeLancamentos(
     }
 
     const ultimaFatia = inicio + porPagina >= usadas
-    if (ultimaFatia) desenharRodape(doc, layout, documento, linhas)
+    if (ultimaFatia) desenharRodape(doc, layout, documento, total)
   }
 }
 
@@ -906,10 +910,22 @@ export function gerarPdfPrestacao(documento: DocumentoPrestacao): Promise<Buffer
     desenharFolha(doc, LAYOUT['2-Contra-Capa'], valoresDaContraCapa(documento))
 
     doc.addPage()
-    desenharFolhaDeLancamentos(doc, LAYOUT['3-Despesas'], documento, linhasDeDespesas(documento))
+    desenharFolhaDeLancamentos(
+      doc,
+      LAYOUT['3-Despesas'],
+      documento,
+      linhasDeDespesas(documento),
+      documento.conciliacao.totalDespesas
+    )
 
     doc.addPage()
-    desenharFolhaDeLancamentos(doc, LAYOUT['4-Receitas'], documento, linhasDeReceitas(documento))
+    desenharFolhaDeLancamentos(
+      doc,
+      LAYOUT['4-Receitas'],
+      documento,
+      linhasDeReceitas(documento),
+      documento.conciliacao.totalReceitas
+    )
 
     doc.addPage()
     desenharConciliacao(doc, LAYOUT['5-Conciliação'], documento)
