@@ -1,3 +1,4 @@
+import path from 'node:path'
 import PDFDocument from 'pdfkit'
 import type { DocumentoPrestacao } from './documento-prestacao'
 import { LAYOUT, type LayoutFolha, type EstiloBorda } from './layout-prestacao'
@@ -26,10 +27,12 @@ import { formatarData, formatarMoeda } from '@/lib/ptbr'
  * Chromium daria fidelidade perfeita e custaria uns 400 MB na imagem Docker
  * mais um subprocesso, num VPS único.
  *
- * As fontes são as cinco embutidas do PDF que `fonteDoPdf` mapeia a partir
- * das do modelo — nenhum arquivo de fonte a embarcar. Elas usam WinAnsi, que
- * cobre os acentos do português; o teste da capa confere um trecho acentuado
- * decodificado de volta do PDF.
+ * As fontes são clones de licença livre (SIL OFL 1.1) das quatro do modelo,
+ * embarcados em `./fontes` — ver `FONTES`. Três delas são metricamente
+ * compatíveis com as originais, e é por isso que o desenho das letras mudou
+ * sem que uma única coordenada da grade se mexesse. O documento cresce de
+ * ~16 KB para ~42 KB, que é o custo dos subconjuntos embutidos, e some perto
+ * do apêndice de anexos.
  */
 
 type Doc = InstanceType<typeof PDFDocument>
@@ -53,26 +56,99 @@ const ESPESSURA: Record<EstiloBorda, number> = {
 const TAMANHO_MINIMO_FONTE = 6
 
 /**
- * As cinco tipografias do modelo mapeadas para as embutidas do PDF.
- *
- * Nenhum arquivo de fonte é embutido: Algerian e Calibri são do Windows, e
- * distribuí-las dentro de um documento é questão de licença antes de ser
- * técnica. Tamanho, peso e posição são preservados exatamente; só o desenho
- * das letras difere, e a §9 da spec registra o que isso custa.
+ * Onde moram os arquivos de fonte. `process.cwd()` e não `import.meta.url`
+ * porque o módulo compilado vive em `.next/server`, longe do código-fonte; a
+ * raiz do projeto é a mesma nos três lugares que geram PDF — o `vitest`, o
+ * `next dev` e o contêiner, cujo `WORKDIR` é `/app`.
  */
-function fonteDoPdf(familia: string, negrito: boolean, italico: boolean): string {
-  const serifada = familia === 'Times New Roman' || familia === 'Algerian'
-  if (familia === 'Algerian') return 'Times-Bold'
-  if (serifada) {
-    if (negrito && italico) return 'Times-BoldItalic'
-    if (negrito) return 'Times-Bold'
-    if (italico) return 'Times-Italic'
-    return 'Times-Roman'
+const DIR_FONTES = path.join(process.cwd(), 'src', 'modules', 'financeiro', 'fontes')
+
+/** Os quatro cortes de uma família; `Algerian` só tem um, e reusa. */
+type Corte = { normal: string; negrito: string; italico: string; negritoItalico: string }
+
+/**
+ * As quatro tipografias do modelo, cada uma trocada por um clone de licença
+ * livre (SIL OFL 1.1) — a resposta à pendência 9.
+ *
+ * **Arimo, Tinos e Carlito são metricamente compatíveis** com Arial, Times New
+ * Roman e Calibri: cada letra ocupa exatamente a mesma largura da original.
+ * Isso não é detalhe de gosto — é o que permite trocar o desenho das letras
+ * sem tocar em uma única coordenada da grade, que foi medida contra o modelo
+ * do órgão.
+ *
+ * A troca também apagou um defeito: em Helvetica, "PRESTAÇÃO DE CONTAS" pedia
+ * 584,9 pt numa caixa de 553,9 e encolhia para 45pt. Calibri é mais estreita
+ * que Helvetica, e Carlito herda essa métrica: o mesmo texto pede 468,8 pt e
+ * sai inteiro em 48. O piso de redução continua onde estava, como rede.
+ *
+ * Algerian é decorativa e não tem clone. Cinzel entra no lugar por cumprir o
+ * mesmo papel — capitulares que fazem a razão social ler como timbre, e não
+ * como corpo de texto em negrito.
+ */
+const FONTES: Record<string, Corte> = {
+  Arial: {
+    normal: 'arimo-latin-400-normal.woff',
+    negrito: 'arimo-latin-700-normal.woff',
+    italico: 'arimo-latin-400-italic.woff',
+    negritoItalico: 'arimo-latin-700-italic.woff',
+  },
+  'Times New Roman': {
+    normal: 'tinos-latin-400-normal.woff',
+    negrito: 'tinos-latin-700-normal.woff',
+    italico: 'tinos-latin-400-italic.woff',
+    negritoItalico: 'tinos-latin-700-italic.woff',
+  },
+  Calibri: {
+    normal: 'carlito-latin-400-normal.woff',
+    negrito: 'carlito-latin-700-normal.woff',
+    italico: 'carlito-latin-400-italic.woff',
+    negritoItalico: 'carlito-latin-700-italic.woff',
+  },
+  // Uma face de titulação não tem itálico nem peso normal a que recorrer, e
+  // nenhuma célula do modelo pede: as 144 que usam Algerian são todas o mesmo
+  // timbre, no mesmo corte.
+  Algerian: {
+    normal: 'cinzel-latin-700-normal.woff',
+    negrito: 'cinzel-latin-700-normal.woff',
+    italico: 'cinzel-latin-700-normal.woff',
+    negritoItalico: 'cinzel-latin-700-normal.woff',
+  },
+}
+
+/** O nome com que um corte é registrado no documento: "Arial-negrito". */
+function nomeDoCorte(familia: string, corte: keyof Corte): string {
+  return `${familia}-${corte}`
+}
+
+const JA_REGISTRADAS = new WeakSet<Doc>()
+
+/**
+ * Registra as dezesseis variantes no documento, uma vez só.
+ *
+ * Preguiçoso e por documento em vez de explícito no `gerarPdfPrestacao`
+ * porque `desenharFolha` também é chamada direto pelos testes, e um caminho
+ * que exige o registro prévio é um caminho que alguém esquece.
+ */
+function registrarFontes(doc: Doc): void {
+  if (JA_REGISTRADAS.has(doc)) return
+  for (const [familia, corte] of Object.entries(FONTES)) {
+    for (const variante of ['normal', 'negrito', 'italico', 'negritoItalico'] as const) {
+      doc.registerFont(nomeDoCorte(familia, variante), path.join(DIR_FONTES, corte[variante]))
+    }
   }
-  if (negrito && italico) return 'Helvetica-BoldOblique'
-  if (negrito) return 'Helvetica-Bold'
-  if (italico) return 'Helvetica-Oblique'
-  return 'Helvetica'
+  JA_REGISTRADAS.add(doc)
+}
+
+/** A variante registrada que corresponde ao que o modelo pede naquela célula. */
+function fonteDoPdf(familia: string, negrito: boolean, italico: boolean): string {
+  // Uma família que o modelo traga e que não esteja mapeada cai em Arial: é a
+  // do corpo do documento, e a barreira de dados do layout já falha antes
+  // disso se uma família nova aparecer sem alguém olhar.
+  const conhecida = familia in FONTES ? familia : 'Arial'
+  if (negrito && italico) return nomeDoCorte(conhecida, 'negritoItalico')
+  if (negrito) return nomeDoCorte(conhecida, 'negrito')
+  if (italico) return nomeDoCorte(conhecida, 'italico')
+  return nomeDoCorte(conhecida, 'normal')
 }
 
 type LadoBorda = 'topo' | 'baixo' | 'esquerda' | 'direita'
@@ -282,6 +358,8 @@ export function desenharFolha(
   layout: LayoutFolha,
   valores: Record<string, string>
 ): void {
+  registrarFontes(doc)
+
   for (const [x1, y1, x2, y2, estilo] of segmentosDeBorda(layout)) {
     doc.lineWidth(ESPESSURA[estilo]).moveTo(x1, y1).lineTo(x2, y2).stroke()
   }

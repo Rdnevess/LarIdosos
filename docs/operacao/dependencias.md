@@ -105,6 +105,32 @@ override ficou. A condição de saída continua sendo a original: o `exceljs`
 publicar uma versão que não arraste o `uuid@8.3.2` — não o `exceljs` mudar de
 lugar na árvore.
 
+## As fontes do PDF da prestação (04/09/2026)
+
+Quatro famílias de licença **SIL OFL 1.1** vivem versionadas em
+`src/modules/financeiro/fontes/`, com o texto da licença de cada uma ao lado.
+Não são dependências do `npm`: os arquivos entram no repositório porque o
+gerador de PDF os lê do disco em tempo de execução, e um pacote resolvido em
+`node_modules` não sobrevive de forma confiável ao empacotamento `standalone`
+do Next.
+
+| Família | Substitui | Origem |
+|---|---|---|
+| Arimo | Arial | `@fontsource/arimo` |
+| Tinos | Times New Roman | `@fontsource/tinos` |
+| Carlito | Calibri | `@fontsource/carlito` |
+| Cinzel | Algerian | `@fontsource/cinzel` |
+
+Só o subconjunto `latin` de cada uma, que é o que o português usa: 13 arquivos,
+230 KB no total. A OFL exige que o texto da licença acompanhe os arquivos — por
+isso os quatro `LICENSE-*.txt` no mesmo diretório, e por isso eles não se
+apagam ao arrumar a pasta.
+
+`pdfjs-dist` entrou como dependência **de desenvolvimento** na mesma travessia:
+com fonte embarcada o PDF guarda índice de glifo em vez de caractere, e o
+extrator de texto dos testes precisa do mapa `/ToUnicode` para ler de volta.
+Não vai para produção.
+
 ## O que continua aberto
 
 Nada, quanto a aviso de vulnerabilidade. Fica registrada uma observação que não

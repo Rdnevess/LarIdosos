@@ -399,11 +399,18 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
   const categorias = await abrirSecao(page, 'Categorias de despesa')
   await categorias.getByLabel(/^Nome/).fill(DESTINO)
   await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
-  await expect(page.getByText(DESTINO).first()).toBeVisible()
 
   // `abrirSecao` alterna o <details>: chamar de novo fecharia a seção que
   // acabou de ser aberta. O localizador da criação continua valendo.
   const juntar = categorias
+
+  // Esperar pela OPÇÃO do seletor, e não pelo nome na lista. A revalidação
+  // atualiza a lista e o formulário de mesclagem em momentos que o teste não
+  // controla; esperar pela lista e agir sobre o seletor deixou a corrida
+  // aberta, e ela apareceu como falha intermitente na suíte cheia.
+  await expect(
+    juntar.getByLabel(/^Categoria a eliminar/).locator('option', { hasText: DESTINO })
+  ).toHaveCount(1)
   await juntar.getByLabel(/^Categoria a eliminar/).selectOption({ label: CATEGORIA })
   await juntar.getByLabel(/^Passa a ser/).selectOption({ label: DESTINO })
   await juntar.getByRole('button', { name: 'Mesclar categorias' }).click()

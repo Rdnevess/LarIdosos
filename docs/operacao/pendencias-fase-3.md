@@ -201,25 +201,45 @@ sendo quem confere.
 **O que fazer:** nada. Reconhecer conteúdo de PDF é problema de outra ordem, e
 o valor de resolvê-lo não paga o que custaria.
 
-## 9. As letras do PDF não são as do modelo
+## 9. As letras do PDF não eram as do modelo — resolvido
 
-**Situação:** o modelo do órgão usa cinco tipografias — Algerian 16 no título
-da capa, Times New Roman 10, Arial 10/11/14 e Calibri 12. O PDF gerado mapeia
-todas para as fontes embutidas do formato: Arial e Calibri viram Helvetica,
-Times New Roman vira Times, e o Algerian do título vira Times negrito.
+**Resolvido** em 04/09/2026, com fontes de licença livre (SIL OFL 1.1)
+embarcadas em `src/modules/financeiro/fontes/`.
 
-**Qual é a exposição:** tamanho, peso, posição, alinhamento e as bordas são
-idênticos ao modelo; só o desenho das letras difere. Quem comparar lado a lado
-vê o mesmo documento com o título em outra letra.
+O modelo do órgão usa quatro tipografias, e o PDF saía nas embutidas do
+formato. A troca agora é por **clones metricamente compatíveis**:
 
-**Por que ficou assim:** embutir as originais exige os arquivos `.ttf` de
-Algerian e Calibri e o direito de distribuí-los dentro de um documento. As duas
-vêm do Windows, e a licença não é obviamente permissiva. Foi decisão do dono do
-projeto, com a alternativa na mesa.
+| O modelo usa | O PDF usa | Métrica |
+|---|---|---|
+| Arial | Arimo | idêntica |
+| Times New Roman | Tinos | idêntica |
+| Calibri | Carlito | idêntica |
+| Algerian | Cinzel | aproximada |
 
-**O que fazer, se o órgão recusar:** obter os arquivos e confirmar o direito de
-embuti-los. O renderizador aceita a troca sem mudança estrutural — o layout já
-guarda o nome original de cada fonte, e só o mapeamento em `fonteDoPdf` muda.
+"Metricamente compatível" não é detalhe de gosto: cada letra ocupa exatamente a
+mesma largura da original, e é isso que permitiu trocar o desenho das letras
+**sem mexer em uma única coordenada da grade**, que foi medida contra o modelo.
+
+Algerian é decorativa e não tem clone. Cinzel entra por cumprir o mesmo papel:
+capitulares que fazem a razão social ler como timbre, e não como corpo em
+negrito. É a única troca em que o desenho é escolha, e não equivalência.
+
+**O que a troca consertou de quebra:** em Helvetica, "PRESTAÇÃO DE CONTAS"
+pedia 584,9 pt numa caixa de 553,9 e encolhia para 45 pt. Carlito herda a
+métrica do Calibri: o mesmo texto pede 468,8 pt e sai inteiro em 48. O item 10
+dava esse encolhimento como o único desfecho possível — ele deixou de ser
+necessário, e o piso de redução continua no código como rede.
+
+**O que custou:** o documento passou de ~16 KB para ~42 KB, que é o peso dos
+subconjuntos embutidos, e some perto do apêndice de anexos. O extrator de texto
+dos testes precisou virar `pdf.js`: com fonte embarcada o pdfkit escreve índice
+de glifo, e o extrator antigo decodificava hexadecimal como WinAnsi — as oito
+verificações que sustentam a barreira anti-vazamento passariam a ler lixo.
+
+**O que se declarou:** `next.config.ts` lista os arquivos em
+`outputFileTracingIncludes`. Nada os importa — eles entram por `readFileSync`,
+que o rastreamento do Next não enxerga —, e sem a declaração o
+`.next/standalone` sai sem eles e o PDF quebra só em produção.
 
 ## 10. Rótulo mais largo que a célula era truncado — resolvido
 
@@ -243,8 +263,10 @@ inteiras desde o começo.
 O conserto foi mover a razão social do rodapé uma coluna à direita, liberando
 `B` para o rótulo (que pede 87,4 pt e ganha os 93,0 pt de A+B, em 10 pt), e
 ensinar o transbordo a parar na borda — sem isso, um nome longo vazava de `F`
-para dentro da caixa da assinatura. A capa se resolve encolhendo a fonte até
-caber, que era o que a spec mandava desde sempre.
+para dentro da caixa da assinatura. A capa se resolvia encolhendo a fonte até
+caber, que era o que a spec mandava desde sempre — **e deixou de precisar** em
+04/09/2026: com Carlito no lugar do Helvetica, o título passou a caber em 48 pt
+(ver item 9). O encolhimento continua no código, agora só como rede.
 
 Sobra um caso de bom senso: uma razão social muito mais longa que a atual
 encolhe até o piso de 6 pt. A do sistema hoje pede 119,5 pt e cabe folgada em
