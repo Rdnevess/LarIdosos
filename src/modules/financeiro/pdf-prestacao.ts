@@ -224,11 +224,20 @@ function segmentosDeBorda(layout: LayoutFolha): Segmento[] {
  * `center`/`right` usa a largura para calcular onde começa).
  *
  * Pára no primeiro obstáculo: uma vizinha mesclada — o Excel não atravessa o
- * limite de uma mescla, vazia ou não — ou uma vizinha com texto próprio
- * (rótulo ou valor), o que evita engolir o conteúdo dela. Sem vizinha livre,
- * ou no fim da faixa de colunas do modelo, a largura pára aí — é o caso da
- * capa (`1-Capa A11`), que já está mesclada até a última coluna e por isso
- * nunca chega a chamar esta função; ver `desenharFolha`.
+ * limite de uma mescla, vazia ou não —, uma vizinha com texto próprio
+ * (rótulo ou valor), o que evita engolir o conteúdo dela, ou uma borda
+ * vertical entre a vizinha e a célula anterior. Esta última pegou um caso
+ * real: `C34`/`C51`, a razão social do rodapé (`desenharRodape` abaixo), não
+ * têm mescla nem vizinha ocupada até `L` — nada as impediria de transbordar
+ * por cima da caixa da assinatura (`G`-`L`) se a única regra fosse mescla e
+ * texto. O que segura a extensão em `F` é a borda entre `F` e `G`, a mesma
+ * que faz daquela faixa uma caixa visual à parte; sem checar borda, um nome
+ * de instituição longo o bastante saía inteiro em cima da linha de
+ * assinatura, sem provocar sequer o encolhimento de fonte que preveniria
+ * isso. Sem vizinha livre nem borda no caminho, ou no fim da faixa de
+ * colunas do modelo, a largura pára aí — é o caso da capa (`1-Capa A11`),
+ * que já está mesclada até a última coluna e por isso nunca chega a chamar
+ * esta função; ver `desenharFolha`.
  */
 function larguraComTransbordo(
   layout: LayoutFolha,
@@ -241,9 +250,11 @@ function larguraComTransbordo(
 
   let colunaFim = coluna
   for (let c = coluna + 1; c <= ultimaColuna; c++) {
+    const anterior = celulaDaParte(c - 1, linha)
     const vizinha = celulaDaParte(c, linha)
     if (faixaDe(layout, vizinha) !== vizinha) break // vizinha mesclada: o Excel para aqui
     if (textos[vizinha]) break // vizinha com texto proprio: nao pode ser engolida
+    if (layout.bordas[anterior]?.direita || layout.bordas[vizinha]?.esquerda) break // borda vertical: fim da caixa visual
     colunaFim = c
   }
 
@@ -338,19 +349,29 @@ export function desenharFolha(
           ? c.y + Math.max(0, c.altura - alturaTexto - 2)
           : c.y + 2
 
-    // Uma célula de linha única cujo vizinho já está ocupado (`A34`/`A51`:
-    // "Unidade Executora:" ao lado do valor da razão social, sem coluna vazia
-    // para transbordar) não ganha largura nenhuma acima, e mesmo no piso de
-    // `TAMANHO_MINIMO_FONTE` pode continuar mais larga do que a célula — o
-    // pdfkit quebra em duas linhas (nenhum `options.lineBreak` impede isso,
-    // como o comentário logo acima explica) e, com `height: c.altura`, a
-    // segunda linha simplesmente SOME: o mesmo sumiço sem aviso que este
-    // bloqueio existe para fechar, só que por falta de altura em vez de
-    // reticência. `height` nunca fica menor que o necessário para a própria
-    // altura medida — a caixa pode extravasar visualmente a linha do modelo
-    // por alguns pontos, mas nenhuma linha de texto é descartada. Só para
-    // `quebra: false`: um parágrafo (`quebra: true`) que já é maior do que a
-    // caixa é truncamento intencional, não este bloqueio.
+    // Este bloqueio protege qualquer célula de linha única que, mesmo depois
+    // de transbordar e reduzir até o piso de `TAMANHO_MINIMO_FONTE`, continue
+    // mais larga do que a própria caixa — o pdfkit quebra em duas linhas
+    // (nenhum `options.lineBreak` impede isso, como o comentário logo acima
+    // explica) e, com `height: c.altura`, a segunda linha simplesmente SOME:
+    // o mesmo sumiço sem aviso que este bloqueio existe para fechar, só que
+    // por falta de altura em vez de reticência. `height` nunca fica menor do
+    // que o necessário para a própria altura medida — a caixa pode
+    // extravasar visualmente a linha do modelo por alguns pontos, mas
+    // nenhuma linha de texto é descartada. Só para `quebra: false`: um
+    // parágrafo (`quebra: true`) que já é maior do que a caixa é truncamento
+    // intencional, não este bloqueio.
+    //
+    // Não é mais o caso de `A34`/`A51` ("Unidade Executora:"). A instrução
+    // original de fazê-la transbordar "para a vizinha vazia" presumia uma
+    // vizinha que não existia — a razão social ocupava `B34`/`B51`. A medição
+    // mostrou outra coisa: nessas linhas não há mescla nem borda vertical
+    // entre `A` e `F` (só `A.esquerda`, `F.direita`, depois `G.esquerda`,
+    // `L.direita`) — a caixa que o leitor enxerga é delimitada por borda, não
+    // por coluna, e é por isso que o rodapé tem `A`-`F` inteiro para
+    // trabalhar. Com a razão social movida para `C` (`desenharRodape`
+    // abaixo), `B` fica livre: o rótulo transborda para lá e cabe em 10pt,
+    // sem chegar perto deste piso.
     const alturaMinima = quebra ? c.altura : Math.max(c.altura, alturaTexto)
 
     doc.text(texto, c.x + 2, y, {
@@ -493,8 +514,11 @@ function desenharLinhaDeDado(
  * as linhas de dado (a faixa do total é `J33:L33`, a da linha é `K11:L11`;
  * escrever em `K` poria o número numa célula secundária do merge, que o
  * pdfkit também descartaria — `caixaDa` resolve pela âncora). A razão social
- * vai para `B`, uma linha abaixo do total; presidente e tesoureiro, quatro
- * linhas abaixo, em `A` e `G`. Os rótulos fixos do modelo ("Total", "Unidade
+ * vai para `C`, uma linha abaixo do total — não para `B`: `A34`/`A51` não têm
+ * mescla nem borda vertical até `F` (ver o comentário de `alturaMinima` em
+ * `desenharFolha`), e deixar `B` livre é o que permite "Unidade Executora:"
+ * transbordar e sair inteira em 10pt. Presidente e tesoureiro, quatro linhas
+ * abaixo, em `A` e `G`. Os rótulos fixos do modelo ("Total", "Unidade
  * Executora:", as linhas de assinatura, "Presidente"/"Tesoureiro") já vêm do
  * `layout.rotulos` do recorte — não precisam ser repetidos aqui.
  */
@@ -511,7 +535,7 @@ function desenharRodape(
   const recorte = recorteDeLinhas(layout, linhaTotal, linhaTotal + 5)
   desenharFolha(doc, recorte, {
     [`J${linhaTotal}`]: formatarMoeda(total),
-    [`B${linhaTotal + 1}`]: documento.capa.razaoSocial,
+    [`C${linhaTotal + 1}`]: documento.capa.razaoSocial,
     [`A${linhaTotal + 4}`]: documento.oficio.presidente,
     [`G${linhaTotal + 4}`]: documento.oficio.tesoureiro,
   })
@@ -799,7 +823,7 @@ export function desenharConciliacao(
 
   linhaComposta(51, (l) => ({
     [`A${l}`]: rotulo('A51'),
-    [`B${l}`]: documento.capa.razaoSocial,
+    [`C${l}`]: documento.capa.razaoSocial,
   }))
 
   linha += 2 // duas linhas em branco antes das assinaturas
