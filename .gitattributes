@@ -9,3 +9,13 @@ docker-entrypoint.sh text eol=lf
 Dockerfile text eol=lf
 Caddyfile text eol=lf
 docker-compose*.yml text eol=lf
+
+# As fontes do PDF da prestação são binárias. O Git hoje acerta por
+# heurística, mas heurística é o que falha no dia em que alguém liga
+# `text=auto` no global: um `\r` inserido dentro de um `.woff` não dá erro
+# de checkout — dá um PDF que abre com as letras erradas, e ninguém
+# relaciona uma coisa à outra.
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
