@@ -45,6 +45,19 @@ const nextConfig: NextConfig = {
   // reduzindo a imagem Docker de ~1 GB para ~200 MB — relevante numa VPS
   // pequena. O Dockerfile copia especificamente essa saída (ver Task 17).
   output: 'standalone',
+  // As fontes livres do PDF da prestação são lidas do disco em tempo de
+  // execução, e o rastreamento do Next não as enxerga: nada as `import`a, elas
+  // entram por `readFileSync`. Sem esta linha, `.next/standalone` sai sem
+  // elas e o PDF quebra em produção — e só em produção.
+  //
+  // O Dockerfile hoje copia `src/` inteiro por causa do seed, o que também as
+  // levaria junto; mas aquele `COPY` diz, no comentário, que é "só o
+  // necessário para o seed". Depender dele seria acoplar a geração do
+  // documento a uma decisão tomada por outro motivo, que pode ser estreitada
+  // amanhã sem que nenhum teste perceba.
+  outputFileTracingIncludes: {
+    '/**': ['./src/modules/financeiro/fontes/**'],
+  },
   poweredByHeader: false,
   experimental: {
     // O limite padrão de corpo de Server Action é 1 MB, e o anexo de documento

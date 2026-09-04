@@ -256,6 +256,67 @@ function linhasDeDespesasDoTeste(documento: DocumentoPrestacao) {
   }))
 }
 
+/** O item de texto de uma pagina, pelo conteudo — com a escala que o pdf.js le. */
+async function itemDeTexto(
+  buffer: Buffer,
+  pagina: number,
+  conteudo: string
+): Promise<{ str: string; transform: number[] }> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const documento = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    standardFontDataUrl: new URL(
+      '../../../node_modules/pdfjs-dist/standard_fonts/',
+      import.meta.url
+    ).href,
+  }).promise
+  const itens = (await (await documento.getPage(pagina)).getTextContent()).items
+  const achado = itens.find((i) => 'str' in i && i.str.includes(conteudo))
+  if (!achado || !('transform' in achado)) throw new Error(`Nao achei "${conteudo}" na pagina ${pagina}`)
+  return achado as { str: string; transform: number[] }
+}
+
+describe('as tipografias', () => {
+  /** Os nomes de fonte que o PDF declara, lidos do proprio arquivo. */
+  function fontesDeclaradas(buffer: Buffer): string[] {
+    const bruto = buffer.toString('latin1')
+    const nomes = bruto.match(/\/BaseFont\s*\/([A-Za-z0-9+\-]+)/g) ?? []
+    return [...new Set(nomes.map((n) => n.replace(/.*\//, '').replace(/^[A-Z]{6}\+/, '')))]
+  }
+
+  it('usa as familias livres embutidas, e nenhuma das cinco do formato', async () => {
+    // A pendencia 9: o modelo do orgao usa Algerian, Arial, Calibri e Times New
+    // Roman, e o PDF saia nas embutidas do formato — letras que nao sao as do
+    // modelo. Arimo, Tinos e Carlito sao clones LIVRES metricamente compativeis
+    // de Arial, Times New Roman e Calibri: mesma largura de letra, entao o
+    // layout medido contra o modelo continua valendo. Cinzel entra no lugar do
+    // Algerian, que nao tem clone.
+    const fontes = fontesDeclaradas(await gerarPdfPrestacao(documentoDeTeste()))
+
+    for (const livre of ['Arimo', 'Tinos', 'Carlito', 'Cinzel']) {
+      expect(fontes.some((f) => f.includes(livre)), `${livre} nao foi embutida`).toBe(true)
+    }
+    for (const doFormato of ['Helvetica', 'Times-Roman', 'Times-Bold', 'Courier']) {
+      expect(fontes, `${doFormato} nao deveria mais aparecer`).not.toContain(doFormato)
+    }
+  })
+
+  it('o titulo da capa sai inteiro, sem encolher, porque Carlito tem a metrica do Calibri', async () => {
+    // Medido: em Helvetica-Bold "PRESTAÇÃO DE CONTAS" pede 584,9 pt numa caixa
+    // de 553,9 e encolhe para 45pt. Em Carlito pede 468,8 pt e cabe em 48. O
+    // encolhimento nao foi removido do codigo — ele deixou de ser necessario,
+    // e o piso continua la como rede.
+    const buffer = await gerarPdfPrestacao(documentoDeTeste())
+    const titulo = await itemDeTexto(buffer, 1, 'PRESTAÇÃO DE CONTAS')
+
+    // `transform[0]` do pdf.js e a escala horizontal do texto, que para o
+    // pdfkit e o proprio corpo da fonte. Contar "/F1 48 Tf" no fluxo nao
+    // serviria: o tamanho pedido e emitido ANTES do laco de reducao, entao um
+    // 48 aparece no arquivo mesmo quando o titulo sai em 45.
+    expect(Math.round(titulo.transform[0])).toBe(48)
+  })
+})
+
 describe('as folhas que crescem', () => {
   it('tres despesas ainda imprimem as vinte e duas linhas do modelo', async () => {
     // paginas === 6 nao prova a promessa do nome: o piso Math.max(linhas.length,
