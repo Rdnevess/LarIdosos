@@ -11,15 +11,79 @@ import {
   linhaTraduzida,
 } from './pdf-prestacao'
 import { LAYOUT, type LayoutFolha, type NomeFolha } from './layout-prestacao'
-import { faixaDe, xDaColuna, yDaLinha } from './grade-prestacao'
+import { faixaDe, xDaColuna, yDaLinha, ALTURA_PAGINA } from './grade-prestacao'
 
-/** Um `DocumentoPrestacao` com `n` linhas de despesa, para testar o transbordo. */
+/**
+ * Um `DocumentoPrestacao` com `n` linhas de despesa, para testar o transbordo.
+ *
+ * Preenche `despesas` e `conciliacao.despesasDetalhadas` juntos, do mesmo
+ * jeito que `montarDocumentoPrestacao` faz num laço só (nunca deixa uma
+ * populada e a outra `[]`): foi exatamente essa incoerência da fixture —
+ * `despesasDetalhadas` sempre vazio — que escondeu o bloqueio da folha de
+ * conciliação sem transbordo, porque nenhum teste que usava `documentoCom`
+ * fazia a conciliação enxergar volume nenhum.
+ */
 function documentoCom(n: number): DocumentoPrestacao {
-  return documentoDeTeste({
-    despesas: Array.from({ length: n }, (_, i) =>
-      despesaDeTeste({ item: i + 1, credor: `Credor ${i + 1}` })
-    ),
-  })
+  const despesas = Array.from({ length: n }, (_, i) =>
+    despesaDeTeste({ item: i + 1, credor: `Credor ${i + 1}` })
+  )
+  const despesasDetalhadas = despesas.map((despesa) => ({
+    credor: despesa.credor,
+    categoria: 'Categoria de Teste',
+    valor: despesa.valor,
+  }))
+  const totalDespesas = despesasDetalhadas.reduce((soma, d) => soma + d.valor, 0)
+  const documento = documentoDeTeste({ despesas })
+
+  return {
+    ...documento,
+    conciliacao: {
+      ...documento.conciliacao,
+      despesasDetalhadas,
+      totalDespesas,
+      saldoDisponivel:
+        documento.conciliacao.saldoAnterior + documento.conciliacao.totalReceitas - totalDespesas,
+    },
+  }
+}
+
+/**
+ * Um `DocumentoPrestacao` cuja conciliação tem volume acima do exemplo do
+ * modelo (4 origens, 23 despesas): oito recebimentos e trinta despesas, 38 ao
+ * todo — acima dos 28 medidos como limiar do transbordo da folha 5, e o
+ * mesmo caminho de tradução (`linhaTraduzida`, com `Math.min` no índice) que
+ * roda em produção sempre que o mês tiver mais de 4 origens ou mais de 23
+ * despesas.
+ */
+function documentoComVolumeNaConciliacao(): DocumentoPrestacao {
+  const recebimentos = [
+    'Mensalidades de Associados',
+    'Doações Pontuais',
+    'Eventos Beneficentes',
+    'Convênios Municipais',
+    'Juros de Aplicação',
+    'Reembolsos Diversos',
+    'Patrocínios Empresariais',
+    'Rendimentos de Aplicação',
+  ].map((rotulo, indice) => ({ rotulo, valor: (indice + 1) * 100 }))
+
+  const despesas = Array.from({ length: 30 }, (_, indice) => ({
+    credor: `Credor Legitimo ${indice + 1}`,
+    categoria: `Categoria Legitima ${indice + 1}`,
+    valor: (indice + 1) * 10,
+  }))
+
+  const base = documentoDeTeste()
+  return {
+    ...base,
+    conciliacao: {
+      ...base.conciliacao,
+      recebimentosPorOrigem: recebimentos,
+      despesasDetalhadas: despesas,
+      totalReceitas: recebimentos.reduce((soma, r) => soma + r.valor, 0),
+      totalDespesas: despesas.reduce((soma, d) => soma + d.valor, 0),
+    },
+  }
 }
 
 /**
@@ -157,12 +221,45 @@ describe('a grade desenhada', () => {
   })
 })
 
+/** As linhas de despesa de um documento, no formato que `desenharFolhaDeLancamentos` desenha. */
+function linhasDeDespesasDoTeste(documento: DocumentoPrestacao) {
+  return documento.despesas.map((despesa) => ({
+    descricao: despesa.credor,
+    documento: despesa.documento,
+    complemento: despesa.formaPagamento,
+    data: despesa.data,
+    valor: despesa.valor,
+  }))
+}
+
 describe('as folhas que crescem', () => {
   it('tres despesas ainda imprimem as vinte e duas linhas do modelo', async () => {
-    // A folha nunca encolhe abaixo do modelo: e o que o orgao esta acostumado
-    // a receber, e a regra sobreviveu do gerador da planilha.
-    const buffer = await gerarPdfPrestacao(documentoCom(3))
-    expect(await paginasDe(buffer)).toBe(6)
+    // paginas === 6 nao prova a promessa do nome: o piso Math.max(linhas.length,
+    // doModelo) so muda o numero de paginas quando ha ZERO despesas (a unica
+    // vez em que o laco externo deixaria de rodar) — com tres, o laco interno
+    // ja desenha as vinte e duas linhas de qualquer jeito, porque ele conta
+    // ate `porPagina` (fixo, vindo do modelo), nunca ate `linhas.length`.
+    // Removido o piso, "tres despesas" continuaria dando 6 paginas.
+    //
+    // A prova real e estrutural: comparar a contagem de segmentos de borda
+    // entre tres despesas e vinte e duas — se a folha um dia passar a
+    // desenhar so as linhas com dado, a contagem de tres cai bem abaixo da
+    // de vinte e duas, e este teste denuncia. bufferIsolado, e nao
+    // gerarPdfPrestacao: isola so a folha de Despesas.
+    const layout = LAYOUT['3-Despesas']
+    const documentoTres = documentoCom(3)
+    const documentoCheio = documentoCom(22)
+
+    const bufferTres = await bufferIsolado((doc) =>
+      desenharFolhaDeLancamentos(doc, layout, documentoTres, linhasDeDespesasDoTeste(documentoTres))
+    )
+    const bufferCheio = await bufferIsolado((doc) =>
+      desenharFolhaDeLancamentos(doc, layout, documentoCheio, linhasDeDespesasDoTeste(documentoCheio))
+    )
+
+    expect(await paginasDe(bufferTres)).toBe(1)
+    expect(contarSegmentos(bufferTres)).toBeGreaterThan(0)
+    expect(contarSegmentos(bufferTres)).toBe(contarSegmentos(bufferCheio))
   })
 
   it('sessenta despesas transbordam para paginas novas', async () => {
@@ -174,14 +271,27 @@ describe('as folhas que crescem', () => {
   })
 
   it('a pagina de transbordo repete o cabecalho da folha', async () => {
-    // Quem folheia a pagina 4 precisa saber que coluna esta lendo. Contar
-    // quantas vezes "Credor" aparece e o que prova a repeticao.
-    const texto = extrairTexto(await gerarPdfPrestacao(documentoCom(60)))
-    const ocorrencias = (texto.match(/Credor/g) ?? []).length
+    // Antes contava "/Credor/g" > 2 no documento inteiro: com tres despesas
+    // ja nomeadas "Credor 1..N" pela propria fixture, a contagem crua batia
+    // 6 so pelo DADO, sem nenhuma repeticao de cabecalho — passaria com a
+    // repeticao inteiramente deletada.
+    //
+    // Aqui a contagem usa "CNPJ/CPF", rotulo que so existe no cabecalho da
+    // coluna (nunca em dado de despesa), isolando so a folha de Despesas
+    // (bufferIsolado) para nao somar a ocorrencia fixa que a conciliacao
+    // tambem desenha. Uma pagina, um cabecalho: a contagem tem que bater
+    // exatamente com o numero de paginas.
+    const layout = LAYOUT['3-Despesas']
+    const documento = documentoCom(60)
+    const buffer = await bufferIsolado((doc) =>
+      desenharFolhaDeLancamentos(doc, layout, documento, linhasDeDespesasDoTeste(documento))
+    )
 
-    // Uma por pagina de despesas, mais as de receitas (que tambem usa "Credor"
-    // no modelo do orgao) e a da conciliacao.
-    expect(ocorrencias).toBeGreaterThan(2)
+    const paginas = await paginasDe(buffer)
+    const ocorrencias = (extrairTexto(buffer).match(/CNPJ\/CPF/g) ?? []).length
+
+    expect(paginas).toBeGreaterThan(1)
+    expect(ocorrencias).toBe(paginas)
   })
 })
 
@@ -355,36 +465,11 @@ describe('a conciliacao', () => {
     // recebimentos e trinta despesas, para o Math.min de linhaTraduzida
     // entrar em acao — o mesmo caminho de transbordo que roda em producao
     // sempre que o mes tiver mais de 4 origens ou mais de 23 despesas.
-    const recebimentos = [
-      'Mensalidades de Associados',
-      'Doações Pontuais',
-      'Eventos Beneficentes',
-      'Convênios Municipais',
-      'Juros de Aplicação',
-      'Reembolsos Diversos',
-      'Patrocínios Empresariais',
-      'Rendimentos de Aplicação',
-    ].map((rotulo, indice) => ({ rotulo, valor: (indice + 1) * 100 }))
+    const documento = documentoComVolumeNaConciliacao()
+    const { recebimentosPorOrigem: recebimentos, despesasDetalhadas: despesas } = documento.conciliacao
 
-    const despesas = Array.from({ length: 30 }, (_, indice) => ({
-      credor: `Credor Legitimo ${indice + 1}`,
-      categoria: `Categoria Legitima ${indice + 1}`,
-      valor: (indice + 1) * 10,
-    }))
-
-    const base = documentoDeTeste()
-    const documento: DocumentoPrestacao = {
-      ...base,
-      conciliacao: {
-        ...base.conciliacao,
-        recebimentosPorOrigem: recebimentos,
-        despesasDetalhadas: despesas,
-        totalReceitas: recebimentos.reduce((soma, r) => soma + r.valor, 0),
-        totalDespesas: despesas.reduce((soma, d) => soma + d.valor, 0),
-      },
-    }
-
-    const texto = extrairTexto(await gerarPdfPrestacao(documento))
+    const buffer = await gerarPdfPrestacao(documento)
+    const texto = extrairTexto(buffer)
 
     // Nenhuma categoria do exemplo alheio (F24:F41 no layout extraido) vaza,
     // mesmo com a traducao efetivamente exercitada acima do fim do modelo.
@@ -411,6 +496,15 @@ describe('a conciliacao', () => {
       expect(texto).toContain(despesa.credor)
       expect(texto).toContain(despesa.categoria)
     }
+
+    // "Esta no papel", nao so no buffer: extrairTexto le os operadores TJ do
+    // stream inteiro, e o pdfkit nao se recusa a emitir texto em coordenada
+    // fora da pagina — foi exatamente esse o bloqueio (a conciliacao sem
+    // addPage). Este volume (38 linhas somadas) passa do limiar de 28 medido
+    // no bloqueio, entao so aparece por completo, em todas as paginas, se a
+    // conciliacao de fato tiver transbordado — uma unica pagina do tamanho
+    // de sempre nao teria espaco para as 38 linhas mais cabecalho e rodape.
+    expect(await paginasDe(buffer)).toBeGreaterThan(6) // as seis do modelo + ao menos uma de transbordo
   })
 
   it('linhaTraduzida nunca propaga rotulos do modelo, isolado de desenharFolha e de valores', () => {
@@ -434,6 +528,40 @@ describe('a conciliacao', () => {
     // documento entregue precisa parecer com o que o orgao espera.
     const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
     expect(texto.indexOf('Tesoureiro')).toBeLessThan(texto.lastIndexOf('Presidente'))
+  })
+})
+
+describe('a conciliacao nunca desenha fora da pagina', () => {
+  it('nenhuma caixa desenhada sai da folha, com volume acima do exemplo do modelo', async () => {
+    // A guarda de violacoesDePerimetro (acima) varre o LAYOUT parado — ela
+    // nunca ve uma linha traduzida por linhaTraduzida, entao nunca pegaria o
+    // bloqueio real: desenharConciliacao empilhando linhas sem nunca chamar
+    // addPage. Este e o teste que teria acusado aquilo.
+    //
+    // segmentosBrutos ja existe para ler moveTo+lineTo do content stream sem
+    // compressao (mesma tecnica dos testes de rastreamento de extensao). Uma
+    // folha corretamente paginada nunca tem coordenada de borda fora de
+    // [0, ALTURA_PAGINA] em NENHUMA pagina — cada addPage reinicia o sistema
+    // de eixos do pdfkit do zero, entao a checagem e global ao buffer, sem
+    // precisar separar por pagina.
+    const layout = LAYOUT['5-Conciliação']
+    const documento = documentoComVolumeNaConciliacao()
+
+    const buffer = await bufferIsolado((doc) => {
+      desenharConciliacao(doc, layout, documento)
+    })
+
+    const paginas = await paginasDe(buffer)
+    expect(paginas).toBeGreaterThan(1) // prova que o transbordo disparou de verdade
+
+    const segmentos = segmentosBrutos(buffer)
+    expect(segmentos.length).toBeGreaterThan(0)
+    for (const segmento of segmentos) {
+      expect(segmento.y1).toBeGreaterThanOrEqual(0)
+      expect(segmento.y1).toBeLessThanOrEqual(ALTURA_PAGINA)
+      expect(segmento.y2).toBeGreaterThanOrEqual(0)
+      expect(segmento.y2).toBeLessThanOrEqual(ALTURA_PAGINA)
+    }
   })
 })
 
