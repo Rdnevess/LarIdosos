@@ -122,17 +122,40 @@ async function bufferIsolado(
  * Não é um leitor de PDF: serve para responder "esta palavra está no
  * documento?", que é o que estes testes perguntam.
  */
-function extrairTexto(buffer: Buffer): string {
-  const bruto = buffer.toString('latin1')
-  const arrays = bruto.match(/\[[^\]]*\]\s*TJ/g) ?? []
+/**
+ * O texto do PDF, lido pelo pdf.js.
+ *
+ * A versao anterior lia os operadores `TJ` e decodificava o hexadecimal como
+ * WinAnsi. Isso so funciona com as fontes embutidas do formato: com fonte
+ * embarcada o pdfkit escreve INDICE DE GLIFO, e o mesmo indice significa
+ * letras diferentes em cada familia. Decodificar aquilo a mao exigiria
+ * descomprimir os fluxos, rastrear qual fonte esta ativa em cada `Tf` e ler o
+ * `/ToUnicode` de cada uma — um analisador de PDF dentro do arquivo de teste,
+ * e a barreira anti-vazamento depende demais desta funcao para descansar
+ * sobre isso.
+ */
+async function extrairTexto(buffer: Buffer): Promise<string> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const documento = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    // Sem isto o pdf.js avisa, a cada pagina, que nao achou as fontes padrao
+    // do formato. Ele nao precisa delas para extrair texto, mas o aviso
+    // poluiria a saida de toda rodada.
+    // `.href` e nao `fileURLToPath`: no Windows o caminho de arquivo vem com
+    // contrabarra, e o pdf.js exige uma barra final — ele recusa
+    // "...\standard_fonts\" dizendo que falta a barra.
+    standardFontDataUrl: new URL(
+      '../../../node_modules/pdfjs-dist/standard_fonts/',
+      import.meta.url
+    ).href,
+  }).promise
 
-  return arrays
-    .map((array) =>
-      (array.match(/<([0-9a-fA-F]*)>/g) ?? [])
-        .map((hexa) => Buffer.from(hexa.slice(1, -1), 'hex').toString('latin1'))
-        .join('')
-    )
-    .join('\n')
+  const paginas: string[] = []
+  for (let n = 1; n <= documento.numPages; n++) {
+    const conteudo = await (await documento.getPage(n)).getTextContent()
+    paginas.push(conteudo.items.map((item) => ('str' in item ? item.str : '')).join(''))
+  }
+  return paginas.join('\n')
 }
 
 /**
@@ -218,7 +241,7 @@ describe('a grade desenhada', () => {
     // O layout diz que ela mora em A1, dentro de uma faixa mesclada. O gerador
     // antigo desenhava texto corrido a partir da margem, ignorando o modelo.
     const buffer = await gerarPdfPrestacao(documentoDeTeste())
-    expect(extrairTexto(buffer)).toContain('Associação Lar dos Idosos')
+    expect(await extrairTexto(buffer)).toContain('Associação Lar dos Idosos')
   })
 })
 
@@ -296,7 +319,7 @@ describe('as folhas que crescem', () => {
         totalDeclarado
       )
     )
-    const texto = extrairTexto(buffer)
+    const texto = await extrairTexto(buffer)
 
     expect(texto).toContain(formatarMoeda(totalDeclarado))
     expect(texto).not.toContain(formatarMoeda(somaDasLinhas))
@@ -334,7 +357,7 @@ describe('as folhas que crescem', () => {
     )
 
     const paginas = await paginasDe(buffer)
-    const ocorrencias = (extrairTexto(buffer).match(/CNPJ\/CPF/g) ?? []).length
+    const ocorrencias = ((await extrairTexto(buffer)).match(/CNPJ\/CPF/g) ?? []).length
 
     expect(paginas).toBeGreaterThan(1)
     expect(ocorrencias).toBe(paginas)
@@ -479,7 +502,7 @@ function segmentosBrutos(buffer: Buffer): SegmentoBruto[] {
 
 describe('a conciliacao', () => {
   it('empilha saldo, recebimentos por origem, despesas e os totais', async () => {
-    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+    const texto = await extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
 
     expect(texto).toContain('Saldo Anterior')
     expect(texto).toContain('Total de Saldo + Receitas')
@@ -492,7 +515,7 @@ describe('a conciliacao', () => {
     // prestacao — "Salario", "Diaria", "Taxa bancaria". Sao genericas, entao
     // passaram pela barreira de CPF/CNPJ, mas continuam sendo conteudo alheio.
     // A conciliacao e composta, nunca copiada.
-    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+    const texto = await extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
 
     expect(texto).not.toContain('Servico reforma cozinha')
     expect(texto).not.toContain('Peça para conserto')
@@ -515,7 +538,7 @@ describe('a conciliacao', () => {
     const { recebimentosPorOrigem: recebimentos, despesasDetalhadas: despesas } = documento.conciliacao
 
     const buffer = await gerarPdfPrestacao(documento)
-    const texto = extrairTexto(buffer)
+    const texto = await extrairTexto(buffer)
 
     // Nenhuma categoria do exemplo alheio (F24:F41 no layout extraido) vaza,
     // mesmo com a traducao efetivamente exercitada acima do fim do modelo.
@@ -573,7 +596,7 @@ describe('a conciliacao', () => {
   it('assina na ordem inversa das folhas de lancamento', async () => {
     // Tesoureiro a esquerda, presidente a direita: e como o modelo faz, e o
     // documento entregue precisa parecer com o que o orgao espera.
-    const texto = extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
+    const texto = await extrairTexto(await gerarPdfPrestacao(documentoDeTeste()))
     expect(texto.indexOf('Tesoureiro')).toBeLessThan(texto.lastIndexOf('Presidente'))
   })
 })
