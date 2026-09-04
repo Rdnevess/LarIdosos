@@ -224,17 +224,27 @@ encolhe até o piso de 6 pt. A do sistema hoje pede 119,5 pt e cabe folgada em
 10 pt nos 186 pt de C–F. Encolher só atinge nome atípico, e encolher é melhor
 do que cortar.
 
-## 11. O total da prestação é recomputado em dois lugares a mais
+## 11. O total da prestação era recomputado no renderizador — resolvido
 
-`documento-prestacao.ts:16` afirma que o total não é calculado em nenhum outro
-lugar. Não é verdade: `desenharRodape` e `desenharConciliacao`, em
-`pdf-prestacao.ts`, refazem a soma na hora de desenhar. Hoje as três contas
-concordam, então nada sai errado no papel — o defeito é a afirmação, que
-autoriza a próxima pessoa a confiar num invariante que o código não mantém.
+**Resolvido** em 04/09/2026. `documento-prestacao.ts` afirmava que os totais
+são calculados ali e em nenhum outro lugar, e não era verdade: `desenharRodape`
+refazia a soma da folha com um `reduce` próprio sobre as mesmas linhas.
 
-**O que fazer:** passar o total já somado para quem desenha, e então o
-comentário volta a ser verdade. Enquanto isso não acontece, o errado é o
-comentário, não o cálculo.
+**O que se mediu antes de mexer:** os números concordavam. Em 400 mil sorteios,
+`formatarMoeda` arredonda igual a `duasCasas`, e a soma de valores com duas
+casas não chega perto de uma fronteira de arredondamento. Nada saía errado no
+papel — o problema era a segunda regra de agregação, livre para discordar da
+primeira assim que alguém mexesse só num lado: uma categoria que deixa de
+entrar, um estorno que passa a abater.
+
+O total agora viaja como parâmetro, e um teste prende o invariante: um
+documento cujo total declarado **não** bate com a soma das linhas, e o rodapé
+tem que imprimir o declarado. Provado vermelho reintroduzindo o `reduce`.
+
+Fica registrada a distinção que o comentário passou a fazer: **somar** é
+percorrer lançamentos, e mora num lugar só; **combinar** totais já fechados
+("Total de Saldo + Receitas" é `saldoAnterior + totalReceitas`) continua no
+renderizador, porque não tem como discordar da regra.
 
 ## 12. `ESPESSURA.double` desenha um traço só
 
