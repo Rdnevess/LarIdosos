@@ -194,33 +194,63 @@ projeto, com a alternativa na mesa.
 embuti-los. O renderizador aceita a troca sem mudança estrutural — o layout já
 guarda o nome original de cada fonte, e só o mapeamento em `fonteDoPdf` muda.
 
-## 10. Rótulo mais largo que a célula é truncado com reticências
+## 10. Rótulo mais largo que a célula era truncado — resolvido
 
-**Situação:** no Excel, texto que não cabe na largura da célula transborda
-visualmente para as células vizinhas vazias, ao imprimir. O renderizador deste
-projeto (`desenharFolha`, em `pdf-prestacao.ts`) não reproduz esse
-comportamento: corta o texto na largura da própria célula, com reticências —
-decisão já registrada no código, e tomada no lugar de encolher a fonte, para
-não quebrar a hierarquia tipográfica que o resto da grade reproduz.
+**Resolvido** em 04/09/2026, e por um caminho diferente do que este item
+previa. Fica registrado porque a premissa errada custou uma rodada.
 
-**Qual é a exposição:** medido nos 101 rótulos fixos do layout, **3** sofrem
-disso, sempre o mesmo texto — "Unidade Executora:", nas células `3-Despesas
-A34`, `4-Receitas A34` e `5-Conciliação A51`. Cada uma precisa de
-aproximadamente 87,4 pt para caber inteiro numa célula de ~42,5 pt, e as 11
-colunas à direita, na mesma linha, estão vazias no modelo — é para lá que o
-Excel deixaria o texto transbordar ao imprimir.
+O que estava escrito aqui era que as 11 colunas à direita de `A34`/`A51`
+estavam vazias e serviriam de espaço para o transbordo. Não estavam: o próprio
+renderizador escreve a razão social na coluna vizinha, e a truncagem cortava
+palavra inteira sem aviso — "Unidade Executora:" saía "Unidad", e a capa saía
+"PRESTAÇÃO DE" sem "CONTAS". A reticência que este item citava nunca chegava a
+aparecer: com `lineBreak: false`, o `ellipsis` do pdfkit não atua.
 
-Há um quarto caso, de outra natureza: `1-Capa A11` ("PRESTAÇÃO DE CONTAS")
-excede em ~31 pt até a maior mescla já existente ali — não há célula vazia ao
-lado para onde transbordar, então o corte é o único desfecho possível, com ou
-sem a mudança abaixo.
+Medido no modelo do órgão, o que decidiu o desfecho: nas linhas 34 e 51 não há
+mescla **nem borda vertical entre A e F**. As bordas são `A.esquerda`,
+`F.direita`, `G.esquerda`, `L.direita` — aos olhos é uma caixa A–F, e G–L é a
+caixa da assinatura. A caixa que o leitor enxerga é delimitada por **borda, não
+por coluna**. É a mesma razão pela qual `A5`/`A6`, mescladas A:L, já saíam
+inteiras desde o começo.
 
-**Por que ficou assim:** reproduzir o transbordo do Excel exige medir a largura
-do texto, somar a largura das células vazias à direita na mesma linha, e
-decidir até onde estender antes de cortar — uma régua de layout que o
-`pdfkit` não oferece pronta, e que não foi construída nesta travessia.
+O conserto foi mover a razão social do rodapé uma coluna à direita, liberando
+`B` para o rótulo (que pede 87,4 pt e ganha os 93,0 pt de A+B, em 10 pt), e
+ensinar o transbordo a parar na borda — sem isso, um nome longo vazava de `F`
+para dentro da caixa da assinatura. A capa se resolve encolhendo a fonte até
+caber, que era o que a spec mandava desde sempre.
 
-**O que fazer, se o órgão recusar:** implementar o transbordo para os três
-casos de `A34`/`A51`, reaproveitando a medição de largura que a truncagem já
-faz para decidir onde cortar. O quarto caso (`1-Capa A11`) não se resolve por
-transbordo — precisaria de fonte menor ali, ou de aceitar o corte.
+Sobra um caso de bom senso: uma razão social muito mais longa que a atual
+encolhe até o piso de 6 pt. A do sistema hoje pede 119,5 pt e cabe folgada em
+10 pt nos 186 pt de C–F. Encolher só atinge nome atípico, e encolher é melhor
+do que cortar.
+
+## 11. O total da prestação é recomputado em dois lugares a mais
+
+`documento-prestacao.ts:16` afirma que o total não é calculado em nenhum outro
+lugar. Não é verdade: `desenharRodape` e `desenharConciliacao`, em
+`pdf-prestacao.ts`, refazem a soma na hora de desenhar. Hoje as três contas
+concordam, então nada sai errado no papel — o defeito é a afirmação, que
+autoriza a próxima pessoa a confiar num invariante que o código não mantém.
+
+**O que fazer:** passar o total já somado para quem desenha, e então o
+comentário volta a ser verdade. Enquanto isso não acontece, o errado é o
+comentário, não o cálculo.
+
+## 12. `ESPESSURA.double` desenha um traço só
+
+A spec pede dois traços para a borda `double`; o renderizador desenha um, com
+0,5 de espessura. Inalcançável hoje, e o teste `o modelo usa um estilo de borda
+só` prova por quê: as 1431 bordas do modelo são todas `thin`. Se o órgão
+revisar o modelo e trouxer `double`, aquele teste falha primeiro — o aviso
+chega antes do documento errado.
+
+## 13. A exclusão por posição não protege a folha de conciliação
+
+`acharFaixaDados` só roda para `FOLHAS_QUE_CRESCEM` (`3-Despesas` e
+`4-Receitas`), então a barreira que exclui conteúdo por posição nunca se aplica
+a `5-Conciliação`. Há 18 categorias alheias no layout versionado hoje.
+Inofensivas — a coluna de credor veio vazia no modelo do órgão — mas é uma
+camada de proteção montada no lugar errado, e a inocência é circunstancial.
+
+**O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
+órgão em mãos.
