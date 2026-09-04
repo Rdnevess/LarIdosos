@@ -1,7 +1,15 @@
 import PDFDocument from 'pdfkit'
 import type { DocumentoPrestacao } from './documento-prestacao'
 import { LAYOUT, type LayoutFolha, type EstiloBorda } from './layout-prestacao'
-import { caixaDa, faixaDe, xDaColuna, yDaLinha, alturaDaLinha, linhasQueCabem } from './grade-prestacao'
+import {
+  caixaDa,
+  faixaDe,
+  xDaColuna,
+  yDaLinha,
+  alturaDaLinha,
+  linhasQueCabem,
+  type Caixa,
+} from './grade-prestacao'
 import { formatarData, formatarMoeda } from '@/lib/ptbr'
 
 /**
@@ -33,6 +41,16 @@ const ESPESSURA: Record<EstiloBorda, number> = {
   thick: 1.5,
   double: 0.5,
 }
+
+/**
+ * Piso da redução de fonte que `desenharFolha` aplica a uma célula de linha
+ * única que não coube nem transbordando. Abaixo disto o texto fica
+ * ilegível, e é melhor aceitar um resíduo de estouro do que encolher a
+ * fonte a ponto de não servir para nada — nenhuma célula do modelo precisa
+ * chegar perto disto na prática (a única que reduz hoje, `1-Capa A11`, para
+ * em ~45pt, vindo de 48pt).
+ */
+const TAMANHO_MINIMO_FONTE = 6
 
 /**
  * As cinco tipografias do modelo mapeadas para as embutidas do PDF.
@@ -195,6 +213,44 @@ function segmentosDeBorda(layout: LayoutFolha): Segmento[] {
 }
 
 /**
+ * A largura de desenho de uma célula não mesclada, alinhada à esquerda,
+ * estendida para a direita através das vizinhas vazias da mesma linha — o
+ * jeito do Excel deixar um texto mais largo que a própria célula "vazar"
+ * visualmente para a célula ao lado, sem mover o dado de nenhuma das duas.
+ *
+ * Só é chamada quando o texto já provou não caber na largura própria da
+ * célula: estender sempre, mesmo quando cabia, deslocaria a posição de um
+ * texto que já estava correto (a caixa de desenho cresce, e alinhamento
+ * `center`/`right` usa a largura para calcular onde começa).
+ *
+ * Pára no primeiro obstáculo: uma vizinha mesclada — o Excel não atravessa o
+ * limite de uma mescla, vazia ou não — ou uma vizinha com texto próprio
+ * (rótulo ou valor), o que evita engolir o conteúdo dela. Sem vizinha livre,
+ * ou no fim da faixa de colunas do modelo, a largura pára aí — é o caso da
+ * capa (`1-Capa A11`), que já está mesclada até a última coluna e por isso
+ * nunca chega a chamar esta função; ver `desenharFolha`.
+ */
+function larguraComTransbordo(
+  layout: LayoutFolha,
+  celula: string,
+  textos: Record<string, string>,
+  caixa: Caixa
+): number {
+  const { coluna, linha } = partesDaCelula(celula)
+  const ultimaColuna = Math.max(...layout.larguras.map((c) => c.coluna))
+
+  let colunaFim = coluna
+  for (let c = coluna + 1; c <= ultimaColuna; c++) {
+    const vizinha = celulaDaParte(c, linha)
+    if (faixaDe(layout, vizinha) !== vizinha) break // vizinha mesclada: o Excel para aqui
+    if (textos[vizinha]) break // vizinha com texto proprio: nao pode ser engolida
+    colunaFim = c
+  }
+
+  return xDaColuna(layout, colunaFim + 1) - caixa.x
+}
+
+/**
  * Desenha uma folha do modelo: bordas primeiro, texto depois.
  *
  * Bordas antes de propósito — um texto desenhado antes ficaria por baixo da
@@ -225,26 +281,85 @@ export function desenharFolha(
     const c = caixaDa(layout, celula)
     const fonte = layout.fontes[celula]
     const alinhamento = layout.alinhamentos[celula]
+    const horizontal = alinhamento?.horizontal ?? 'left'
+    const vertical = alinhamento?.vertical ?? 'top'
+    const quebra = alinhamento?.quebra ?? false
 
-    // Texto que não cabe: quebra em linhas quando a célula do modelo diz
-    // `quebra`, e senão é truncado com reticências.
+    doc.font(fonteDoPdf(fonte?.familia ?? 'Arial', fonte?.negrito ?? false, fonte?.italico ?? false))
+
+    // Texto de linha única (quebra: false) que não cabe: o modelo original
+    // não corta — ele transborda para a célula vazia ao lado (o jeito do
+    // Excel, `larguraComTransbordo` acima) ou, quando não há para onde
+    // transbordar (célula já mesclada até o fim, como `1-Capa A11`), reduz a
+    // fonte até caber. É a §5 da spec ("reduzido até caber ou quebrado").
     //
-    // A §5 da spec diz "reduzido até caber ou quebrado", e reduzir foi
-    // descartado aqui de propósito: encolher a fonte de uma célula a deixaria
-    // num tamanho que nenhuma vizinha tem, quebrando justamente a hierarquia
-    // tipográfica que esta mudança existe para reproduzir. Truncar é honesto —
-    // e a reticência aparece, então quem confere vê que faltou espaço, em vez
-    // de ler um texto silenciosamente menor.
-    doc
-      .font(fonteDoPdf(fonte?.familia ?? 'Arial', fonte?.negrito ?? false, fonte?.italico ?? false))
-      .fontSize(fonte?.tamanho ?? 10)
-      .text(texto, c.x + 2, c.y + 2, {
-        width: c.largura - 4,
-        height: c.altura,
-        align: alinhamento?.horizontal ?? 'left',
-        lineBreak: alinhamento?.quebra ?? false,
-        ellipsis: true,
-      })
+    // A versão anterior truncava com reticências e o comentário afirmava que
+    // a reticência aparecia, avisando quem conferisse que faltou espaço. Na
+    // prática ela não avisa nada: o pdfkit grava o glifo no byte WinAnsi
+    // 0x85, mas com `lineBreak: false` e uma `width` explícita o pdfkit
+    // ainda quebra por palavra (o `lineBreak: false` só afeta o cálculo da
+    // largura padrão quando nenhuma é informada — não existe outro uso dele
+    // no código-fonte do pdfkit), e o truncamento medido cortava a palavra
+    // inteira ("Unidade Executora:" virava "Unidad", a capa virava
+    // "PRESTAÇÃO DE" sem "CONTAS") sem sobrar sinal legível de que faltou
+    // espaço. Sem truncamento nenhum, o problema desaparece: caber de
+    // verdade é melhor do que avisar que não coube.
+    let largura = c.largura
+    let tamanho = fonte?.tamanho ?? 10
+    doc.fontSize(tamanho)
+
+    if (!quebra) {
+      const cabeNaCelula = () => doc.widthOfString(texto) <= largura - 4
+
+      if (!cabeNaCelula() && horizontal === 'left' && faixaDe(layout, celula) === celula) {
+        largura = larguraComTransbordo(layout, celula, textos, c)
+      }
+
+      while (!cabeNaCelula() && tamanho > TAMANHO_MINIMO_FONTE) {
+        tamanho -= 1
+        doc.fontSize(tamanho)
+      }
+    }
+
+    // O alinhamento vertical do modelo era recolhido, validado e nunca lido
+    // aqui — todo texto saía encostado no topo da caixa (c.y + 2), mesmo em
+    // blocos mesclados de várias linhas onde o modelo centraliza. A altura
+    // real do texto (heightOfString, sem `height` para não truncar a medida)
+    // decide quanto sobra para empurrar para baixo.
+    const alturaTexto = doc.heightOfString(texto, {
+      width: largura - 4,
+      align: horizontal,
+      lineBreak: quebra,
+    })
+    const y =
+      vertical === 'middle'
+        ? c.y + Math.max(0, (c.altura - alturaTexto) / 2)
+        : vertical === 'bottom'
+          ? c.y + Math.max(0, c.altura - alturaTexto - 2)
+          : c.y + 2
+
+    // Uma célula de linha única cujo vizinho já está ocupado (`A34`/`A51`:
+    // "Unidade Executora:" ao lado do valor da razão social, sem coluna vazia
+    // para transbordar) não ganha largura nenhuma acima, e mesmo no piso de
+    // `TAMANHO_MINIMO_FONTE` pode continuar mais larga do que a célula — o
+    // pdfkit quebra em duas linhas (nenhum `options.lineBreak` impede isso,
+    // como o comentário logo acima explica) e, com `height: c.altura`, a
+    // segunda linha simplesmente SOME: o mesmo sumiço sem aviso que este
+    // bloqueio existe para fechar, só que por falta de altura em vez de
+    // reticência. `height` nunca fica menor que o necessário para a própria
+    // altura medida — a caixa pode extravasar visualmente a linha do modelo
+    // por alguns pontos, mas nenhuma linha de texto é descartada. Só para
+    // `quebra: false`: um parágrafo (`quebra: true`) que já é maior do que a
+    // caixa é truncamento intencional, não este bloqueio.
+    const alturaMinima = quebra ? c.altura : Math.max(c.altura, alturaTexto)
+
+    doc.text(texto, c.x + 2, y, {
+      width: largura - 4,
+      height: alturaMinima,
+      align: horizontal,
+      lineBreak: quebra,
+      ellipsis: true,
+    })
   }
 }
 
@@ -262,7 +377,6 @@ export function desenharFolha(
  * sem duplicar a lógica de bordas e texto que ela já tem.
  */
 function recorteDeLinhas(layout: LayoutFolha, deLinha: number, ateLinha: number): LayoutFolha {
-  const linhaDaCelula = (celula: string) => Number(/\d+/.exec(celula)![0])
   const dentro = (celula: string) => {
     const linha = linhaDaCelula(celula)
     return linha >= deLinha && linha <= ateLinha
@@ -555,6 +669,22 @@ function valoresDoCabecalhoDaConciliacao(documento: DocumentoPrestacao): Record<
  * `B18:F18`, e `B24:E24` a `B46:E46`. Uma linha que passe do fim desse
  * intervalo herda o estilo da última — é a mesma célula que fecha a caixa no
  * modelo, só repetida.
+ *
+ * **Transborda como `desenharFolhaDeLancamentos`.** Acima de 28 origens mais
+ * despesas somadas o conteúdo passava do papel — medido desenhando de
+ * verdade e lendo o content stream: 27 linhas cabem (y=827,10), 29 não
+ * (y=852,60 contra 841,89 de altura da A4). O que se repete na página nova é
+ * o **cabeçalho** (linhas 1 a 12: "Discriminação", "Saldo" e os dados
+ * bancários) — mesmo motivo das folhas de lançamento: quem folheia precisa
+ * saber que coluna está lendo. O **rodapé** (saldo disponível, unidade
+ * executora e as duas assinaturas) sai só na última página, e nunca é
+ * partido no meio: antes de desenhar a primeira linha dele, o código confere
+ * se a ÚLTIMA linha do bloco inteiro ainda cabe — como as linhas avançam em
+ * sequência, se a última cabe todas as anteriores cabem também. O par
+ * "( - ) Despesas" / cabeçalho "Credor" (linhas 22-23 do modelo) não recebeu
+ * a mesma proteção: nenhuma delas é o que a revisão mediu vazando, e a
+ * simples quebra por linha do restante do corpo já resolve a única regressão
+ * mostrada.
  */
 export function desenharConciliacao(
   doc: Doc,
@@ -564,101 +694,130 @@ export function desenharConciliacao(
   const { conciliacao: dados } = documento
   const rotulo = (celula: string) => layout.rotulos[celula] ?? ''
 
-  desenharFolha(
-    doc,
-    recorteDeLinhas(layout, 1, 12),
-    valoresDoCabecalhoDaConciliacao(documento)
-  )
+  const cabecalho = () =>
+    desenharFolha(doc, recorteDeLinhas(layout, 1, 12), valoresDoCabecalhoDaConciliacao(documento))
+
+  cabecalho()
 
   let linha = 13
 
-  desenharLinhaComposta(doc, layout, 13, linha, {
-    [`A${linha}`]: rotulo('A13'),
-    [`J${linha}`]: formatarMoeda(dados.saldoAnterior),
-  })
-  linha++
+  /** A linha `linhaAlvo`, com sua própria altura do modelo, cabe na página corrente? */
+  const cabe = (linhaAlvo: number): boolean =>
+    linhasQueCabem(layout, linhaAlvo, alturaDaLinha(layout, linhaAlvo)) >= 1
 
-  desenharLinhaComposta(doc, layout, 14, linha, {
-    [`A${linha}`]: rotulo('A14'),
-    [`J${linha}`]: formatarMoeda(dados.totalReceitas),
-  })
-  linha++
+  const novaPagina = (): void => {
+    doc.addPage()
+    cabecalho()
+    linha = 13
+  }
+
+  /**
+   * Desenha uma linha composta na posição corrente e avança `linha`. Antes
+   * de desenhar, abre página nova se a linha não couber — a mesma decisão
+   * que `desenharFolhaDeLancamentos` toma por página inteira, aqui por
+   * linha, porque a conciliação mistura linhas fixas com duas listas de
+   * tamanho variável.
+   *
+   * `valoresDe` recebe a posição FINAL (depois de qualquer quebra de
+   * página) para montar as chaves de célula — nunca a `linha` capturada no
+   * momento da chamada, que ficaria presa ao valor de antes da quebra.
+   */
+  const linhaComposta = (linhaModelo: number, valoresDe: (linhaAlvo: number) => Record<string, string>): void => {
+    if (!cabe(linha)) novaPagina()
+    desenharLinhaComposta(doc, layout, linhaModelo, linha, valoresDe(linha))
+    linha++
+  }
+
+  linhaComposta(13, (l) => ({
+    [`A${l}`]: rotulo('A13'),
+    [`J${l}`]: formatarMoeda(dados.saldoAnterior),
+  }))
+
+  linhaComposta(14, (l) => ({
+    [`A${l}`]: rotulo('A14'),
+    [`J${l}`]: formatarMoeda(dados.totalReceitas),
+  }))
 
   const primeiraLinhaRecebimento = 15
   const ultimaLinhaRecebimentoDoModelo = 18
   dados.recebimentosPorOrigem.forEach((recebimento, indice) => {
     const linhaModelo = Math.min(primeiraLinhaRecebimento + indice, ultimaLinhaRecebimentoDoModelo)
-    desenharLinhaComposta(doc, layout, linhaModelo, linha, {
-      [`B${linha}`]: recebimento.rotulo,
-      [`J${linha}`]: formatarMoeda(recebimento.valor),
-    })
-    linha++
+    linhaComposta(linhaModelo, (l) => ({
+      [`B${l}`]: recebimento.rotulo,
+      [`J${l}`]: formatarMoeda(recebimento.valor),
+    }))
   })
 
   linha++ // linha em branco, como o gerador da planilha deixava antes do total
-  desenharLinhaComposta(doc, layout, 20, linha, {
-    [`A${linha}`]: rotulo('A20'),
-    [`J${linha}`]: formatarMoeda(dados.saldoAnterior + dados.totalReceitas),
-  })
-  linha += 2
+  linhaComposta(20, (l) => ({
+    [`A${l}`]: rotulo('A20'),
+    [`J${l}`]: formatarMoeda(dados.saldoAnterior + dados.totalReceitas),
+  }))
+  linha++ // segunda linha em branco (o original fazia linha += 2 depois do total)
 
-  desenharLinhaComposta(doc, layout, 22, linha, {
-    [`A${linha}`]: rotulo('A22'),
-  })
-  linha++
+  linhaComposta(22, (l) => ({
+    [`A${l}`]: rotulo('A22'),
+  }))
 
   // B23 vem em branco no modelo; a coluna é a do credor, texto fixo aqui.
-  desenharLinhaComposta(doc, layout, 23, linha, {
-    [`B${linha}`]: 'Credor',
-    [`F${linha}`]: rotulo('F23'),
-  })
-  linha++
+  linhaComposta(23, (l) => ({
+    [`B${l}`]: 'Credor',
+    [`F${l}`]: rotulo('F23'),
+  }))
 
   const primeiraLinhaDespesa = 24
   const ultimaLinhaDespesaDoModelo = 46
   dados.despesasDetalhadas.forEach((despesa, indice) => {
     const linhaModelo = Math.min(primeiraLinhaDespesa + indice, ultimaLinhaDespesaDoModelo)
-    desenharLinhaComposta(doc, layout, linhaModelo, linha, {
-      [`B${linha}`]: despesa.credor,
-      [`F${linha}`]: despesa.categoria,
-      [`J${linha}`]: formatarMoeda(despesa.valor),
-    })
-    linha++
+    linhaComposta(linhaModelo, (l) => ({
+      [`B${l}`]: despesa.credor,
+      [`F${l}`]: despesa.categoria,
+      [`J${l}`]: formatarMoeda(despesa.valor),
+    }))
   })
 
   linha++ // linha em branco, como o gerador da planilha deixava antes do total
-  desenharLinhaComposta(doc, layout, 47, linha, {
-    [`A${linha}`]: rotulo('A47'),
-    [`J${linha}`]: formatarMoeda(dados.totalDespesas),
-  })
-  linha += 2
+  linhaComposta(47, (l) => ({
+    [`A${l}`]: rotulo('A47'),
+    [`J${l}`]: formatarMoeda(dados.totalDespesas),
+  }))
+  linha++ // segunda linha em branco (o original fazia linha += 2 depois do total)
 
-  desenharLinhaComposta(doc, layout, 49, linha, {
-    [`A${linha}`]: rotulo('A49'),
-    [`J${linha}`]: formatarMoeda(dados.saldoDisponivel),
-  })
-  linha += 2
+  // Reserva atômica do rodapé: saldo disponível, unidade executora e as duas
+  // assinaturas nunca podem ficar espalhadas por páginas diferentes. `linha`
+  // já é a posição do saldo disponível; o bloco usa mais sete linhas depois
+  // dela (branco, unidade executora, dois brancos, e as três linhas de
+  // assinatura) — se a última delas couber, todas as anteriores cabem.
+  if (!cabe(linha + 7)) novaPagina()
 
-  desenharLinhaComposta(doc, layout, 51, linha, {
-    [`A${linha}`]: rotulo('A51'),
-    [`B${linha}`]: documento.capa.razaoSocial,
-  })
-  linha += 3
+  linhaComposta(49, (l) => ({
+    [`A${l}`]: rotulo('A49'),
+    [`J${l}`]: formatarMoeda(dados.saldoDisponivel),
+  }))
+
+  linha++ // linha em branco antes da unidade executora
+
+  linhaComposta(51, (l) => ({
+    [`A${l}`]: rotulo('A51'),
+    [`B${l}`]: documento.capa.razaoSocial,
+  }))
+
+  linha += 2 // duas linhas em branco antes das assinaturas
 
   // A conciliação assina na ordem inversa das folhas de lançamento: tesoureiro
   // à esquerda, presidente à direita. É como o modelo faz.
-  desenharLinhaComposta(doc, layout, 54, linha, {
-    [`A${linha}`]: rotulo('A54'),
-    [`G${linha}`]: rotulo('G54'),
-  })
-  desenharLinhaComposta(doc, layout, 55, linha + 1, {
-    [`A${linha + 1}`]: documento.oficio.tesoureiro,
-    [`G${linha + 1}`]: documento.oficio.presidente,
-  })
-  desenharLinhaComposta(doc, layout, 56, linha + 2, {
-    [`A${linha + 2}`]: rotulo('A56'),
-    [`G${linha + 2}`]: rotulo('G56'),
-  })
+  linhaComposta(54, (l) => ({
+    [`A${l}`]: rotulo('A54'),
+    [`G${l}`]: rotulo('G54'),
+  }))
+  linhaComposta(55, (l) => ({
+    [`A${l}`]: documento.oficio.tesoureiro,
+    [`G${l}`]: documento.oficio.presidente,
+  }))
+  linhaComposta(56, (l) => ({
+    [`A${l}`]: rotulo('A56'),
+    [`G${l}`]: rotulo('G56'),
+  }))
 }
 
 /** Os valores da capa: célula do modelo → texto desta prestação. */
