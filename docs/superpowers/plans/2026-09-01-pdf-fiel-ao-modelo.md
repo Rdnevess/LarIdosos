@@ -888,7 +888,7 @@ function desenharFolha(
 
 **Registre essa divergência no relatório da tarefa**, para a revisão julgar: a spec previa reduzir a fonte, e a implementação trunca.
 
-E, em `gerarPdfPrestacao`, troque `margin: MARGEM` por `margin: 0` — a margem agora é da folha, não do documento — e monte as três folhas estáticas chamando `desenharFolha` com os valores que as funções antigas já sabiam montar (razão social em A1, CNPJ e endereço em A3, mês em A23, e assim por diante, exatamente como `montarCapa` do `xlsx-prestacao.ts` fazia antes de ser apagado — recupere esses mapeamentos de `git show master:src/modules/financeiro/xlsx-prestacao.ts`).
+E, em `gerarPdfPrestacao`, troque `margin: MARGEM` por `margin: 0` — a margem agora é da folha, não do documento — e monte as três folhas estáticas chamando `desenharFolha` com os valores que as funções antigas já sabiam montar (razão social em A1, CNPJ e endereço em A3, mês em A23, e assim por diante, exatamente como `montarCapa` do `xlsx-prestacao.ts` fazia antes de ser apagado — recupere esses mapeamentos de `git show 564bdc5^:src/modules/financeiro/xlsx-prestacao.ts`).
 
 - [ ] **Step 4: Rodar e ver passar**
 
@@ -1007,7 +1007,7 @@ function desenharFolhaDeLancamentos(
 }
 ```
 
-Escreva `cabecalhoDaFolha` (recorta o layout às linhas 1 a `primeiraLinha - 1`), `valoresDoCabecalho` (órgão destinatário em A1, razão social em A6), `desenharLinhaDeDado` (item, credor, documento, data e valor nas colunas que o modelo usa) e `desenharRodape` (total, "Unidade Executora" e as duas assinaturas), recuperando as posições exatas de `git show master:src/modules/financeiro/xlsx-prestacao.ts`, que as tinha resolvido.
+Escreva `cabecalhoDaFolha` (recorta o layout às linhas 1 a `primeiraLinha - 1`), `valoresDoCabecalho` (órgão destinatário em A1, razão social em A6), `desenharLinhaDeDado` (item, credor, documento, data e valor nas colunas que o modelo usa) e `desenharRodape` (total, "Unidade Executora" e as duas assinaturas), recuperando as posições exatas de `git show 564bdc5^:src/modules/financeiro/xlsx-prestacao.ts`, que as tinha resolvido.
 
 - [ ] **Step 4: Rodar e ver passar**
 
@@ -1083,7 +1083,7 @@ Expected: FAIL — a folha ainda não é desenhada.
 
 - [ ] **Step 3: Escrever a conciliação**
 
-Desenhe o cabeçalho da folha (linhas 1 a 12) com `desenharFolha`, e depois empilhe as linhas dinâmicas a partir da 13, na ordem que a `montarConciliacao` do `xlsx-prestacao.ts` estabelecia — recupere-a de `git show master:src/modules/financeiro/xlsx-prestacao.ts`, que resolveu essa ordem célula a célula:
+Desenhe o cabeçalho da folha (linhas 1 a 12) com `desenharFolha`, e depois empilhe as linhas dinâmicas a partir da 13, na ordem que a `montarConciliacao` do `xlsx-prestacao.ts` estabelecia — recupere-a de `git show 564bdc5^:src/modules/financeiro/xlsx-prestacao.ts`, que resolveu essa ordem célula a célula:
 
 saldo anterior, `(+) Recebimentos`, uma linha por origem, `Total de Saldo + Receitas`, `( - ) Despesas`, o cabeçalho `Credor | Categoria`, uma linha por despesa, `Total de Despesas`, `Saldo Disponível`, `Unidade Executora` e as assinaturas invertidas.
 

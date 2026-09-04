@@ -442,7 +442,7 @@ function valoresDoCabecalho(documento: DocumentoPrestacao): Record<string, strin
 /**
  * Uma linha de despesa ou receita, já no formato comum que a folha desenha —
  * mesma forma que `montarFolhaDeLancamentos` usava no gerador do `.xlsx`
- * (`git show master:src/modules/financeiro/xlsx-prestacao.ts`), de onde as
+ * (`git show 564bdc5^:src/modules/financeiro/xlsx-prestacao.ts`), de onde as
  * posições de coluna abaixo foram recuperadas.
  */
 type LinhaDeLancamento = {
@@ -681,7 +681,7 @@ function valoresDoCabecalhoDaConciliacao(documento: DocumentoPrestacao): Record<
  * volume real calcula, nunca na linha onde o exemplo o deixou.
  *
  * **A ordem é a de `montarConciliacao`** em
- * `git show master:src/modules/financeiro/xlsx-prestacao.ts`, o gerador da
+ * `git show 564bdc5^:src/modules/financeiro/xlsx-prestacao.ts`, o gerador da
  * planilha que saiu: saldo anterior, recebimentos (uma linha por origem),
  * total de saldo mais receitas, despesas (cabeçalho credor/categoria, uma
  * linha por despesa), total de despesas, saldo disponível, unidade executora
