@@ -51,10 +51,21 @@ banco já povoado**, que é a hipótese em que o passo [4/6] de `restaurar.sh` s
 apoia e que ninguém havia executado. A tabela em `docs/operacao/backup.md`
 detalha cada item.
 
-Isso reduz o risco de a primeira execução real falhar por um erro bobo. **Não
-substitui o teste**: nada que dependa de Docker foi tocado, e os documentos
-anexados — metade do que o backup protege — não foram exercitados em nenhum
-momento. O item continua aberto.
+**A metade documental foi exercitada em 04/09/2026.** A máquina de
+desenvolvimento passou a ter Docker, e o que o parágrafo acima dava como nunca
+tocado foi ao teste: o `tar` do volume, o ciclo de criptografia e — o que mais
+importava — o bloco inteiro do passo [5/6] de `restaurar.sh`, o que esvazia o
+volume e repõe. Seis arquivos voltaram byte a byte, com acento no nome e
+diretório oculto incluídos, o conteúdo errado que estava lá foi removido, e o
+dono terminou `1001:1001`. Rodou contra um volume descartável; o `lar_uploads`
+de produção não existe nesta máquina e não foi tocado. Detalhes em
+`docs/operacao/backup.md`.
+
+**Não substitui o teste, e o item continua aberto.** O que se exercitou foram
+os blocos que os scripts contêm, não os scripts de ponta a ponta. Segue sem
+prova: o `pg_dump` de dentro do contêiner, o `stop`/`start app`, o `rclone`, o
+cron, e o volume de produção com a aplicação escrevendo nele — que é diferente
+de arquivos postos à mão.
 
 ## 2. Tentativa de acesso negada não era registrada — resolvido
 
