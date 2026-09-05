@@ -314,35 +314,42 @@ camada de proteção montada no lugar errado, e a inocência é circunstancial.
 **O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
 órgão em mãos.
 
-## 14. Antes da hidratação, a mensagem de resultado se perde
+## 14. Depois de um envio sem JavaScript, o resumo fica fora de vista
 
 **Situação:** se alguém envia um formulário antes de a página hidratar, o
 `<form>` da ação de servidor vai pelo caminho nativo: o navegador faz a
-navegação inteira, a ação **executa normalmente**, e a página volta sem a
-mensagem de resultado — que vive no estado de `useActionState` e não sobrevive
-àquela navegação. Os `<details>` também voltam fechados, porque `open` é estado
-do DOM que ninguém guarda.
+navegação inteira e a ação executa normalmente. Duas coisas medidas com o
+JavaScript desligado, o que torna esse caminho o único possível (o teste está
+em `tests/e2e/financeiro.spec.ts`, `describe('sem JavaScript')`):
 
-**A primeira versão deste item dizia que a mensagem ficava "escondida na seção
-recolhida". Está errado, e a correção importa:** medido depois, com a seção
-reaberta à força, a mensagem **não existe no documento**. Não é visibilidade —
-é perda.
+1. **A seção volta fechada.** `open` é estado do DOM, e a navegação o descarta.
+2. **A mensagem está no documento.** O `useActionState` do React é
+   progressivamente aprimorado: sem JavaScript a ação roda e o estado volta
+   renderizado.
+
+Então o resumo não se perde — fica **fora de vista**, dentro da seção
+recolhida, e a pessoa não tem por que saber que precisa reabrir.
+
+**Este item já foi registrado errado duas vezes, e o registro fica.** Primeiro
+como "fica escondida" (certo, mas por suposição). Depois "corrigido" para "se
+perde", com base numa falha de E2E lida às pressas — e essa versão era falsa.
+O teste com JavaScript desligado é o que resolveu, porque transforma um
+intermitente sob carga em algo determinístico.
 
 **Qual é a exposição:** a operação acontece de verdade, então nada se corrompe.
-O que se perde é o que ela informa. Para "Registro salvo." não faz diferença.
+O que não chega é o que ela informa. Para "Registro salvo." não faz diferença.
 Para as duas mesclagens faz: a mensagem carrega quantos lançamentos ficaram
 para trás por estarem em prestação fechada ("0 lançamentos reclassificados. 1
-ficou onde estava, em prestação fechada."). Sem ela, quem operou conclui que a
-duplicada sumiu do documento — e ela continua lá, nas competências já
-entregues.
+ficou onde estava, em prestação fechada."). Sem lê-la, quem operou conclui que
+a duplicada sumiu do documento — e ela continua nas competências já entregues.
 
-**Como apareceu:** como falha intermitente do E2E, só na suíte cheia e nunca
-isolado — sob carga, a hidratação chega depois do clique. O teste passou a
-esperar por `networkidle` antes de mexer no formulário (`esperarHidratacao`, em
-`tests/e2e/financeiro.spec.ts`), o que o torna determinístico e **não** resolve
-o que a pessoa vê.
+**O que continua sem explicação:** a falha intermitente do E2E na suíte cheia
+não foi rastreada até a causa. Esperar por `networkidle` antes de mexer no
+formulário (`esperarHidratacao`) a faz sumir, o que aponta para tempo de
+carregamento, mas a cadeia exata não foi estabelecida — e supor de novo já
+custou duas versões erradas deste item.
 
-**O que fazer:** fazer o resultado sobreviver ao caminho sem JavaScript. As
-saídas conhecidas são renderizar o resumo a partir do estado do servidor (e não
-do `useActionState`), ou redirecionar para uma URL que o carregue. Enquanto não
-for feito, a operação continua correta e o resumo é que pode não chegar.
+**O que fazer:** manter a seção aberta quando a resposta trouxer resultado de
+ação. Exige que o `<details>` deixe de ser não-controlado, o que num componente
+de servidor não é imediato. Enquanto não for feito, a operação continua correta
+e o resumo é que pode passar despercebido.
