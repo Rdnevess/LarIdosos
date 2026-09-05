@@ -351,3 +351,32 @@ verificação automatizada.
 
 A implantação já cria banco vazio e roda o seed — o risco só aparece se alguém
 tentar "aproveitar" os dados de desenvolvimento. Não faça.
+
+## 10. A imagem Docker tem 1,27 GB, e o compose anunciava 200 MB
+
+**Situação:** medido em 05/09/2026, na primeira vez que alguém construiu a
+imagem. `lar-app:latest` = **1,27 GB**. O comentário do `docker-compose.yml`
+afirmava que o `output: standalone` reduzia a imagem "de ~1 GB para ~200 MB —
+relevante numa VPS pequena". A primeira metade é verdade; a segunda não.
+
+| Camada | Tamanho |
+|---|---|
+| `.next/standalone` | 89,1 MB |
+| `node_modules` de produção, sobreposto | **680 MB** |
+| cliente Prisma gerado (`.prisma`) | 22,9 MB |
+| `src/` (copiado por causa do seed) | 2,8 MB |
+
+**Por que está assim, e não é descuido:** o entrypoint roda `prisma migrate
+deploy` e `npx tsx prisma/seed.ts` a cada subida. Nem o `prisma` nem o `tsx`
+são importados pelo código da aplicação, então o rastreamento do Next não tem
+motivo para incluí-los no `standalone` — e o Dockerfile os traz de volta
+copiando o `node_modules` de produção inteiro. A decisão está explicada no
+comentário daquele `COPY`. O que estava errado era a **afirmação** no compose,
+que prometia um número que a construção não entrega; corrigida com o valor
+medido.
+
+**O que fazer, se o disco da VPS apertar:** copiar do `deps-prod` apenas o que
+o entrypoint usa, em vez do `node_modules` completo. Não é trivial — `prisma` e
+`tsx` arrastam árvores próprias, e um recorte errado só aparece no primeiro
+`docker compose up` depois do deploy, que é o pior momento. Enquanto o disco
+couber, 1,27 GB documentado é melhor do que 200 MB prometido.
