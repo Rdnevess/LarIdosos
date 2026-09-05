@@ -3,6 +3,7 @@ import { writeFile, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { PrismaClient } from '@prisma/client'
 import { PDFDocument } from 'pdf-lib'
+import { esperarHidratacao } from './hidratacao'
 
 /**
  * O caminho inteiro do dinheiro, pela tela: cadastrar a instituição e a conta,
@@ -39,20 +40,6 @@ async function abrirSecao(pagina: Page, titulo: string) {
   return secao
 }
 
-/**
- * Espera a página hidratar antes de mexer num formulário de ação de servidor.
- *
- * Sem isto o clique pode chegar antes do React: o `<form>` é enviado do jeito
- * nativo, o navegador navega a página inteira, e a mensagem de resultado —
- * que vive no estado de `useActionState` — **não aparece**. É a pendência 14,
- * e o teste não pode fingir que ela não existe nem falhar por causa dela.
- *
- * `networkidle` não prova hidratação, mas é o sinal mais próximo que o
- * Playwright oferece sem espetar um marcador na aplicação só para o teste.
- */
-async function esperarHidratacao(pagina: Page) {
-  await pagina.waitForLoadState('networkidle')
-}
 
 /**
  * Garante a seção aberta, sem alternar.

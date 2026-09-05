@@ -5,6 +5,7 @@ import type { Residente } from '@prisma/client'
 import { Campo, type PropsCampo } from './campo'
 import type { EstadoAcao } from '@/lib/acoes'
 import { Botao } from '@/components/ui/botao'
+import { useHidratado } from '@/lib/hidratacao'
 
 export const CAMPOS_RESIDENTE: PropsCampo[] = [
   { nome: 'nomeCompleto', rotulo: 'Nome completo', obrigatorio: true },
@@ -64,6 +65,7 @@ export function FormularioResidente({
   variante?: 'primario' | 'secundario' | 'perigo'
 }) {
   const [estado, enviar, enviando] = useActionState(acao, null)
+  const hidratado = useHidratado()
 
   const valorInicial = (nome: string): string | undefined => {
     const valor = residente?.[nome as keyof Residente]
@@ -72,7 +74,7 @@ export function FormularioResidente({
   }
 
   return (
-    <form action={enviar} className="space-y-4">
+    <form action={enviar} className="space-y-4" data-hidratado={hidratado}>
       {/* Sem isto `acaoAtualizarResidente` não sabe quem atualizar: é ela quem
           lê `dados.get('id')`. No cadastro não há residente, e nada é emitido. */}
       {residente && <input type="hidden" name="id" value={residente.id} />}

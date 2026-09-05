@@ -343,11 +343,18 @@ para trás por estarem em prestação fechada ("0 lançamentos reclassificados. 
 ficou onde estava, em prestação fechada."). Sem lê-la, quem operou conclui que
 a duplicada sumiu do documento — e ela continua nas competências já entregues.
 
-**O que continua sem explicação:** a falha intermitente do E2E na suíte cheia
-não foi rastreada até a causa. Esperar por `networkidle` antes de mexer no
-formulário (`esperarHidratacao`) a faz sumir, o que aponta para tempo de
-carregamento, mas a cadeia exata não foi estabelecida — e supor de novo já
-custou duas versões erradas deste item.
+**A falha intermitente do E2E tem causa e conserto.** Era o clique chegando
+antes do React, e apareceu em dois arquivos independentes —
+`financeiro.spec.ts` e `residentes.spec.ts` —, sempre na suíte cheia e nunca
+isolado. `useHidratado` (em `src/lib/hidratacao.ts`) marca o `<form>` com
+`data-hidratado="sim"` quando o React assume, e `esperarHidratacao` (em
+`tests/e2e/hidratacao.ts`) espera por ele.
+
+O marcador vive no código de produção de propósito: o teste não tem como
+observar de fora um estado que só o cliente conhece. A primeira versão do
+ajudante esperava por `networkidle`, que fazia a intermitência sumir sem dizer
+nada sobre hidratação — trocar uma aproximação que funciona por um fato é o que
+separa um teste estável de um teste com sorte.
 
 **O que fazer:** manter a seção aberta quando a resposta trouxer resultado de
 ação. Exige que o `<details>` deixe de ser não-controlado, o que num componente

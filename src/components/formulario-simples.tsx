@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { Campo, type PropsCampo } from './campo'
 import type { EstadoAcao } from '@/lib/acoes'
 import { Botao } from '@/components/ui/botao'
+import { useHidratado } from '@/lib/hidratacao'
 
 export function FormularioSimples({
   acao,
@@ -31,9 +32,10 @@ export function FormularioSimples({
   variante?: 'primario' | 'secundario' | 'perigo'
 }) {
   const [estado, enviar, enviando] = useActionState(acao, null)
+  const hidratado = useHidratado()
 
   return (
-    <form action={enviar} className="space-y-4">
+    <form action={enviar} className="space-y-4" data-hidratado={hidratado}>
       {Object.entries(ocultos).map(([nome, valor]) => (
         <input key={nome} type="hidden" name={nome} value={valor} />
       ))}
