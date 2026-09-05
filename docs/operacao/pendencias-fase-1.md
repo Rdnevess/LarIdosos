@@ -81,10 +81,24 @@ banco nem no volume. O banco voltou com as contagens exatas e o acento intacto,
 os cinco arquivos do volume voltaram byte a byte, o lixo inserido no meio não
 sobreviveu, e o dono terminou `1001:1001`. Detalhes em `docs/operacao/backup.md`.
 
-**O item continua aberto, e agora por muito menos.** Segue sem prova: o
-`rclone` (nenhum remoto configurado), o cron, o contêiner `app` de verdade — a
-imagem não foi construída — e o Caddy com domínio real. A linha `_PENDENTE_`
-espera a execução na VPS, que é a única que exercita esses quatro.
+**Repetido em 05/09/2026 com a pilha inteira**, imagem construída e `app`
+rodando. Apareceu o **segundo** defeito de implantação: a imagem não construía,
+porque o Dockerfile copia `public/` e o diretório havia sumido do repositório
+junto com os SVGs de andaime do Next. Corrigido.
+
+Com `app` de pé, o `restaurar.sh` exercitou o `stop`/`start` de verdade, e
+ficou provado o que ninguém tinha verificado: **o dado restaurado sobrevive à
+subida da aplicação**. O entrypoint roda `migrate deploy` e o seed a cada
+start, e depois dele o marcador seguia intacto e `usuarios` seguia em 1 — o
+seed não duplicou o administrador que voltou no dump.
+
+**O item continua aberto, e agora por três coisas só:** o `rclone` (nenhum
+remoto configurado), o cron, e o Caddy com domínio real. A linha `_PENDENTE_`
+espera a execução na VPS, que é a única que os exercita.
+
+**Dois defeitos que só a execução encontrou**, ambos impedindo a implantação e
+nenhum deles em lista alguma: a montagem do volume do Postgres (`aa66702`) e o
+`public/` ausente (`0f3d7e3`). É o argumento deste item, demonstrado.
 
 ## 2. Tentativa de acesso negada não era registrada — resolvido
 

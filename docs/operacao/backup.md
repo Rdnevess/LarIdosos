@@ -467,10 +467,27 @@ restauração **não sobreviveu**, e o acento voltou intacto (`Maria da
 Conceição`). Os cinco arquivos do volume voltaram byte a byte, o lixo foi
 removido, e o dono terminou `1001:1001`.
 
-**O que continua sem prova:** o `rclone` (nenhum remoto configurado), o cron, o
-contêiner `app` de verdade — a imagem não foi construída, e `stop`/`start app`
-saem com 0 sem ela — e o Caddy com domínio real. Tudo o mais do procedimento
-foi executado.
+**Repetido em 05/09/2026 com a pilha inteira de pé.** A imagem foi construída
+e o ciclo refeito com `db` e `app` rodando — o que, entre outras coisas, faz o
+banco ter o **esquema real**, aplicado pelas migrations do entrypoint, e não
+tabelas de amostra.
+
+Antes disso apareceu o segundo defeito de implantação: **a imagem não
+construía**. O Dockerfile faz `COPY --from=build /app/public ./public`, e
+`public/` não existia no repositório desde 31/08/2026, quando os SVGs de
+andaime do Next foram removidos e o diretório vazio sumiu com eles. `docker
+compose up -d --build` falhava com `"/app/public": not found`. Corrigido.
+
+Com a pilha de pé, o `restaurar.sh` exercitou o que faltava: `stop app` parou o
+contêiner de verdade, e `start app` o subiu de volta. E ficou provada uma coisa
+que ninguém tinha verificado — **o dado restaurado sobrevive à subida da
+aplicação**. O entrypoint roda `prisma migrate deploy` e o seed a cada start;
+depois dele, o marcador continuava com as duas linhas, o acento intacto, e
+`usuarios` continuava em **1**: o seed não duplicou o administrador que voltou
+no dump.
+
+**O que continua sem prova:** o `rclone` (nenhum remoto configurado), o cron, e
+o Caddy com domínio real. Só isso.
 
 **Nota de ambiente, não defeito:** no Git Bash do Windows, o `mktemp -d` de
 `restaurar.sh` devolve um caminho que o Docker Desktop não monta, e o passo
