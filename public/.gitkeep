@@ -1,0 +1,14 @@
+Este diretório precisa existir, mesmo vazio.
+
+O Dockerfile faz `COPY --from=build /app/public ./public`, porque a saída
+`standalone` do Next não inclui `public/` — o Next exige copiá-la à parte. Um
+`COPY` de origem inexistente não é aviso: aborta a construção da imagem.
+
+Foi o que aconteceu em 31/08/2026: o commit 609a11e removeu os cinco SVGs de
+andaime do Next (next.svg, vercel.svg e companhia), que ninguém usava. A
+remoção estava certa; o efeito colateral não. O Git não versiona diretório
+vazio, `public/` sumiu junto, e a construção da imagem passou a falhar com
+"/app/public": not found — descoberto só em 05/09/2026, na primeira vez que
+alguém construiu a imagem.
+
+Se um dia houver arquivo estático de verdade aqui, este marcador pode sair.

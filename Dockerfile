@@ -71,6 +71,11 @@ RUN addgroup -g 1001 -S lar && adduser -u 1001 -S lar -G lar \
 # o rastreamento de dependências identificou como necessário para servir
 # a aplicação. `public/` e `.next/static/` não entram nela — o Next exige
 # copiá-los à parte (ver docs oficiais de `output: standalone`).
+#
+# `public/` precisa EXISTIR no repositório, ainda que vazia: um COPY de
+# origem inexistente aborta a construção, e foi o que aconteceu quando os
+# SVGs de andaime do Next foram removidos e o diretório sumiu com eles.
+# Ver `public/.gitkeep`.
 COPY --chown=lar:lar --from=build /app/.next/standalone ./
 COPY --chown=lar:lar --from=build /app/.next/static ./.next/static
 COPY --chown=lar:lar --from=build /app/public ./public

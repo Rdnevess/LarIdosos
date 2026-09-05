@@ -81,10 +81,24 @@ banco nem no volume. O banco voltou com as contagens exatas e o acento intacto,
 os cinco arquivos do volume voltaram byte a byte, o lixo inserido no meio não
 sobreviveu, e o dono terminou `1001:1001`. Detalhes em `docs/operacao/backup.md`.
 
-**O item continua aberto, e agora por muito menos.** Segue sem prova: o
-`rclone` (nenhum remoto configurado), o cron, o contêiner `app` de verdade — a
-imagem não foi construída — e o Caddy com domínio real. A linha `_PENDENTE_`
-espera a execução na VPS, que é a única que exercita esses quatro.
+**Repetido em 05/09/2026 com a pilha inteira**, imagem construída e `app`
+rodando. Apareceu o **segundo** defeito de implantação: a imagem não construía,
+porque o Dockerfile copia `public/` e o diretório havia sumido do repositório
+junto com os SVGs de andaime do Next. Corrigido.
+
+Com `app` de pé, o `restaurar.sh` exercitou o `stop`/`start` de verdade, e
+ficou provado o que ninguém tinha verificado: **o dado restaurado sobrevive à
+subida da aplicação**. O entrypoint roda `migrate deploy` e o seed a cada
+start, e depois dele o marcador seguia intacto e `usuarios` seguia em 1 — o
+seed não duplicou o administrador que voltou no dump.
+
+**O item continua aberto, e agora por três coisas só:** o `rclone` (nenhum
+remoto configurado), o cron, e o Caddy com domínio real. A linha `_PENDENTE_`
+espera a execução na VPS, que é a única que os exercita.
+
+**Dois defeitos que só a execução encontrou**, ambos impedindo a implantação e
+nenhum deles em lista alguma: a montagem do volume do Postgres (`aa66702`) e o
+`public/` ausente (`0f3d7e3`). É o argumento deste item, demonstrado.
 
 ## 2. Tentativa de acesso negada não era registrada — resolvido
 
@@ -351,3 +365,32 @@ verificação automatizada.
 
 A implantação já cria banco vazio e roda o seed — o risco só aparece se alguém
 tentar "aproveitar" os dados de desenvolvimento. Não faça.
+
+## 10. A imagem Docker tem 1,27 GB, e o compose anunciava 200 MB
+
+**Situação:** medido em 05/09/2026, na primeira vez que alguém construiu a
+imagem. `lar-app:latest` = **1,27 GB**. O comentário do `docker-compose.yml`
+afirmava que o `output: standalone` reduzia a imagem "de ~1 GB para ~200 MB —
+relevante numa VPS pequena". A primeira metade é verdade; a segunda não.
+
+| Camada | Tamanho |
+|---|---|
+| `.next/standalone` | 89,1 MB |
+| `node_modules` de produção, sobreposto | **680 MB** |
+| cliente Prisma gerado (`.prisma`) | 22,9 MB |
+| `src/` (copiado por causa do seed) | 2,8 MB |
+
+**Por que está assim, e não é descuido:** o entrypoint roda `prisma migrate
+deploy` e `npx tsx prisma/seed.ts` a cada subida. Nem o `prisma` nem o `tsx`
+são importados pelo código da aplicação, então o rastreamento do Next não tem
+motivo para incluí-los no `standalone` — e o Dockerfile os traz de volta
+copiando o `node_modules` de produção inteiro. A decisão está explicada no
+comentário daquele `COPY`. O que estava errado era a **afirmação** no compose,
+que prometia um número que a construção não entrega; corrigida com o valor
+medido.
+
+**O que fazer, se o disco da VPS apertar:** copiar do `deps-prod` apenas o que
+o entrypoint usa, em vez do `node_modules` completo. Não é trivial — `prisma` e
+`tsx` arrastam árvores próprias, e um recorte errado só aparece no primeiro
+`docker compose up` depois do deploy, que é o pior momento. Enquanto o disco
+couber, 1,27 GB documentado é melhor do que 200 MB prometido.
