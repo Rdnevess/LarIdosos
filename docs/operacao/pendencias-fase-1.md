@@ -61,11 +61,30 @@ dono terminou `1001:1001`. Rodou contra um volume descartável; o `lar_uploads`
 de produção não existe nesta máquina e não foi tocado. Detalhes em
 `docs/operacao/backup.md`.
 
-**Não substitui o teste, e o item continua aberto.** O que se exercitou foram
-os blocos que os scripts contêm, não os scripts de ponta a ponta. Segue sem
-prova: o `pg_dump` de dentro do contêiner, o `stop`/`start app`, o `rclone`, o
-cron, e o volume de produção com a aplicação escrevendo nele — que é diferente
-de arquivos postos à mão.
+**Os dois scripts rodaram inteiros, em 04/09/2026, com Docker.** Não na VPS —
+na máquina de desenvolvimento, contra a pilha do `docker-compose.yml`. E a
+primeira coisa que apareceu foi que **o compose não subia**: `postgres:18-alpine`
+recusa a montagem em `/var/lib/postgresql/data`, o contêiner entrava em ciclo de
+reinício, e `app` e `caddy`, que dependem de `db` saudável, nunca subiriam.
+`docker compose up -d --build` — o único comando de implantação — não
+funcionava. Corrigido no commit que acompanha este registro.
+
+**É a demonstração do que este item vinha dizendo:** o defeito que travava tudo
+não estava nos scripts de backup, estava no caminho que eles pressupõem, e só a
+execução real o mostrou.
+
+Depois disso o ciclo completo passou: `backup.sh` nos seis passos, com o
+`pg_dump` de dentro do contêiner e o marcador de dump completo; `restaurar.sh`
+com a confirmação `RESTAURAR`, o resguardo do estado anterior, e a validação do
+passo `[3/6]` que **abortou de verdade** numa primeira tentativa, sem tocar no
+banco nem no volume. O banco voltou com as contagens exatas e o acento intacto,
+os cinco arquivos do volume voltaram byte a byte, o lixo inserido no meio não
+sobreviveu, e o dono terminou `1001:1001`. Detalhes em `docs/operacao/backup.md`.
+
+**O item continua aberto, e agora por muito menos.** Segue sem prova: o
+`rclone` (nenhum remoto configurado), o cron, o contêiner `app` de verdade — a
+imagem não foi construída — e o Caddy com domínio real. A linha `_PENDENTE_`
+espera a execução na VPS, que é a única que exercita esses quatro.
 
 ## 2. Tentativa de acesso negada não era registrada — resolvido
 

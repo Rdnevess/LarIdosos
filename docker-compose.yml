@@ -28,7 +28,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # `/var/lib/postgresql`, e nao `/var/lib/postgresql/data`. A imagem 18+
+      # guarda os dados num subdiretorio por versao maior
+      # (`/var/lib/postgresql/18/docker`), para que `pg_upgrade --link` funcione
+      # sem cruzar fronteira de montagem. Montado no caminho antigo, o
+      # entrypoint enxerga um volume que nao vai usar e RECUSA subir: "there
+      # appears to be PostgreSQL data in /var/lib/postgresql/data (unused
+      # mount/volume)". Nao e aviso — o container entra em ciclo de reinicio, e
+      # a pilha inteira nunca sobe.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s

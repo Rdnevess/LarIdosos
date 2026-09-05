@@ -431,6 +431,53 @@ primeira execução na VPS saiba o que já não precisa ser suspeito:
 | Ciclo `gzip` → `gpg --symmetric AES256 --passphrase-file` → `gpg -d` → `gunzip -t`, com as flags exatas dos dois scripts | 630 linhas de auditoria e 45 residentes do banco de desenvolvimento | volta íntegro |
 | `--clean --if-exists` + `psql -v ON_ERROR_STOP=1` restaurando **sobre banco já povoado** — a hipótese em que o comentário do passo [4/6] de `restaurar.sh` se apoia | restauração aplicada duas vezes seguidas no mesmo banco | saída 0 nas duas, contagens idênticas, sem duplicar |
 
+### Os dois scripts, de ponta a ponta, em 04/09/2026
+
+Depois da verificação parcial da seção anterior, os dois scripts foram
+executados **inteiros**, com Docker, na máquina de desenvolvimento — não na
+VPS. `sh scripts/backup.sh` e `sh scripts/restaurar.sh`, sem trechos extraídos e
+sem adaptação, contra a pilha do `docker-compose.yml`.
+
+**O que apareceu antes de qualquer teste rodar:** o compose não subia. A imagem
+`postgres:18-alpine` recusa a montagem em `/var/lib/postgresql/data`, e o
+contêiner entrava em ciclo de reinício — logo `app` e `caddy`, que dependem de
+`db` saudável, nunca subiriam. `docker compose up -d --build`, o único comando
+de implantação, não funcionava. Corrigido para `/var/lib/postgresql`. **Este é
+o motivo pelo qual um backup nunca testado é uma hipótese:** o defeito não
+estava nos scripts de backup, estava no caminho que eles pressupõem.
+
+Com isso corrigido, o ciclo completo:
+
+| Passo | Resultado |
+|---|---|
+| `backup.sh` `[1/6]` a `[6/6]` | os seis passos, saída 0 |
+| `pg_dump` **de dentro do contêiner**, com o marcador de dump completo | presente |
+| `tar` do volume `lar_uploads` e validação `tar tzf` | íntegro |
+| `gpg --symmetric AES256` nos dois arquivos | dois `.gpg` no destino, mais `ultimo_sucesso` |
+| `[5/6]` sem `RCLONE_REMOTO` | avisa que a cópia ficou só local, e não falha |
+| `restaurar.sh` — confirmação `RESTAURAR` | pedida e exigida |
+| `[1/6]` resguardo do estado anterior | gravado, criptografado |
+| `[3/6]` validação antes de tocar nos dados | **exerceu-se de verdade**: numa primeira tentativa o tarball não foi encontrado e o script abortou **sem** tocar no banco nem no volume |
+| `[4/6]` `psql` com `ON_ERROR_STOP=1` sobre banco já povoado e sujo | restaurou |
+| `[5/6]` a troca do volume, com `chown 1001:1001` | restaurou |
+
+Conferido depois, contra o estado de antes do backup: o banco voltou com as
+contagens exatas (6 e 1000), a linha de lixo inserida entre o backup e a
+restauração **não sobreviveu**, e o acento voltou intacto (`Maria da
+Conceição`). Os cinco arquivos do volume voltaram byte a byte, o lixo foi
+removido, e o dono terminou `1001:1001`.
+
+**O que continua sem prova:** o `rclone` (nenhum remoto configurado), o cron, o
+contêiner `app` de verdade — a imagem não foi construída, e `stop`/`start app`
+saem com 0 sem ela — e o Caddy com domínio real. Tudo o mais do procedimento
+foi executado.
+
+**Nota de ambiente, não defeito:** no Git Bash do Windows, o `mktemp -d` de
+`restaurar.sh` devolve um caminho que o Docker Desktop não monta, e o passo
+`[3/6]` falha ao abrir o tarball. Contorna-se apontando `TMPDIR` para um
+caminho que o Docker enxergue. Na VPS Linux, que é onde o script roda, isso não
+acontece.
+
 ### A metade documental, exercitada em 04/09/2026
 
 A máquina de desenvolvimento passou a ter Docker, e a metade que o parágrafo
