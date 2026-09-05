@@ -13,6 +13,7 @@ import {
   listarFornecedores,
   desativarFornecedor,
   mesclarCategoriasDespesa,
+  mesclarOrigensReceita,
 } from './cadastros.service'
 
 describe('criarOrigemReceita', () => {
@@ -378,5 +379,117 @@ describe('a guarda contra origem duplicada', () => {
 
     const nova = await criarOrigemReceita(ctx, { nome: 'Repasse da Prefeitura' })
     expect(nova.nome).toBe('Repasse da Prefeitura')
+  })
+})
+
+describe('mesclarOrigensReceita', () => {
+  /** Uma receita solta, na origem dada, sem passar pelo servico de lancamentos. */
+  async function receitaEm(contaId: string, origemId: string, prestacaoId?: string) {
+    return prisma.lancamento.create({
+      data: {
+        natureza: 'RECEITA',
+        descricao: 'Doacao do mes',
+        valor: 250,
+        data: new Date('2026-08-10'),
+        contaBancariaId: contaId,
+        origemReceitaId: origemId,
+        prestacaoContasId: prestacaoId,
+      },
+    })
+  }
+
+  async function cenario() {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const conta = await prisma.contaBancaria.create({
+      data: {
+        banco: 'Banco do Brasil',
+        agencia: '1234-5',
+        numeroConta: '98765-4',
+        tipo: 'CORRENTE',
+        titular: 'Associação Lar dos Idosos',
+        saldoInicial: 15000,
+        dataSaldoInicial: new Date('2026-01-01'),
+      },
+    })
+    const bazar = await criarOrigemReceita(ctx, { nome: 'Bazar', rotuloPrestacao: 'Bazar' })
+    const doacao = await criarOrigemReceita(ctx, { nome: 'Doação', rotuloPrestacao: 'Doação' })
+    return { ctx, conta, bazar, doacao }
+  }
+
+  it('reclassifica os lancamentos e desativa a origem eliminada', async () => {
+    const { ctx, conta, bazar, doacao } = await cenario()
+    const a = await receitaEm(conta.id, bazar.id)
+    const b = await receitaEm(conta.id, bazar.id)
+
+    const resultado = await mesclarOrigensReceita(ctx, { deId: bazar.id, paraId: doacao.id })
+
+    expect(resultado.reclassificados).toBe(2)
+    expect(resultado.mantidos).toBe(0)
+    for (const lancamento of [a, b]) {
+      const depois = await prisma.lancamento.findUnique({ where: { id: lancamento.id } })
+      expect(depois!.origemReceitaId).toBe(doacao.id)
+    }
+    expect((await listarOrigensReceita(ctx)).map((o) => o.nome)).toEqual(['Doação'])
+  })
+
+  it('nao mexe no lancamento de prestacao fechada, e diz quantos ficaram', async () => {
+    // O congelamento vale aqui como vale em toda parte: o documento entregue
+    // mostrou "Bazar" na conciliacao, e continua mostrando.
+    const { ctx, conta, bazar, doacao } = await cenario()
+    const prestacao = await prisma.prestacaoContas.create({
+      data: {
+        contaBancariaId: conta.id,
+        mesCompetencia: 8,
+        anoCompetencia: 2026,
+        saldoAnterior: 15000,
+        status: 'FECHADA',
+        fechadaEm: new Date(),
+      },
+    })
+    const congelado = await receitaEm(conta.id, bazar.id, prestacao.id)
+    const livre = await receitaEm(conta.id, bazar.id)
+
+    const resultado = await mesclarOrigensReceita(ctx, { deId: bazar.id, paraId: doacao.id })
+
+    expect(resultado).toEqual({ reclassificados: 1, mantidos: 1 })
+    expect(
+      (await prisma.lancamento.findUnique({ where: { id: congelado.id } }))!.origemReceitaId
+    ).toBe(bazar.id)
+    expect(
+      (await prisma.lancamento.findUnique({ where: { id: livre.id } }))!.origemReceitaId
+    ).toBe(doacao.id)
+  })
+
+  it('recusa mesclar uma origem nela mesma', async () => {
+    const { ctx, bazar } = await cenario()
+
+    await expect(
+      mesclarOrigensReceita(ctx, { deId: bazar.id, paraId: bazar.id })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('recusa destino desativado', async () => {
+    const { ctx, bazar, doacao } = await cenario()
+    await desativarOrigemReceita(ctx, doacao.id)
+
+    await expect(
+      mesclarOrigensReceita(ctx, { deId: bazar.id, paraId: doacao.id })
+    ).rejects.toThrow(ErroValidacao)
+  })
+
+  it('recusa id que nao existe', async () => {
+    const { ctx, bazar } = await cenario()
+
+    await expect(
+      mesclarOrigensReceita(ctx, { deId: bazar.id, paraId: 'nao-existe' })
+    ).rejects.toThrow(ErroNaoEncontrado)
+  })
+
+  it('nega ao papel SAUDE', async () => {
+    const ctx = await ctxComPapel('SAUDE')
+
+    await expect(
+      mesclarOrigensReceita(ctx, { deId: 'a', paraId: 'b' })
+    ).rejects.toThrow(ErroPermissao)
   })
 })

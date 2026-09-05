@@ -40,6 +40,21 @@ async function abrirSecao(pagina: Page, titulo: string) {
 }
 
 /**
+ * Espera a página hidratar antes de mexer num formulário de ação de servidor.
+ *
+ * Sem isto o clique pode chegar antes do React: o `<form>` é enviado do jeito
+ * nativo, o navegador navega a página inteira, e a mensagem de resultado —
+ * que vive no estado de `useActionState` — **não aparece**. É a pendência 14,
+ * e o teste não pode fingir que ela não existe nem falhar por causa dela.
+ *
+ * `networkidle` não prova hidratação, mas é o sinal mais próximo que o
+ * Playwright oferece sem espetar um marcador na aplicação só para o teste.
+ */
+async function esperarHidratacao(pagina: Page) {
+  await pagina.waitForLoadState('networkidle')
+}
+
+/**
  * Garante a seção aberta, sem alternar.
  *
  * `abrirSecao` clica no `summary`, que ALTERNA — chamada com a seção já aberta,
@@ -417,6 +432,7 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
   const DESTINO = `Energia eletrica ${marca}`
   await page.goto('/financeiro/cadastros')
 
+  await esperarHidratacao(page)
   const categorias = await abrirSecao(page, 'Categorias de despesa')
   await categorias.getByLabel(/^Nome/).fill(DESTINO)
   await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
@@ -450,4 +466,34 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
   await page.reload()
   const depois = await abrirSecao(page, 'Categorias de despesa')
   await expect(depois.getByRole('listitem').filter({ hasText: CATEGORIA })).toHaveCount(0)
+})
+
+test('junta duas origens e o que ja foi ao orgao nao muda de subtotal', async ({ page }) => {
+  // A mesclagem de origem pesa mais que a de categoria: a conciliacao agrupa
+  // os recebimentos por rotulo, entao juntar duas origens muda EM QUE SUBTOTAL
+  // o dinheiro entra. Por isso o destino e escolhido, e nunca deduzido.
+  //
+  // A receita lancada la em cima entrou na prestacao que o teste do PDF
+  // fechou, entao e o congelamento que se exercita aqui.
+  await page.goto('/financeiro/cadastros')
+
+  await esperarHidratacao(page)
+  const origens = await abrirSecao(page, 'Origens de receita')
+  await expect(
+    origens.getByLabel(/^Origem a eliminar/).locator('option', { hasText: ORIGEM })
+  ).toHaveCount(1)
+
+  await origens.getByLabel(/^Origem a eliminar/).selectOption({ label: `${ORIGEM} → Doação` })
+  await origens.getByLabel(/^Passa a ser/).selectOption({ label: `${ORIGEM_CONTRIB} → Doação` })
+  await origens.getByRole('button', { name: 'Mesclar origens' }).click()
+
+  const depois = await garantirSecaoAberta(page, 'Origens de receita')
+  const aviso = depois.getByRole('status').filter({ hasText: 'reclassificad' })
+  await expect(aviso).toBeVisible()
+  await expect(aviso).toContainText('prestação fechada')
+
+  // E a eliminada sai da lista, que e o que impede alguem de escolhe-la de novo.
+  await page.reload()
+  const relista = await abrirSecao(page, 'Origens de receita')
+  await expect(relista.getByRole('listitem').filter({ hasText: ORIGEM })).toHaveCount(0)
 })

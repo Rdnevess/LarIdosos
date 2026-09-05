@@ -6,6 +6,7 @@ import {
   acaoCriarOrigem,
   acaoCriarCategoria,
   acaoMesclarCategorias,
+  acaoMesclarOrigens,
   acaoCriarFornecedor,
   acaoLancarReceita,
   acaoLancarDespesa,
@@ -128,6 +129,30 @@ export function FormularioOrigem() {
           rotulo: 'Exige informar o residente',
           tipo: 'checkbox',
         },
+      ]}
+    />
+  )
+}
+
+/**
+ * Junta duas origens que são a mesma coisa escrita de dois jeitos.
+ *
+ * O aviso diz o que a de categoria não precisa dizer: mesclar origem muda em
+ * que subtotal da conciliação o dinheiro entra, porque a prestação agrupa os
+ * recebimentos por rótulo.
+ */
+export function FormularioMesclarOrigens({ origens }: { origens: Opcao[] }) {
+  return (
+    <FormularioSimples
+      acao={acaoMesclarOrigens}
+      prefixoId="mesclar-origem"
+      colunas={2}
+      variante="perigo"
+      rotuloBotao="Mesclar origens"
+      aviso="Os lançamentos passam para a origem de destino e a de partida é desativada, então eles passam a somar no subtotal do rótulo de destino. Lançamentos de prestação já fechada não mudam — o que foi entregue ao órgão continua como foi."
+      campos={[
+        { nome: 'deId', rotulo: 'Origem a eliminar', obrigatorio: true, opcoes: origens },
+        { nome: 'paraId', rotulo: 'Passa a ser', obrigatorio: true, opcoes: origens },
       ]}
     />
   )

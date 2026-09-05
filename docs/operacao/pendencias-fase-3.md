@@ -314,29 +314,35 @@ camada de proteção montada no lugar errado, e a inocência é circunstancial.
 **O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
 órgão em mãos.
 
-## 14. Mensagem de resultado pode ficar escondida na seção recolhida
+## 14. Antes da hidratação, a mensagem de resultado se perde
 
-**Situação:** as telas de cadastro do financeiro agrupam cada bloco num
-`<details>`. Quando a página ainda não hidratou e alguém envia um formulário, o
-`<form>` da ação de servidor é enviado do jeito nativo — o navegador faz a
-navegação inteira, e a resposta chega com **todos os `<details>` fechados**,
-porque `open` é estado do DOM que ninguém guarda entre uma página e outra.
+**Situação:** se alguém envia um formulário antes de a página hidratar, o
+`<form>` da ação de servidor vai pelo caminho nativo: o navegador faz a
+navegação inteira, a ação **executa normalmente**, e a página volta sem a
+mensagem de resultado — que vive no estado de `useActionState` e não sobrevive
+àquela navegação. Os `<details>` também voltam fechados, porque `open` é estado
+do DOM que ninguém guarda.
 
-**Qual é a exposição:** a mensagem de sucesso está renderizada; fica dentro da
-seção recolhida. Para a maioria das ações isso é um "Registro salvo." que
-ninguém precisa reler. Para a **mesclagem de categorias** é diferente: a
-mensagem carrega quantos lançamentos ficaram para trás por estarem em prestação
-fechada ("0 lançamentos reclassificados. 1 ficou onde estava, em prestação
-fechada."), e é essa a informação que impede quem operou de achar que a
-duplicada sumiu do documento.
+**A primeira versão deste item dizia que a mensagem ficava "escondida na seção
+recolhida". Está errado, e a correção importa:** medido depois, com a seção
+reaberta à força, a mensagem **não existe no documento**. Não é visibilidade —
+é perda.
 
-**Como apareceu:** como falha intermitente do E2E, na suíte cheia e nunca
+**Qual é a exposição:** a operação acontece de verdade, então nada se corrompe.
+O que se perde é o que ela informa. Para "Registro salvo." não faz diferença.
+Para as duas mesclagens faz: a mensagem carrega quantos lançamentos ficaram
+para trás por estarem em prestação fechada ("0 lançamentos reclassificados. 1
+ficou onde estava, em prestação fechada."). Sem ela, quem operou conclui que a
+duplicada sumiu do documento — e ela continua lá, nas competências já
+entregues.
+
+**Como apareceu:** como falha intermitente do E2E, só na suíte cheia e nunca
 isolado — sob carga, a hidratação chega depois do clique. O teste passou a
-reabrir a seção antes de conferir (`garantirSecaoAberta`, em
-`tests/e2e/financeiro.spec.ts`), o que é correto para o teste e não resolve o
-que a pessoa vê.
+esperar por `networkidle` antes de mexer no formulário (`esperarHidratacao`, em
+`tests/e2e/financeiro.spec.ts`), o que o torna determinístico e **não** resolve
+o que a pessoa vê.
 
-**O que fazer:** manter a seção aberta quando houver resultado de ação. Exige
-que o `<details>` deixe de ser não-controlado, o que num componente de servidor
-não é imediato. Enquanto não for feito, a mesclagem continua correta — o que se
-perde é a leitura do resumo, não a operação.
+**O que fazer:** fazer o resultado sobreviver ao caminho sem JavaScript. As
+saídas conhecidas são renderizar o resumo a partir do estado do servidor (e não
+do `useActionState`), ou redirecionar para uma URL que o carregue. Enquanto não
+for feito, a operação continua correta e o resumo é que pode não chegar.

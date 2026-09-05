@@ -14,6 +14,7 @@ import {
   FormularioInstituicao,
   FormularioConta,
   FormularioOrigem,
+  FormularioMesclarOrigens,
   FormularioCategoria,
   FormularioMesclarCategorias,
   FormularioFornecedor,
@@ -126,6 +127,20 @@ export default async function PaginaCadastrosFinanceiro() {
           )}
         </ul>
         <FormularioOrigem />
+
+        {/* Mesmo critério da mesclagem de categorias: exige uma origem de
+            partida e uma de destino. */}
+        {origens.length > 1 && (
+          <div className="mt-6 border-t pt-6">
+            <h3 className="mb-3 text-secao text-forte">Juntar duplicadas</h3>
+            <FormularioMesclarOrigens
+              origens={origens.map((o) => ({
+                valor: o.id,
+                rotulo: `${o.nome} → ${o.rotuloPrestacao}`,
+              }))}
+            />
+          </div>
+        )}
       </Secao>
 
       <Secao titulo="Categorias de despesa" descricao="Em que o dinheiro é gasto.">
