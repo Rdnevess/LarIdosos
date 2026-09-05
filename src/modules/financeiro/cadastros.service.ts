@@ -73,11 +73,46 @@ export async function criarOrigemReceita(
   exigirPapel(ctx, 'OrigemReceita', 'COORDENACAO', 'ADMINISTRATIVO')
   const entrada = validar(origemSchema, dados)
 
+  const rotulo = entrada.rotuloPrestacao ?? entrada.nome
+  const existentes = await prisma.origemReceita.findMany({
+    select: { nome: true, rotuloPrestacao: true },
+  })
+
+  // Mesma regra da categoria de despesa: dois nomes que só diferem por caixa,
+  // acento ou espaço são a mesma origem escrita de dois jeitos. Inclui a
+  // desativada, senão desativar e recadastrar devolve as duas à base.
+  const alvoNome = nomeNormalizado(entrada.nome)
+  const nomeIgual = existentes.find((o) => nomeNormalizado(o.nome) === alvoNome)
+  if (nomeIgual) {
+    throw new ErroValidacao(`Já existe a origem "${nomeIgual.nome}".`)
+  }
+
+  // O rótulo é outra história, e copiar a regra do nome aqui quebraria o
+  // desenho: **rótulo repetido é intencional**. "Contribuição de residente" e
+  // "Doação avulsa" saem as duas como "Doação" na prestação, e é assim que o
+  // nome do idoso não vai para o documento entregue ao órgão.
+  //
+  // O que parte o subtotal não é o rótulo repetido — é o QUASE repetido. A
+  // prestação agrupa por igualdade de texto (`porRotulo` em
+  // `documento-prestacao.ts`), então "Doação" e "Doaçao" viram duas linhas na
+  // conciliação, com o mesmo significado e valores separados. Idêntico passa;
+  // parecido, não.
+  const alvoRotulo = nomeNormalizado(rotulo)
+  const rotuloQuaseIgual = existentes.find(
+    (o) => nomeNormalizado(o.rotuloPrestacao) === alvoRotulo && o.rotuloPrestacao !== rotulo
+  )
+  if (rotuloQuaseIgual) {
+    throw new ErroValidacao(
+      `O rótulo "${rotulo}" é quase igual a "${rotuloQuaseIgual.rotuloPrestacao}", que já existe. ` +
+        `Use exatamente "${rotuloQuaseIgual.rotuloPrestacao}" para somarem na mesma linha, ou escolha um rótulo diferente.`
+    )
+  }
+
   return prisma.$transaction(async (tx) => {
     const criada = await tx.origemReceita.create({
       data: {
         nome: entrada.nome,
-        rotuloPrestacao: entrada.rotuloPrestacao ?? entrada.nome,
+        rotuloPrestacao: rotulo,
         exigeResidente: entrada.exigeResidente ?? false,
         criadoPorId: ctx.usuarioId,
       },

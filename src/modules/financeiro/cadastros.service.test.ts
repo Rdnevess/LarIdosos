@@ -317,3 +317,66 @@ describe('mesclarCategoriasDespesa', () => {
     ).rejects.toThrow(ErroPermissao)
   })
 })
+
+describe('a guarda contra origem duplicada', () => {
+  // Espelha a guarda de categoria (pendencia 3), com uma diferenca que muda
+  // tudo: em origem de receita, ROTULO REPETIDO E O DESENHO. "Contribuicao de
+  // residente" e "Doacao" saem as duas como "Doacao" na prestacao, e e assim
+  // que o nome do idoso nao vaza para o documento. Barrar rotulo repetido
+  // quebraria justamente o que o sistema faz de proposito.
+  //
+  // O que parte o subtotal nao e o rotulo repetido — e o rotulo QUASE
+  // repetido. "Doacao" e "Doacao " viram duas linhas na conciliacao, e
+  // ninguem soma as duas de cabeca.
+
+  it('recusa um nome que so difere por caixa, acento ou espaco', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarOrigemReceita(ctx, { nome: 'Doação' })
+
+    for (const repetido of ['doacao', 'DOAÇÃO', 'Doação  ']) {
+      await expect(criarOrigemReceita(ctx, { nome: repetido })).rejects.toThrow(ErroValidacao)
+    }
+  })
+
+  it('deixa duas origens compartilharem o MESMO rotulo, que e o desenho', async () => {
+    // Sem esta metade, a guarda quebraria o caso que existe para proteger o
+    // nome do residente.
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarOrigemReceita(ctx, { nome: 'Doação avulsa', rotuloPrestacao: 'Doação' })
+
+    const segunda = await criarOrigemReceita(ctx, {
+      nome: 'Contribuição de residente',
+      rotuloPrestacao: 'Doação',
+      exigeResidente: true,
+    })
+
+    expect(segunda.rotuloPrestacao).toBe('Doação')
+  })
+
+  it('recusa o rotulo QUASE igual, que partiria o subtotal em duas linhas', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarOrigemReceita(ctx, { nome: 'Doação avulsa', rotuloPrestacao: 'Doação' })
+
+    for (const quase of ['Doacao', 'doação', 'DOAÇÃO']) {
+      await expect(
+        criarOrigemReceita(ctx, { nome: `Origem ${quase}`, rotuloPrestacao: quase })
+      ).rejects.toThrow(ErroValidacao)
+    }
+  })
+
+  it('enxerga tambem a origem desativada', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    const origem = await criarOrigemReceita(ctx, { nome: 'Doação' })
+    await desativarOrigemReceita(ctx, origem.id)
+
+    await expect(criarOrigemReceita(ctx, { nome: 'doacao' })).rejects.toThrow(ErroValidacao)
+  })
+
+  it('deixa passar origem de verdade nova', async () => {
+    const ctx = await ctxComPapel('ADMINISTRATIVO')
+    await criarOrigemReceita(ctx, { nome: 'Doação' })
+
+    const nova = await criarOrigemReceita(ctx, { nome: 'Repasse da Prefeitura' })
+    expect(nova.nome).toBe('Repasse da Prefeitura')
+  })
+})

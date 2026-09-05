@@ -313,3 +313,30 @@ camada de proteção montada no lugar errado, e a inocência é circunstancial.
 
 **O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
 órgão em mãos.
+
+## 14. Mensagem de resultado pode ficar escondida na seção recolhida
+
+**Situação:** as telas de cadastro do financeiro agrupam cada bloco num
+`<details>`. Quando a página ainda não hidratou e alguém envia um formulário, o
+`<form>` da ação de servidor é enviado do jeito nativo — o navegador faz a
+navegação inteira, e a resposta chega com **todos os `<details>` fechados**,
+porque `open` é estado do DOM que ninguém guarda entre uma página e outra.
+
+**Qual é a exposição:** a mensagem de sucesso está renderizada; fica dentro da
+seção recolhida. Para a maioria das ações isso é um "Registro salvo." que
+ninguém precisa reler. Para a **mesclagem de categorias** é diferente: a
+mensagem carrega quantos lançamentos ficaram para trás por estarem em prestação
+fechada ("0 lançamentos reclassificados. 1 ficou onde estava, em prestação
+fechada."), e é essa a informação que impede quem operou de achar que a
+duplicada sumiu do documento.
+
+**Como apareceu:** como falha intermitente do E2E, na suíte cheia e nunca
+isolado — sob carga, a hidratação chega depois do clique. O teste passou a
+reabrir a seção antes de conferir (`garantirSecaoAberta`, em
+`tests/e2e/financeiro.spec.ts`), o que é correto para o teste e não resolve o
+que a pessoa vê.
+
+**O que fazer:** manter a seção aberta quando houver resultado de ação. Exige
+que o `<details>` deixe de ser não-controlado, o que num componente de servidor
+não é imediato. Enquanto não for feito, a mesclagem continua correta — o que se
+perde é a leitura do resumo, não a operação.
