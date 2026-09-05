@@ -40,6 +40,27 @@ async function abrirSecao(pagina: Page, titulo: string) {
 }
 
 /**
+ * Garante a seção aberta, sem alternar.
+ *
+ * `abrirSecao` clica no `summary`, que ALTERNA — chamada com a seção já aberta,
+ * ela fecha. Isto aqui olha o estado antes.
+ *
+ * Precisa existir por um motivo que não é do teste: quando a página ainda não
+ * hidratou, o `<form>` de uma ação de servidor é enviado do jeito nativo, e a
+ * resposta chega como página inteira — com todos os `<details>` fechados,
+ * porque `open` é estado do DOM que ninguém guardou. A mensagem de sucesso
+ * está lá; fica escondida dentro da seção recolhida. Sob carga, na suíte
+ * cheia, isso acontece de vez em quando.
+ */
+async function garantirSecaoAberta(pagina: Page, titulo: string) {
+  const secao = pagina.locator('details', { has: pagina.getByRole('heading', { name: titulo }) })
+  if (!(await secao.evaluate((el: HTMLDetailsElement) => el.open))) {
+    await secao.locator('summary').click()
+  }
+  return secao
+}
+
+/**
  * O cartão "Lançamentos (N)" da tela `/financeiro`. `section.cartao`, e não só
  * `section`: o `<section>` que a própria página devolve como raiz também
  * "contém" o título "Lançamentos", e um `li` solto na página inteira já
@@ -417,7 +438,11 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
 
   // Dois `role=status` convivem na seção: o "Registro salvo." do cadastro e o
   // resumo da mesclagem. O filtro escolhe o segundo pelo que só ele diz.
-  const aviso = juntar.getByRole('status').filter({ hasText: 'reclassificad' })
+  // A seção pode ter se recolhido, se o envio caiu no caminho nativo — ver
+  // `garantirSecaoAberta`. A mensagem existe de qualquer jeito; o que muda é
+  // se ela está visível.
+  const depoisDeMesclar = await garantirSecaoAberta(page, 'Categorias de despesa')
+  const aviso = depoisDeMesclar.getByRole('status').filter({ hasText: 'reclassificad' })
   await expect(aviso).toBeVisible()
   await expect(aviso).toContainText('prestação fechada')
 
