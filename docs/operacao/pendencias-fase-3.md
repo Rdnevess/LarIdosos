@@ -314,29 +314,49 @@ camada de proteção montada no lugar errado, e a inocência é circunstancial.
 **O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
 órgão em mãos.
 
-## 14. Mensagem de resultado pode ficar escondida na seção recolhida
+## 14. Depois de um envio sem JavaScript, o resumo fica fora de vista
 
-**Situação:** as telas de cadastro do financeiro agrupam cada bloco num
-`<details>`. Quando a página ainda não hidratou e alguém envia um formulário, o
-`<form>` da ação de servidor é enviado do jeito nativo — o navegador faz a
-navegação inteira, e a resposta chega com **todos os `<details>` fechados**,
-porque `open` é estado do DOM que ninguém guarda entre uma página e outra.
+**Situação:** se alguém envia um formulário antes de a página hidratar, o
+`<form>` da ação de servidor vai pelo caminho nativo: o navegador faz a
+navegação inteira e a ação executa normalmente. Duas coisas medidas com o
+JavaScript desligado, o que torna esse caminho o único possível (o teste está
+em `tests/e2e/financeiro.spec.ts`, `describe('sem JavaScript')`):
 
-**Qual é a exposição:** a mensagem de sucesso está renderizada; fica dentro da
-seção recolhida. Para a maioria das ações isso é um "Registro salvo." que
-ninguém precisa reler. Para a **mesclagem de categorias** é diferente: a
-mensagem carrega quantos lançamentos ficaram para trás por estarem em prestação
-fechada ("0 lançamentos reclassificados. 1 ficou onde estava, em prestação
-fechada."), e é essa a informação que impede quem operou de achar que a
-duplicada sumiu do documento.
+1. **A seção volta fechada.** `open` é estado do DOM, e a navegação o descarta.
+2. **A mensagem está no documento.** O `useActionState` do React é
+   progressivamente aprimorado: sem JavaScript a ação roda e o estado volta
+   renderizado.
 
-**Como apareceu:** como falha intermitente do E2E, na suíte cheia e nunca
-isolado — sob carga, a hidratação chega depois do clique. O teste passou a
-reabrir a seção antes de conferir (`garantirSecaoAberta`, em
-`tests/e2e/financeiro.spec.ts`), o que é correto para o teste e não resolve o
-que a pessoa vê.
+Então o resumo não se perde — fica **fora de vista**, dentro da seção
+recolhida, e a pessoa não tem por que saber que precisa reabrir.
 
-**O que fazer:** manter a seção aberta quando houver resultado de ação. Exige
-que o `<details>` deixe de ser não-controlado, o que num componente de servidor
-não é imediato. Enquanto não for feito, a mesclagem continua correta — o que se
-perde é a leitura do resumo, não a operação.
+**Este item já foi registrado errado duas vezes, e o registro fica.** Primeiro
+como "fica escondida" (certo, mas por suposição). Depois "corrigido" para "se
+perde", com base numa falha de E2E lida às pressas — e essa versão era falsa.
+O teste com JavaScript desligado é o que resolveu, porque transforma um
+intermitente sob carga em algo determinístico.
+
+**Qual é a exposição:** a operação acontece de verdade, então nada se corrompe.
+O que não chega é o que ela informa. Para "Registro salvo." não faz diferença.
+Para as duas mesclagens faz: a mensagem carrega quantos lançamentos ficaram
+para trás por estarem em prestação fechada ("0 lançamentos reclassificados. 1
+ficou onde estava, em prestação fechada."). Sem lê-la, quem operou conclui que
+a duplicada sumiu do documento — e ela continua nas competências já entregues.
+
+**A falha intermitente do E2E tem causa e conserto.** Era o clique chegando
+antes do React, e apareceu em dois arquivos independentes —
+`financeiro.spec.ts` e `residentes.spec.ts` —, sempre na suíte cheia e nunca
+isolado. `useHidratado` (em `src/lib/hidratacao.ts`) marca o `<form>` com
+`data-hidratado="sim"` quando o React assume, e `esperarHidratacao` (em
+`tests/e2e/hidratacao.ts`) espera por ele.
+
+O marcador vive no código de produção de propósito: o teste não tem como
+observar de fora um estado que só o cliente conhece. A primeira versão do
+ajudante esperava por `networkidle`, que fazia a intermitência sumir sem dizer
+nada sobre hidratação — trocar uma aproximação que funciona por um fato é o que
+separa um teste estável de um teste com sorte.
+
+**O que fazer:** manter a seção aberta quando a resposta trouxer resultado de
+ação. Exige que o `<details>` deixe de ser não-controlado, o que num componente
+de servidor não é imediato. Enquanto não for feito, a operação continua correta
+e o resumo é que pode passar despercebido.

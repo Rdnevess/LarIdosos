@@ -13,6 +13,7 @@ import {
   criarOrigemReceita,
   criarCategoriaDespesa,
   mesclarCategoriasDespesa,
+  mesclarOrigensReceita,
   criarFornecedor,
 } from '@/modules/financeiro/cadastros.service'
 import {
@@ -164,6 +165,35 @@ export async function acaoMesclarCategorias(
           : `. ${mantidos} ficaram onde estavam, em prestações fechadas.`
 
     resumo = `${movidos}${presos || '.'}`
+  })
+
+  revalidatePath('/financeiro/cadastros')
+  return resultado.sucesso ? { ...resultado, mensagem: resumo } : resultado
+}
+
+export async function acaoMesclarOrigens(
+  _anterior: EstadoAcao | null,
+  dados: FormData
+): Promise<EstadoAcao> {
+  let resumo = ''
+
+  const resultado = await executarAcao(async () => {
+    const ctx = await obterCtx()
+    const { reclassificados, mantidos } = await mesclarOrigensReceita(ctx, {
+      deId: exigirTexto(dados, 'deId'),
+      paraId: exigirTexto(dados, 'paraId'),
+    })
+
+    const movidos =
+      reclassificados === 1 ? '1 lançamento reclassificado' : `${reclassificados} lançamentos reclassificados`
+    const presos =
+      mantidos === 0
+        ? '.'
+        : mantidos === 1
+          ? '. 1 ficou onde estava, em prestação fechada.'
+          : `. ${mantidos} ficaram onde estavam, em prestações fechadas.`
+
+    resumo = `${movidos}${presos}`
   })
 
   revalidatePath('/financeiro/cadastros')

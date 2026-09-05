@@ -258,6 +258,77 @@ export async function mesclarCategoriasDespesa(
   return { reclassificados: moveis.length, mantidos }
 }
 
+/**
+ * Junta duas origens que são a mesma coisa: reclassifica os lançamentos de
+ * `deId` para `paraId` e desativa a de origem.
+ *
+ * Gêmea de `mesclarCategoriasDespesa`, e existe pela mesma razão: a guarda de
+ * duplicata impede que uma origem repetida ENTRE, mas não desfaz a que já
+ * estiver na base. Sem isto, "desativar" seria de novo o meio-caminho que a
+ * pendência 3 recusou — a origem some do formulário e continua saindo na
+ * prestação pelos lançamentos que ficaram nela.
+ *
+ * **O efeito aqui é maior do que na categoria.** A conciliação agrupa os
+ * recebimentos por `rotuloPrestacao`, então mesclar não muda só um nome numa
+ * linha de detalhe: muda **em que subtotal o dinheiro entra**. É por isso que
+ * o destino é escolhido pela pessoa, e não deduzido pelo sistema.
+ *
+ * **O que não se mexe:** lançamento de prestação FECHADA fica onde está. O
+ * documento entregue mostrou aquele rótulo, e vai continuar mostrando.
+ * `mantidos` conta quantos ficaram para trás.
+ */
+export async function mesclarOrigensReceita(
+  ctx: Ctx,
+  { deId, paraId }: { deId: string; paraId: string }
+): Promise<{ reclassificados: number; mantidos: number }> {
+  exigirPapel(ctx, 'OrigemReceita', 'COORDENACAO', 'ADMINISTRATIVO')
+
+  if (deId === paraId) {
+    throw new ErroValidacao('Escolha duas origens diferentes.')
+  }
+
+  const [de, para] = await Promise.all([
+    prisma.origemReceita.findUnique({ where: { id: deId } }),
+    prisma.origemReceita.findUnique({ where: { id: paraId } }),
+  ])
+  if (!de || !para) throw new ErroNaoEncontrado('Origem não encontrada')
+
+  if (!para.ativa) {
+    throw new ErroValidacao(`A origem "${para.nome}" está desativada.`)
+  }
+
+  const daOrigem = await prisma.lancamento.findMany({
+    where: { origemReceitaId: deId },
+    select: { id: true, prestacaoContas: { select: { status: true } } },
+  })
+  const moveis = daOrigem.filter((l) => l.prestacaoContas?.status !== 'FECHADA')
+  const mantidos = daOrigem.length - moveis.length
+
+  await prisma.$transaction(async (tx) => {
+    if (moveis.length > 0) {
+      await tx.lancamento.updateMany({
+        where: { id: { in: moveis.map((l) => l.id) } },
+        data: { origemReceitaId: paraId },
+      })
+    }
+    await tx.origemReceita.update({ where: { id: deId }, data: { ativa: false } })
+
+    await registrarAuditoria(tx, ctx, {
+      acao: 'ATUALIZAR',
+      entidade: 'OrigemReceita',
+      entidadeId: deId,
+      diff: {
+        mescladaEm: { de: de.nome, para: para.nome },
+        rotuloPassaASer: { de: de.rotuloPrestacao, para: para.rotuloPrestacao },
+        reclassificados: { de: null, para: String(moveis.length) },
+        mantidosPorPrestacaoFechada: { de: null, para: String(mantidos) },
+      },
+    })
+  })
+
+  return { reclassificados: moveis.length, mantidos }
+}
+
 export async function criarFornecedor(
   ctx: Ctx,
   dados: DadosFornecedor

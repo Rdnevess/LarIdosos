@@ -3,6 +3,7 @@ import { writeFile, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { PrismaClient } from '@prisma/client'
 import { PDFDocument } from 'pdf-lib'
+import { esperarHidratacao } from './hidratacao'
 
 /**
  * O caminho inteiro do dinheiro, pela tela: cadastrar a instituição e a conta,
@@ -38,6 +39,7 @@ async function abrirSecao(pagina: Page, titulo: string) {
   await secao.locator('summary').click()
   return secao
 }
+
 
 /**
  * Garante a seção aberta, sem alternar.
@@ -417,6 +419,7 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
   const DESTINO = `Energia eletrica ${marca}`
   await page.goto('/financeiro/cadastros')
 
+  await esperarHidratacao(page)
   const categorias = await abrirSecao(page, 'Categorias de despesa')
   await categorias.getByLabel(/^Nome/).fill(DESTINO)
   await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
@@ -450,4 +453,73 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
   await page.reload()
   const depois = await abrirSecao(page, 'Categorias de despesa')
   await expect(depois.getByRole('listitem').filter({ hasText: CATEGORIA })).toHaveCount(0)
+})
+
+test('junta duas origens e o que ja foi ao orgao nao muda de subtotal', async ({ page }) => {
+  // A mesclagem de origem pesa mais que a de categoria: a conciliacao agrupa
+  // os recebimentos por rotulo, entao juntar duas origens muda EM QUE SUBTOTAL
+  // o dinheiro entra. Por isso o destino e escolhido, e nunca deduzido.
+  //
+  // A receita lancada la em cima entrou na prestacao que o teste do PDF
+  // fechou, entao e o congelamento que se exercita aqui.
+  await page.goto('/financeiro/cadastros')
+
+  await esperarHidratacao(page)
+  const origens = await abrirSecao(page, 'Origens de receita')
+  await expect(
+    origens.getByLabel(/^Origem a eliminar/).locator('option', { hasText: ORIGEM })
+  ).toHaveCount(1)
+
+  await origens.getByLabel(/^Origem a eliminar/).selectOption({ label: `${ORIGEM} → Doação` })
+  await origens.getByLabel(/^Passa a ser/).selectOption({ label: `${ORIGEM_CONTRIB} → Doação` })
+  await origens.getByRole('button', { name: 'Mesclar origens' }).click()
+
+  const depois = await garantirSecaoAberta(page, 'Origens de receita')
+  const aviso = depois.getByRole('status').filter({ hasText: 'reclassificad' })
+  await expect(aviso).toBeVisible()
+  await expect(aviso).toContainText('prestação fechada')
+
+  // E a eliminada sai da lista, que e o que impede alguem de escolhe-la de novo.
+  await page.reload()
+  const relista = await abrirSecao(page, 'Origens de receita')
+  await expect(relista.getByRole('listitem').filter({ hasText: ORIGEM })).toHaveCount(0)
+})
+
+test.describe('sem JavaScript', () => {
+  // A pendencia 14 acontece antes da hidratacao, e ate aqui so aparecia como
+  // flake sob carga. Com o JavaScript desligado o caminho nativo e o UNICO
+  // possivel, entao o que era intermitente vira deterministico.
+  test.describe.configure({ mode: 'default' })
+  test.use({ javaScriptEnabled: false })
+
+  test('a mensagem de resultado sobrevive ao envio nativo do formulario', async ({ page }) => {
+    await page.goto('/financeiro/cadastros')
+
+    const categorias = page.locator('details', {
+      has: page.getByRole('heading', { name: 'Categorias de despesa' }),
+    })
+    // Sem JavaScript o <details> nao alterna por clique do Playwright do mesmo
+    // jeito; abrir pelo atributo e o equivalente ao que o navegador faz.
+    await categorias.evaluate((el: HTMLDetailsElement) => { el.open = true })
+
+    await categorias.getByLabel(/^Nome/).fill(`Sem JS ${Date.now()}`)
+    await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
+
+    const secaoDepois = page.locator('details', {
+      has: page.getByRole('heading', { name: 'Categorias de despesa' }),
+    })
+
+    // Duas coisas medidas aqui, e as duas importam para a pendencia 14.
+    //
+    // Primeira: a secao volta FECHADA. `open` e estado do DOM, e a navegacao
+    // inteira do envio nativo o descarta.
+    expect(await secaoDepois.evaluate((el: HTMLDetailsElement) => el.open)).toBe(false)
+
+    // Segunda, e a que corrige o que eu tinha registrado errado: a mensagem
+    // ESTA no documento. O `useActionState` do React e progressivamente
+    // aprimorado — sem JavaScript a acao roda e o estado volta renderizado.
+    // Ela nao se perde; fica fora de vista dentro da secao recolhida.
+    await secaoDepois.evaluate((el: HTMLDetailsElement) => { el.open = true })
+    await expect(secaoDepois.getByRole('status')).toContainText('Registro salvo.')
+  })
 })

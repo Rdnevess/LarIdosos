@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { esperarHidratacao } from './hidratacao'
 
 // O App Router injeta em toda página um anunciador de rota
 // (`#__next-route-announcer__`) que também usa `role="alert"`, ainda que vazio.
@@ -9,6 +10,7 @@ function alertaCom(page: Page, texto: string) {
 
 async function cadastrarResidente(page: Page, nome: string): Promise<void> {
   await page.goto('/residentes/novo')
+  await esperarHidratacao(page)
   await page.getByLabel('Nome completo').fill(nome)
   await page.getByLabel('Data de nascimento').fill('1940-03-12')
   await page.getByLabel('Sexo').selectOption('FEMININO')
