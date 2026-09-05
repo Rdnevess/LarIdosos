@@ -41,9 +41,17 @@ const politicaDeSeguranca = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
-  // Empacota só as dependências realmente usadas em `.next/standalone`,
-  // reduzindo a imagem Docker de ~1 GB para ~200 MB — relevante numa VPS
-  // pequena. O Dockerfile copia especificamente essa saída (ver Task 17).
+  // Empacota só as dependências realmente usadas em `.next/standalone`. O
+  // Dockerfile copia especificamente essa saída (ver Task 17).
+  //
+  // **A imagem final não fica pequena, e este comentário já afirmou que
+  // ficava** ("de ~1 GB para ~200 MB — relevante numa VPS pequena"). Medido em
+  // 05/09/2026, na primeira construção real: `lar-app:latest` tem 1,27 GB. O
+  // `standalone` cumpre a parte dele — a camada correspondente são 89,1 MB —,
+  // mas o Dockerfile sobrepõe depois o `node_modules` de produção inteiro
+  // (680 MB), porque o entrypoint precisa do `prisma` e do `tsx`, que o
+  // rastreamento do Next não tem por que incluir. Ver o comentário daquele
+  // `COPY` no Dockerfile, e a pendência 10 da Fase 1.
   output: 'standalone',
   // As fontes livres do PDF da prestação são lidas do disco em tempo de
   // execução, e o rastreamento do Next não as enxerga: nada as `import`a, elas
