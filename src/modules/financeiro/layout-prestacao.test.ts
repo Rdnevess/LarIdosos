@@ -58,6 +58,45 @@ describe('LAYOUT', () => {
     expect(rotulos.B8).toBeUndefined()
   })
 
+  it('não guarda o exemplo preenchido do órgão', () => {
+    // O modelo veio do órgão com um mês de verdade lançado. Até 06/09/2026,
+    // dezenove desses textos estavam no arquivo gerado: dezoito categorias na
+    // faixa de despesas da conciliação (`F24:F41`) e a origem em `B15`.
+    //
+    // Eram inofensivos por acidente — a coluna de credor veio vazia e
+    // `linhaTraduzida` zera os rótulos ao desenhar —, mas dado de terceiro num
+    // arquivo versionado não se defende por acidente. O extrator passou a
+    // excluir as duas faixas de dado da conciliação, e não só a das folhas que
+    // crescem.
+    const tudo = JSON.stringify(LAYOUT)
+
+    for (const doExemplo of [
+      'Salário',
+      'Diária',
+      'Peça para conserto',
+      'Prestação de Serviços de terceiros',
+      'Taxa bancária',
+      'Serviço reforma cozinha',
+      'Compra de móveis',
+      'Doações',
+    ]) {
+      expect(tudo, `"${doExemplo}" é do exemplo do órgão`).not.toContain(doExemplo)
+    }
+  })
+
+  it('mantém os rótulos fixos da conciliação, que não são exemplo', () => {
+    // A contraprova do teste acima: excluir faixa demais apagaria o cabeçalho
+    // de coluna e os totais, e a folha sairia sem legenda nenhuma.
+    const rotulos = LAYOUT['5-Conciliação'].rotulos
+
+    expect(rotulos.A14).toBe('(+) Recebimentos')
+    expect(rotulos.A20).toBe('Total de Saldo + Receitas')
+    expect(rotulos.A22).toBe('( - ) Despesas')
+    expect(rotulos.F23).toBe('Categoria')
+    expect(rotulos.A47).toBe('Total de Despesas')
+    expect(rotulos.A49).toBe('Saldo Disponível')
+  })
+
   it('não guarda o ofício nem a declaração: aqueles são conteúdo', () => {
     // Os dois carregam período, conta e razão social. Copiados como rótulo
     // fixo, congelariam "dezembro de 2025" em toda prestação gerada. Moram em
@@ -134,9 +173,13 @@ describe('o estilo que o modelo carrega', () => {
   })
 
   it('o modelo usa um estilo de borda so', () => {
-    // Medido no arquivo: todos os 1431 lados sao `thin`. Se um dia o orgao
-    // revisar o modelo e trouxer outro estilo, este teste avisa — e o
-    // renderizador ja sabe desenhar os outros.
+    // Medido no arquivo: todos os 1431 lados sao `thin`.
+    //
+    // Desde 06/09/2026 nao virá outro modelo do orgao — a prestacao gerada
+    // aqui e o documento oficial —, entao este teste deixou de ser um aviso
+    // sobre revisao externa e passou a ser o que sempre foi de fato: a prova
+    // de que o ramo `double` do renderizador e inalcancavel, e por isso nunca
+    // foi exercitado. Ver a pendencia 12 da Fase 3.
     const estilos = new Set(
       Object.values(LAYOUT).flatMap((folha) =>
         Object.values(folha.bordas).flatMap((b) =>

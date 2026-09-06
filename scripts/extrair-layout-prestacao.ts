@@ -58,9 +58,49 @@ function acharFaixaDados(folha: ExcelJS.Worksheet): FaixaDados | undefined {
   return { primeiraLinha: linhaCabecalho + 1, ultimaLinha: linhaTotal - 1 }
 }
 
-function dentroDaFaixa(linha: number, faixa: FaixaDados | undefined): boolean {
-  if (!faixa) return false
-  return linha >= faixa.primeiraLinha && linha <= faixa.ultimaLinha
+/**
+ * As faixas cujo texto é EXEMPLO PREENCHIDO, e não rótulo do modelo.
+ *
+ * Nas folhas que crescem é a mesma faixa que o renderizador usa. Na de
+ * conciliação são duas, e nenhuma delas era excluída até 06/09/2026 — por isso
+ * dezenove textos do exemplo do órgão ("Salário", "Diária", "Taxa bancária",
+ * "Doações"…) vinham parar no arquivo gerado. Inofensivos, porque a coluna de
+ * credor veio vazia e `linhaTraduzida` zera os rótulos ao desenhar; mas é
+ * dado de terceiro num arquivo versionado, e a inocência era circunstancial.
+ *
+ * As faixas saem das âncoras, e não de números fixos: o que está entre
+ * "(+) Recebimentos" e "Total de Saldo + Receitas" é origem preenchida, e o
+ * que está entre o cabeçalho "Categoria" e "Total de Despesas" é despesa
+ * preenchida.
+ */
+function faixasDeExemplo(folha: ExcelJS.Worksheet, faixa: FaixaDados | undefined): FaixaDados[] {
+  if (faixa) return [faixa]
+
+  const linhaDe = (texto: string): number => {
+    let achada = 0
+    folha.eachRow((linha, n) => {
+      linha.eachCell((celula) => {
+        if (achada === 0 && String(celula.value ?? '').trim() === texto) achada = n
+      })
+    })
+    return achada
+  }
+
+  const entre = (de: string, ate: string): FaixaDados[] => {
+    const inicio = linhaDe(de)
+    const fim = linhaDe(ate)
+    if (inicio === 0 || fim === 0 || fim <= inicio + 1) return []
+    return [{ primeiraLinha: inicio + 1, ultimaLinha: fim - 1 }]
+  }
+
+  return [
+    ...entre('(+) Recebimentos', 'Total de Saldo + Receitas'),
+    ...entre('Categoria', 'Total de Despesas'),
+  ]
+}
+
+function dentroDeAlguma(linha: number, faixas: FaixaDados[]): boolean {
+  return faixas.some((f) => linha >= f.primeiraLinha && linha <= f.ultimaLinha)
 }
 
 /**
@@ -122,7 +162,7 @@ function cobertasPorMerge(merges: string[]): Set<string> {
 
 function extrairRotulos(
   folha: ExcelJS.Worksheet,
-  faixa: FaixaDados | undefined,
+  faixas: FaixaDados[],
   merges: string[]
 ): Record<string, string> {
   const rotulos: Record<string, string> = {}
@@ -130,9 +170,9 @@ function extrairRotulos(
   const conteudo = new Set(CELULAS_QUE_SAO_CONTEUDO[folha.name] ?? [])
 
   folha.eachRow((linha, n) => {
-    // A regra que protege o arquivo gerado: fora da faixa, tudo; dentro,
-    // nada.
-    if (dentroDaFaixa(n, faixa)) return
+    // A regra que protege o arquivo gerado: fora das faixas de dado, tudo;
+    // dentro, nada.
+    if (dentroDeAlguma(n, faixas)) return
 
     linha.eachCell((celula) => {
       // Só a âncora do merge: as demais repetem o mesmo texto.
@@ -279,7 +319,7 @@ async function principal(): Promise<void> {
       nome: folha.name,
       merges,
       larguras: larguras(folha, ultimaColuna),
-      rotulos: extrairRotulos(folha, faixa, merges),
+      rotulos: extrairRotulos(folha, faixasDeExemplo(folha, faixa), merges),
       faixaDados: faixa,
       alturas: coletarAlturas(folha),
       alturaPadrao: folha.properties?.defaultRowHeight ?? 12.75,
