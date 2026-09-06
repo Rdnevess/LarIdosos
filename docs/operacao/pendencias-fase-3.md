@@ -432,3 +432,17 @@ npx vitest run --reporter=json --outputFile=<arquivo>.json
 e ler `numFailedTests` mais `assertionResults[].fullName` e `.duration` — a
 duração distingue estouro de tempo de falha de asserção, que é a primeira
 bifurcação do diagnóstico.
+
+**Vale igual para o E2E**, e ali a armadilha é outra: `test-results/` guarda o
+contexto da falha, mas a rodada seguinte o apaga. Quem vê "1 failed" e roda de
+novo para conferir destrói a única evidência. O equivalente é
+
+```
+npx playwright test --project=autenticado --reporter=json --output-file=<arquivo>.json
+```
+
+**Uma falha do E2E ficou sem captura em 06/09/2026**, no projeto
+`autenticado`, com "2 did not run" atrás dela (modo serial). As rodadas
+seguintes vieram verdes e o `test-results/` já tinha sido sobrescrito. Fica
+registrada como não diagnosticada, e não como resolvida — se voltar, é a
+receita acima que a pega.
