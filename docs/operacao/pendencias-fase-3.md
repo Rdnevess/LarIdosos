@@ -360,3 +360,43 @@ separa um teste estável de um teste com sorte.
 ação. Exige que o `<details>` deixe de ser não-controlado, o que num componente
 de servidor não é imediato. Enquanto não for feito, a operação continua correta
 e o resumo é que pode passar despercebido.
+
+## 15. A falha intermitente da suíte unitária — resolvida, e o método fica
+
+**Resolvida** em 05/09/2026. Durante horas a suíte falhou com **1 teste** em
+cerca de uma rodada a cada quatro, e nunca era capturada pelo nome: a saída
+rolava, restava a contagem, e as rodadas seguintes vinham verdes. Seis rodadas
+instrumentadas seguidas não reproduziram.
+
+**O que a capturou:** rodar a suíte **logo depois de uma operação de git que
+mexe em arquivos**, com relatório em JSON gravado em disco em vez de lido da
+tela. Reproduziu na primeira tentativa.
+
+**O que era:** `pdf-prestacao.test.ts :: a razao social vai para a celula da
+capa` estourando o limite padrão de 5000 ms, com **6799 ms**. Não é falha de
+asserção — é tempo.
+
+**Por que não é o código:** medido no mesmo dia, importar os módulos leva
+~750 ms e `gerarPdfPrestacao` leva ~450 ms, tanto a frio quanto quente. A
+importação a frio do `pdf.js` leva 165 ms. Nada disso soma cinco segundos. O
+resto é máquina fria — cache de arquivo invalidado pela operação de git, que é
+exatamente a condição em que reproduziu.
+
+**O conserto:** `testTimeout: 20_000` em `vitest.config.ts`, com o número
+justificado no comentário. Não esconde travamento: são 25x o tempo do teste
+mais pesado com a máquina quente. A causa real é que o padrão de 5 s é
+apertado para uma suíte em que **todo teste começa truncando o banco**.
+
+**O que fica de método, e vale mais que o conserto:** contagem de falha não é
+diagnóstico. Duas vezes eu registrei "1 teste falhou, não sei qual" e segui
+adiante; a terceira só rendeu porque gravei o relatório em arquivo e forcei a
+condição suspeita em vez de esperar a sorte. Se voltar a acontecer com outro
+teste, o caminho é esse:
+
+```
+npx vitest run --reporter=json --outputFile=<arquivo>.json
+```
+
+e ler `numFailedTests` mais `assertionResults[].fullName` e `.duration` — a
+duração distingue estouro de tempo de falha de asserção, que é a primeira
+bifurcação do diagnóstico.
