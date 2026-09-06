@@ -644,12 +644,19 @@ describe('a conciliacao', () => {
     // que a linha do modelo ocuparia — entao um vazamento em `linhaTraduzida`
     // sozinha ficaria mascarado pelo dado real, e nada acusaria a regressao.
     // Este teste chama linhaTraduzida direto, sem desenharFolha e sem
-    // `valores`, para prender especificamente a camada interna: F24, no
-    // layout real, e "Salário" — uma das categorias do exemplo alheio.
+    // `valores`, para prender especificamente a camada interna.
+    //
+    // A referencia e a linha 23, que carrega o cabecalho "Categoria" — um
+    // ROTULO FIXO do modelo, que existe de propósito. Ate 06/09/2026 este
+    // teste usava a linha 24, cujo "Salário" era exemplo preenchido que havia
+    // vazado para o layout; quando o vazamento foi fechado, a premissa caiu
+    // junto. Usar um rotulo fixo e melhor de qualquer jeito: um teste que
+    // precisa de um defeito para provar a defesa morre no dia em que alguem
+    // conserta o defeito.
     const layout = LAYOUT['5-Conciliação']
-    expect(layout.rotulos.F24).toBe('Salário')
+    expect(layout.rotulos.F23).toBe('Categoria')
 
-    const traduzida = linhaTraduzida(layout, 24, 999)
+    const traduzida = linhaTraduzida(layout, 23, 999)
 
     expect(traduzida.rotulos).toEqual({})
   })

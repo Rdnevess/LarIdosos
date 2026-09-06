@@ -8,6 +8,26 @@ O item **4 já foi resolvido** e continua neste documento em vez de sumir dele:
 ele reverte uma decisão que estava escrita e defendida como deliberada, e
 apagar o registro apagaria junto o motivo de ela ter mudado.
 
+## Decisão de 06/09/2026: o documento desta casa é o oficial
+
+**Não virá outro `.xlsx` do órgão**, e a prestação gerada por este sistema
+passa a ser o documento entregue — não uma imitação de um formulário alheio a
+ser conferida contra ele.
+
+Isso muda a natureza de vários itens deste registro. "Fidelidade ao modelo"
+deixa de ser requisito e vira **origem**: a grade, as margens, as alturas e as
+tipografias continuam sendo as que o modelo estabeleceu, porque é o que o órgão
+está acostumado a ler, mas não há mais um arquivo externo contra o qual medir
+divergência. Onde este documento dizia "se o órgão revisar o modelo", a
+condição não vai acontecer.
+
+O modelo original (`docs/convenio/`) **não está no git** e existe apenas na
+máquina onde o layout foi extraído. Enquanto essa cópia existir, `npx tsx
+scripts/extrair-layout-prestacao.ts` pode ser rodado de novo; quando ela sumir,
+`src/modules/financeiro/layout-prestacao.ts` passa a ser a única memória da
+geometria — e um arquivo gerado que não pode mais ser regerado é, na prática,
+um arquivo escrito à mão.
+
 | # | Estado | Onde se resolve |
 |---|---|---|
 | 1. Fidelidade do `.xlsx` ao modelo do órgão | resolvido por eliminação | 01/09/2026, o `.xlsx` saiu |
@@ -150,29 +170,35 @@ que por acaso estava aberta quando o aviso apareceu. Este item fica como
 registro do que a Fase 3 acrescentou; o número vivo está lá, com
 `npm run auditoria`.
 
-## 6. O layout extraído carrega categorias do exemplo preenchido
+## 6. O layout carregava o exemplo preenchido — resolvido
 
-**Situação:** o extrator copia rótulos de células fora das faixas de dados. Na
-folha de conciliação, o modelo não tem faixa de dados declarada, e as linhas do
-exemplo — categorias como "Salário", "Diária", "Taxa bancária" — foram
-extraídas junto com os rótulos de verdade.
+**Resolvido** em 06/09/2026, no lugar certo: o extrator.
 
-**Por que não vazou nada:** são palavras genéricas, sem nome de pessoa, de
-empresa, CPF, CNPJ ou valor. A barreira do `layout-prestacao.test.ts` fez o
-trabalho dela.
+O extrator excluía a faixa de dados só nas duas folhas que crescem. A de
+conciliação não tem faixa declarada, então dezenove textos do exemplo do órgão
+vinham junto: dezoito categorias em `F24:F41` ("Salário", "Diária", "Taxa
+bancária"…) e a origem em `B15` ("Doações").
 
-**Como está contornado:** a folha de conciliação é **composta**, não copiada. O
-renderizador reaproveita apenas os rótulos de verdade, calcula a posição deles
-pelo volume real, e escreve os dados da prestação. Há teste conferindo que
-"Salário", "Diária" e "Taxa bancária" não sobrevivem ao arquivo gerado.
+**Por que nunca vazou nada:** são palavras genéricas, sem nome de pessoa, de
+empresa, CPF, CNPJ ou valor, e `linhaTraduzida` zera os rótulos ao desenhar.
+Mas a inocência era circunstancial — dependia de a coluna de credor ter vindo
+vazia no exemplo.
 
-**Onde se resolve de verdade:** ensinar o extrator a reconhecer a faixa de
-dados da conciliação, como já reconhece a de despesas e a de receitas. Vale
-fazer se o modelo do órgão mudar e a extração precisar ser refeita.
+**O conserto:** o extrator passou a derivar as faixas de dado das **âncoras**, e
+não de números fixos: o que está entre "(+) Recebimentos" e "Total de Saldo +
+Receitas" é origem preenchida, e o que está entre o cabeçalho "Categoria" e
+"Total de Despesas" é despesa preenchida. Reextraído, o arquivo gerado perdeu
+exatamente 19 linhas e nada mais; o PDF sai byte a byte do mesmo tamanho,
+porque aqueles rótulos nunca eram desenhados.
 
-**O que não fazer:** editar o arquivo gerado à mão. Ele diz, no topo, que é
-gerado; uma edição manual se perde na primeira regeração e ninguém lembra por
-quê.
+**Um teste teve de mudar junto, e melhorou:** o que isolava `linhaTraduzida`
+usava `F24 === 'Salário'` como premissa — precisava do defeito para provar a
+defesa, e morreu no dia em que o defeito foi consertado. Passou a usar `F23`
+("Categoria"), que é rótulo fixo de verdade.
+
+Duas guardas novas em `layout-prestacao.test.ts`: uma barra o exemplo, a outra
+confere que os rótulos fixos da conciliação sobreviveram — sem ela, excluir
+faixa demais apagaria os cabeçalhos e ninguém veria.
 
 ## 7. O volume de backup ficou bem mais pesado
 
@@ -298,21 +324,27 @@ renderizador, porque não tem como discordar da regra.
 ## 12. `ESPESSURA.double` desenha um traço só
 
 A spec pede dois traços para a borda `double`; o renderizador desenha um, com
-0,5 de espessura. Inalcançável hoje, e o teste `o modelo usa um estilo de borda
-só` prova por quê: as 1431 bordas do modelo são todas `thin`. Se o órgão
-revisar o modelo e trouxer `double`, aquele teste falha primeiro — o aviso
-chega antes do documento errado.
+0,5 de espessura. As 1431 bordas do modelo são todas `thin` — o teste `o modelo
+usa um estilo de borda só` prova isso —, então o ramo nunca é alcançado.
 
-## 13. A exclusão por posição não protege a folha de conciliação
+**Deixou de ter conserto pendente em 06/09/2026.** A escapatória registrada
+aqui era "se o órgão revisar o modelo e trouxer `double`". Não virá outro
+modelo (ver a decisão no topo deste documento), e a geometria está congelada no
+arquivo gerado. O código continua correto para o que desenha; o ramo `double` é
+letra morta que custa nada e cuja remoção também não ganharia nada.
 
-`acharFaixaDados` só roda para `FOLHAS_QUE_CRESCEM` (`3-Despesas` e
-`4-Receitas`), então a barreira que exclui conteúdo por posição nunca se aplica
-a `5-Conciliação`. Há 18 categorias alheias no layout versionado hoje.
-Inofensivas — a coluna de credor veio vazia no modelo do órgão — mas é uma
-camada de proteção montada no lugar errado, e a inocência é circunstancial.
+Fica como registro, não como tarefa.
 
-**O que fazer:** exige reextrair o layout, o que só é possível com o arquivo do
-órgão em mãos.
+## 13. A exclusão por posição não alcançava a conciliação — resolvido
+
+**Resolvido** em 06/09/2026, junto com o item 6, que era o mesmo defeito visto
+do outro lado: este item descrevia a causa (`acharFaixaDados` só rodava para as
+folhas que crescem) e aquele, o efeito (dezenove textos do exemplo no arquivo
+gerado).
+
+O registro dizia que o conserto "exige reextrair o layout, o que só é possível
+com o arquivo do órgão em mãos". Isso estava certo — e o arquivo **estava** em
+mãos, em `docs/convenio/`, fora do git. A frase virou motivo para não olhar.
 
 ## 14. Depois de um envio sem JavaScript, o resumo fica fora de vista
 
@@ -400,3 +432,17 @@ npx vitest run --reporter=json --outputFile=<arquivo>.json
 e ler `numFailedTests` mais `assertionResults[].fullName` e `.duration` — a
 duração distingue estouro de tempo de falha de asserção, que é a primeira
 bifurcação do diagnóstico.
+
+**Vale igual para o E2E**, e ali a armadilha é outra: `test-results/` guarda o
+contexto da falha, mas a rodada seguinte o apaga. Quem vê "1 failed" e roda de
+novo para conferir destrói a única evidência. O equivalente é
+
+```
+npx playwright test --project=autenticado --reporter=json --output-file=<arquivo>.json
+```
+
+**Uma falha do E2E ficou sem captura em 06/09/2026**, no projeto
+`autenticado`, com "2 did not run" atrás dela (modo serial). As rodadas
+seguintes vieram verdes e o `test-results/` já tinha sido sobrescrito. Fica
+registrada como não diagnosticada, e não como resolvida — se voltar, é a
+receita acima que a pega.
