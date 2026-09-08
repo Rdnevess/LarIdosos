@@ -18,6 +18,7 @@ import { FormularioAnexoFinanceiro } from '@/components/formulario-anexo-finance
 import { fimDoDia } from '@/lib/periodo'
 import { Botao } from '@/components/ui/botao'
 import { Cartao } from '@/components/ui/cartao'
+import { LinkBotao } from '@/components/ui/botao'
 
 /**
  * Os lançamentos do mês.
@@ -114,16 +115,14 @@ export default async function PaginaFinanceiro({
           <h1 className="text-secao font-semibold text-forte">Financeiro</h1>
           <p className="text-suporte text-apoio">Receitas e despesas do período.</p>
         </div>
-        <div className="flex gap-3 text-suporte">
-          <Link href="/financeiro/cadastros" className="underline">
-            Cadastros
-          </Link>
-          <Link href="/financeiro/prestacoes" className="underline">
-            Prestações de contas
-          </Link>
-          <Link href="/financeiro/contribuicoes" className="underline">
-            Contribuições
-          </Link>
+        {/* Botões, e não links sublinhados: são as três travessias que a
+            equipe faz a partir daqui, e sublinhado no meio de uma página cheia
+            de números se perde. `flex-wrap` porque três botões não cabem lado
+            a lado num celular. */}
+        <div className="flex flex-wrap gap-2">
+          <LinkBotao href="/financeiro/cadastros">Cadastros</LinkBotao>
+          <LinkBotao href="/financeiro/prestacoes">Prestações de contas</LinkBotao>
+          <LinkBotao href="/financeiro/contribuicoes">Contribuições</LinkBotao>
         </div>
       </div>
 

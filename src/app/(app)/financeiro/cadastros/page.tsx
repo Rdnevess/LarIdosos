@@ -128,9 +128,10 @@ export default async function PaginaCadastrosFinanceiro() {
         </ul>
         <FormularioOrigem />
 
-        {/* Mesmo critério da mesclagem de categorias: exige uma origem de
-            partida e uma de destino. */}
-        {origens.length > 1 && (
+        {/* Mesmo critério da mesclagem de categorias, e pelo mesmo motivo:
+            com `> 1`, a mesclagem que deixa uma origem só desmontaria o bloco
+            e engoliria o próprio resumo. */}
+        {origens.length > 0 && (
           <div className="mt-6 border-t pt-6">
             <h3 className="mb-3 text-secao text-forte">Juntar duplicadas</h3>
             <FormularioMesclarOrigens
@@ -156,10 +157,17 @@ export default async function PaginaCadastrosFinanceiro() {
         </ul>
         <FormularioCategoria />
 
-        {/* Só faz sentido com duas na lista: mesclar exige uma origem e um
-            destino, e oferecer o formulário com uma categoria só seria
-            prometer uma operação impossível. */}
-        {categorias.length > 1 && (
+        {/* Basta uma, e não duas — por um motivo que custou caro para
+            aparecer. Com `> 1`, a própria mesclagem que reduz a lista a uma
+            categoria DESMONTA este bloco na revalidação, e leva junto a
+            mensagem de resultado: "0 lançamentos reclassificados. 1 ficou onde
+            estava, em prestação fechada." Some exatamente a informação que
+            impede quem operou de concluir que a duplicada saiu do documento.
+
+            Com uma categoria só, os dois seletores oferecem a mesma opção e o
+            serviço responde "Escolha duas categorias diferentes" — oferta
+            inútil, mas honesta, e muito melhor do que engolir o resumo. */}
+        {categorias.length > 0 && (
           <div className="mt-6 border-t pt-6">
             <h3 className="mb-3 text-secao text-forte">Juntar duplicadas</h3>
             <FormularioMesclarCategorias

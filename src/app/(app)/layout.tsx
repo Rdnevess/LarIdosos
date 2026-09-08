@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { MenuPrincipal } from '@/components/menu-principal'
 import { redirect } from 'next/navigation'
 import type { Papel } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -7,7 +7,7 @@ import { signOut } from '@/modules/auth/config'
 import { registrarAuditoria } from '@/modules/audit/auditoria.service'
 import { BotaoTema } from '@/components/botao-tema'
 import { Botao } from '@/components/ui/botao'
-import { Icone, type NomeIcone } from '@/components/icones'
+import { type NomeIcone } from '@/components/icones'
 
 const ITENS: { href: string; rotulo: string; icone: NomeIcone; papeis: Papel[] }[] = [
   // Primeiro da lista: e a tela mais usada do sistema pela equipe de cuidado.
@@ -97,22 +97,7 @@ export default async function LayoutAutenticado({
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-5xl justify-between gap-1 overflow-x-auto px-3 pb-2">
-          {itens.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="min-h-11 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-corpo text-firme hover:bg-realce"
-            >
-              {/* O ícone acompanha o rótulo, nunca o substitui: sozinho ele
-                  vira adivinhação para quem está de plantão. Sem `rotulo`,
-                  ele sai da árvore de acessibilidade — o texto ao lado já
-                  diz o que ele significa. */}
-              <Icone nome={item.icone} className="size-4" />
-              {item.rotulo}
-            </Link>
-          ))}
-        </nav>
+        <MenuPrincipal itens={itens} />
       </header>
       <main className="mx-auto max-w-5xl p-3">{children}</main>
     </div>

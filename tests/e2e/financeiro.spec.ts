@@ -523,3 +523,23 @@ test.describe('sem JavaScript', () => {
     await expect(secaoDepois.getByRole('status')).toContainText('Registro salvo.')
   })
 })
+
+test('as tres travessias do financeiro sao botoes, e levam onde dizem', async ({ page }) => {
+  // Eram links sublinhados no meio de uma pagina cheia de numeros. Viraram
+  // botoes secundarios, com a mesma altura e o mesmo raio dos demais.
+  await page.goto('/financeiro')
+
+  for (const [rotulo, destino] of [
+    ['Cadastros', '/financeiro/cadastros'],
+    ['Prestações de contas', '/financeiro/prestacoes'],
+    ['Contribuições', '/financeiro/contribuicoes'],
+  ] as const) {
+    const botao = page.getByRole('link', { name: rotulo }).first()
+    await expect(botao).toBeVisible()
+    await expect(botao).toHaveAttribute('href', destino)
+    // Continua sendo link, e nao <button>: navegacao com cara de botao nao
+    // pode trocar a semantica, senao o teclado e o leitor de tela mudam de
+    // comportamento sem ninguem ter decidido isso.
+    expect(await botao.evaluate((el) => el.tagName)).toBe('A')
+  }
+})
