@@ -363,3 +363,26 @@ test('corrige uma anotacao na janela e retifica depois, pela ficha', async ({ pa
   await expect(secaoAnotacoes).toContainText('retificação')
   await expect(secaoAnotacoes).toContainText('retificada depois')
 })
+
+test('o menu marca a secao em que a pessoa esta, inclusive numa subrota', async ({ page }) => {
+  // `aria-current` e a asserção, e nao a classe: e o que um leitor de tela
+  // anuncia, e e o unico sinal que continua valendo se alguem trocar as cores.
+  await page.goto('/residentes')
+  const menu = page.getByRole('navigation')
+  await expect(menu.getByRole('link', { name: 'Residentes' })).toHaveAttribute(
+    'aria-current',
+    'page'
+  )
+  await expect(menu.getByRole('link', { name: 'Turno' })).not.toHaveAttribute(
+    'aria-current',
+    'page'
+  )
+
+  // Numa subrota, quem acende e a secao — nao a URL.
+  await page.goto('/financeiro/cadastros')
+  const menuFinanceiro = page.getByRole('navigation')
+  await expect(menuFinanceiro.getByRole('link', { name: 'Financeiro' })).toHaveAttribute(
+    'aria-current',
+    'page'
+  )
+})

@@ -388,10 +388,23 @@ ajudante esperava por `networkidle`, que fazia a intermitência sumir sem dizer
 nada sobre hidratação — trocar uma aproximação que funciona por um fato é o que
 separa um teste estável de um teste com sorte.
 
-**O que fazer:** manter a seção aberta quando a resposta trouxer resultado de
-ação. Exige que o `<details>` deixe de ser não-controlado, o que num componente
-de servidor não é imediato. Enquanto não for feito, a operação continua correta
-e o resumo é que pode passar despercebido.
+**Havia um segundo mecanismo, e esse era pior — corrigido em 08/09/2026.** O
+bloco "Juntar duplicadas" só era renderizado com `categorias.length > 1`. A
+própria mesclagem que reduz a lista a uma categoria **desmontava o bloco** na
+revalidação, e levava junto a mensagem de resultado. Não era "fora de vista":
+era o componente inteiro saindo da página, com o resumo dentro.
+
+Foi o que sustentou por horas uma falha de E2E que parecia hidratação: passava
+quando o banco de teste tinha categorias sobrando de rodadas anteriores, e
+falhava quando estava limpo. A condição virou `> 0`. Com uma categoria só, os
+dois seletores oferecem a mesma opção e o serviço responde "Escolha duas
+categorias diferentes" — oferta inútil, mas honesta, e muito melhor do que
+engolir o resumo. O mesmo vale para origens.
+
+**O que fazer com o que resta:** manter a seção aberta quando a resposta
+trouxer resultado de ação. Exige que o `<details>` deixe de ser não-controlado,
+o que num componente de servidor não é imediato. Enquanto não for feito, a
+operação continua correta e o resumo é que pode passar despercebido.
 
 ## 15. A falha intermitente da suíte unitária — resolvida, e o método fica
 
