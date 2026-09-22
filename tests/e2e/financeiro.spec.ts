@@ -34,31 +34,13 @@ const DESPESA = `Conta de luz de agosto ${marca}`
  * casa; e "Saldo inicial" sem âncora casaria também "Data do saldo inicial".
  * Daí as regexes ancoradas no início.
  */
-async function abrirSecao(pagina: Page, titulo: string) {
-  const secao = pagina.locator('details', { has: pagina.getByRole('heading', { name: titulo }) })
-  await secao.locator('summary').click()
-  return secao
+function secaoDe(pagina: Page, titulo: string) {
+  return pagina.locator('details', { has: pagina.getByRole('heading', { name: titulo }) })
 }
 
-
-/**
- * Garante a seção aberta, sem alternar.
- *
- * `abrirSecao` clica no `summary`, que ALTERNA — chamada com a seção já aberta,
- * ela fecha. Isto aqui olha o estado antes.
- *
- * Precisa existir por um motivo que não é do teste: quando a página ainda não
- * hidratou, o `<form>` de uma ação de servidor é enviado do jeito nativo, e a
- * resposta chega como página inteira — com todos os `<details>` fechados,
- * porque `open` é estado do DOM que ninguém guardou. A mensagem de sucesso
- * está lá; fica escondida dentro da seção recolhida. Sob carga, na suíte
- * cheia, isso acontece de vez em quando.
- */
-async function garantirSecaoAberta(pagina: Page, titulo: string) {
-  const secao = pagina.locator('details', { has: pagina.getByRole('heading', { name: titulo }) })
-  if (!(await secao.evaluate((el: HTMLDetailsElement) => el.open))) {
-    await secao.locator('summary').click()
-  }
+async function abrirSecao(pagina: Page, titulo: string) {
+  const secao = secaoDe(pagina, titulo)
+  await secao.locator('summary').click()
   return secao
 }
 
@@ -441,10 +423,11 @@ test('junta duas categorias e nao mexe no que ja foi ao orgao', async ({ page })
 
   // Dois `role=status` convivem na seção: o "Registro salvo." do cadastro e o
   // resumo da mesclagem. O filtro escolhe o segundo pelo que só ele diz.
-  // A seção pode ter se recolhido, se o envio caiu no caminho nativo — ver
-  // `garantirSecaoAberta`. A mensagem existe de qualquer jeito; o que muda é
-  // se ela está visível.
-  const depoisDeMesclar = await garantirSecaoAberta(page, 'Categorias de despesa')
+  //
+  // Nada reabre a seção aqui, e é de propósito: se o clique tiver caído no
+  // caminho nativo, quem devolve o `<details>` aberto é o conserto da
+  // pendência 14. Reabrir por via das dúvidas esconderia a regressão.
+  const depoisDeMesclar = secaoDe(page, 'Categorias de despesa')
   const aviso = depoisDeMesclar.getByRole('status').filter({ hasText: 'reclassificad' })
   await expect(aviso).toBeVisible()
   await expect(aviso).toContainText('prestação fechada')
@@ -474,7 +457,7 @@ test('junta duas origens e o que ja foi ao orgao nao muda de subtotal', async ({
   await origens.getByLabel(/^Passa a ser/).selectOption({ label: `${ORIGEM_CONTRIB} → Doação` })
   await origens.getByRole('button', { name: 'Mesclar origens' }).click()
 
-  const depois = await garantirSecaoAberta(page, 'Origens de receita')
+  const depois = secaoDe(page, 'Origens de receita')
   const aviso = depois.getByRole('status').filter({ hasText: 'reclassificad' })
   await expect(aviso).toBeVisible()
   await expect(aviso).toContainText('prestação fechada')
@@ -492,12 +475,10 @@ test.describe('sem JavaScript', () => {
   test.describe.configure({ mode: 'default' })
   test.use({ javaScriptEnabled: false })
 
-  test('a mensagem de resultado sobrevive ao envio nativo do formulario', async ({ page }) => {
+  test('o envio nativo devolve a secao aberta, com a mensagem a vista', async ({ page }) => {
     await page.goto('/financeiro/cadastros')
 
-    const categorias = page.locator('details', {
-      has: page.getByRole('heading', { name: 'Categorias de despesa' }),
-    })
+    const categorias = secaoDe(page, 'Categorias de despesa')
     // Sem JavaScript o <details> nao alterna por clique do Playwright do mesmo
     // jeito; abrir pelo atributo e o equivalente ao que o navegador faz.
     await categorias.evaluate((el: HTMLDetailsElement) => { el.open = true })
@@ -505,22 +486,53 @@ test.describe('sem JavaScript', () => {
     await categorias.getByLabel(/^Nome/).fill(`Sem JS ${Date.now()}`)
     await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
 
-    const secaoDepois = page.locator('details', {
-      has: page.getByRole('heading', { name: 'Categorias de despesa' }),
-    })
+    const secaoDepois = secaoDe(page, 'Categorias de despesa')
 
-    // Duas coisas medidas aqui, e as duas importam para a pendencia 14.
-    //
-    // Primeira: a secao volta FECHADA. `open` e estado do DOM, e a navegacao
-    // inteira do envio nativo o descarta.
-    expect(await secaoDepois.evaluate((el: HTMLDetailsElement) => el.open)).toBe(false)
+    // O envio nativo foi para o endereco da secao, e nao para a URL corrente:
+    // e o `permalink` do `useActionState` que troca o `action` do <form>
+    // enquanto a pagina nao hidratou.
+    expect(new URL(page.url()).search).toBe('?secao=categorias')
 
-    // Segunda, e a que corrige o que eu tinha registrado errado: a mensagem
-    // ESTA no documento. O `useActionState` do React e progressivamente
-    // aprimorado — sem JavaScript a acao roda e o estado volta renderizado.
-    // Ela nao se perde; fica fora de vista dentro da secao recolhida.
-    await secaoDepois.evaluate((el: HTMLDetailsElement) => { el.open = true })
+    // E o que a pendencia 14 pedia: a secao volta ABERTA. O `open` continua
+    // sendo estado do DOM, e a navegacao continua o descartando — quem o
+    // devolve e o servidor, que le `?secao=` e renderiza <details open>.
+    expect(await secaoDepois.evaluate((el: HTMLDetailsElement) => el.open)).toBe(true)
+
+    // A mensagem ja estava no documento antes deste conserto — o
+    // `useActionState` e progressivamente aprimorado. O que mudou e ela estar
+    // VISIVEL, sem ninguem precisar reabrir a secao para descobrir que existe.
+    await expect(secaoDepois.getByRole('status')).toBeVisible()
     await expect(secaoDepois.getByRole('status')).toContainText('Registro salvo.')
+  })
+
+  test('o resumo da mesclagem chega a quem mesclou', async ({ page }) => {
+    // Este e o caso que dava a pendencia 14 sua gravidade. "Registro salvo."
+    // escondido nao custa nada; o resumo da mesclagem custa, porque e ele que
+    // diz quantos lancamentos ficaram para tras em prestacao fechada. Sem
+    // le-lo, quem operou conclui que a duplicada saiu do documento — e ela
+    // continua nas competencias ja entregues.
+    const agora = Date.now()
+    const partida = `Sem JS parte ${agora}`
+    const destino = `Sem JS destino ${agora}`
+
+    await page.goto('/financeiro/cadastros')
+    const categorias = secaoDe(page, 'Categorias de despesa')
+    await categorias.evaluate((el: HTMLDetailsElement) => { el.open = true })
+
+    for (const nome of [partida, destino]) {
+      await categorias.getByLabel(/^Nome/).fill(nome)
+      await categorias.getByRole('button', { name: 'Cadastrar categoria' }).click()
+      // A secao volta aberta por conta do conserto; se voltasse fechada, o
+      // proximo `fill` falharia — e e por isso que esta espera basta.
+      await expect(categorias.getByLabel(/^Nome/)).toBeVisible()
+    }
+
+    await categorias.getByLabel(/^Categoria a eliminar/).selectOption({ label: partida })
+    await categorias.getByLabel(/^Passa a ser/).selectOption({ label: destino })
+    await categorias.getByRole('button', { name: 'Mesclar categorias' }).click()
+
+    const resumo = categorias.getByRole('status').filter({ hasText: 'reclassificad' })
+    await expect(resumo).toBeVisible()
   })
 })
 

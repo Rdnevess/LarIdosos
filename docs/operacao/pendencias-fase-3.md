@@ -4,9 +4,11 @@ Registro do que ficou em aberto ao fechar o financeiro e a prestação de contas
 Mesmo formato dos de Fase 1, 2A e 2B: nenhum item impede o uso, e todos estão
 aqui para não dependerem da memória de ninguém.
 
-O item **4 já foi resolvido** e continua neste documento em vez de sumir dele:
-ele reverte uma decisão que estava escrita e defendida como deliberada, e
-apagar o registro apagaria junto o motivo de ela ter mudado.
+Os itens já resolvidos **continuam neste documento** em vez de sumirem dele.
+Vários revertem uma decisão que estava escrita e defendida como deliberada — o
+4 é o exemplo mais puro —, e apagar o registro apagaria junto o motivo de ela
+ter mudado. Em três deles (10, 13 e 14) o conserto que apareceu não foi o que o
+próprio item previa, e é isso que vale guardar.
 
 ## Decisão de 06/09/2026: o documento desta casa é o oficial
 
@@ -32,14 +34,19 @@ um arquivo escrito à mão.
 |---|---|---|
 | 1. Fidelidade do `.xlsx` ao modelo do órgão | resolvido por eliminação | 01/09/2026, o `.xlsx` saiu |
 | 2. O PDF não é pixel a pixel igual ao `.xlsx` | resolvido por eliminação | 01/09/2026, o `.xlsx` saiu |
-| 3. Categorias de despesa como lista aberta | aberto, deliberado | se a conciliação virar sopa de categorias |
+| 3. Categorias de despesa como lista aberta | resolvido | 04/09/2026, guarda de duplicata e mesclagem |
 | 4. "à disposição dos condôminos" na declaração | resolvido | 24/08/2026 |
 | 5. Vulnerabilidade moderada em `uuid`, via `exceljs` | resolvido | 31/08/2026, por `override` |
-| 6. O layout extraído carrega categorias do exemplo | aberto — contornado | no extrator, se o modelo mudar |
-| 7. O backup ficou bem mais pesado | aberto — agrava o item 1 da Fase 1 | no teste de restauração, no VPS |
-| 8. Ninguém confere se o anexo é o que diz ser | aberto, deliberado | é trabalho de quem confere |
-| 9. As letras do PDF não são as do modelo | aberto, deliberado | se o órgão recusar por isso |
-| 10. Rótulo mais largo que a célula é truncado | aberto, medido | se o órgão notar |
+| 6. O layout extraído carrega categorias do exemplo | resolvido | 06/09/2026, no extrator |
+| 7. O backup ficou bem mais pesado | **aberto** — agrava o item 1 da Fase 1 | no teste de restauração, na VPS |
+| 8. Ninguém confere se o anexo é o que diz ser | **aberto, deliberado** | é trabalho de quem confere |
+| 9. As letras do PDF não são as do modelo | resolvido | 04/09/2026, com fontes de licença livre |
+| 10. Rótulo mais largo que a célula é truncado | resolvido | 04/09/2026, por transbordo |
+| 11. O total da prestação era recomputado no renderizador | resolvido | 04/09/2026 |
+| 12. `ESPESSURA.double` desenha um traço só | **aberto** — código inalcançável | se o modelo passar a pedir traço duplo |
+| 13. A exclusão por posição não alcançava a conciliação | resolvido | 06/09/2026, junto com o 6 |
+| 14. Envio sem JavaScript deixava o resumo fora de vista | resolvido | 22/09/2026, pelo `permalink` da seção |
+| 15. Falha intermitente da suíte unitária | resolvida, com o método registrado | 05/09/2026 |
 
 ## 1. A fidelidade do `.xlsx` ao modelo do órgão — resolvido por eliminação
 
@@ -346,9 +353,13 @@ O registro dizia que o conserto "exige reextrair o layout, o que só é possíve
 com o arquivo do órgão em mãos". Isso estava certo — e o arquivo **estava** em
 mãos, em `docs/convenio/`, fora do git. A frase virou motivo para não olhar.
 
-## 14. Depois de um envio sem JavaScript, o resumo fica fora de vista
+## 14. Depois de um envio sem JavaScript, o resumo ficava fora de vista — resolvido
 
-**Situação:** se alguém envia um formulário antes de a página hidratar, o
+**Resolvido em 22/09/2026.** O registro anterior fica inteiro abaixo, porque
+duas das três coisas que ele mediu continuam verdadeiras e a terceira é a que
+mudou.
+
+**Situação, como era:** se alguém envia um formulário antes de a página hidratar, o
 `<form>` da ação de servidor vai pelo caminho nativo: o navegador faz a
 navegação inteira e a ação executa normalmente. Duas coisas medidas com o
 JavaScript desligado, o que torna esse caminho o único possível (o teste está
@@ -401,10 +412,57 @@ dois seletores oferecem a mesma opção e o serviço responde "Escolha duas
 categorias diferentes" — oferta inútil, mas honesta, e muito melhor do que
 engolir o resumo. O mesmo vale para origens.
 
-**O que fazer com o que resta:** manter a seção aberta quando a resposta
-trouxer resultado de ação. Exige que o `<details>` deixe de ser não-controlado,
-o que num componente de servidor não é imediato. Enquanto não for feito, a
-operação continua correta e o resumo é que pode passar despercebido.
+**O conserto, e por que não foi o que este item previa.** O encaminhamento
+anterior mandava tornar o `<details>` controlado. Não é preciso: quem precisa
+saber que a seção estava aberta é o **servidor**, que é quem renderiza a página
+do outro lado da navegação — e o React já tem por onde contar isso.
+
+O terceiro argumento do `useActionState` (`permalink`) existe exatamente para
+este caso. Antes de a página hidratar, ele troca o `action` do `<form>` pela
+URL que se passa ali; depois da hidratação não tem efeito nenhum, porque aí não
+há navegação. Então:
+
+1. cada seção tem um endereço — `/financeiro/cadastros?secao=categorias`;
+2. o `<form>` lá dentro recebe esse endereço como `permalink`, e é para lá que
+   o envio nativo vai;
+3. o destino é a mesma página, que lê `?secao=` e renderiza `<details open>`;
+4. o estado devolvido pela ação é reencontrado no destino pela chave
+   `"p" + permalink`, que é como o React costura os dois lados.
+
+O endereço chega ao formulário por **contexto** (`src/lib/secao.tsx`), e não
+por propriedade: quem conhece a seção é o `<details>` que a envolve, e quem
+precisa do endereço é o `<form>` lá dentro, com listas, títulos e outros
+formulários no meio. Encadear a propriedade por todos eles só produziria
+oportunidade de esquecer um.
+
+**Como se sabe que funciona.** Dois testes com o JavaScript desligado, em
+`tests/e2e/financeiro.spec.ts`, `describe('sem JavaScript')` — desligar o
+JavaScript torna o caminho nativo o único possível, e transforma um
+intermitente sob carga em algo determinístico. O primeiro afirma as três coisas
+separadamente: a URL virou `?secao=categorias`, a seção voltou **aberta**, e a
+mensagem está **visível**. O segundo faz a mesclagem inteira sem JavaScript, e
+é o caso que dava gravidade a esta pendência.
+
+As duas metades foram verificadas por mutação, uma de cada vez: tirar o
+`permalink` derruba os dois testes (o segundo falha no campo escondido, que é
+o defeito original); tirar o `open={aberta}` derruba o primeiro na asserção da
+seção. Nenhuma das duas passa verde sem a outra.
+
+**O que a correção aposentou.** `garantirSecaoAberta`, no arquivo de teste,
+reabria a seção antes de procurar a mensagem — contorno desta pendência. Saiu:
+reabrir por via das dúvidas esconderia a regressão que interessa. Os dois
+testes de mesclagem passam a olhar a seção como ela veio.
+
+**O que não foi feito, e por quê.** O mecanismo foi adotado em
+`/financeiro/cadastros`, que é a tela onde este item documentou o dano. Os
+outros `<details>` do sistema — prontuário, ficha do residente, medicação,
+prestações — continuam como eram. O critério é o deste próprio item: de todas
+as ações do sistema, **só as duas mesclagens devolvem mensagem além de
+"Registro salvo."**; as demais dizem o que a pessoa já sabe. E a janela em que
+isso acontece é a do item 6 da Fase 1, que não reproduz contra build de
+produção nem com CPU estrangulada em 6× e rede 3G. Quem precisar estender,
+estende: são três linhas por seção, e o mecanismo está documentado em
+`src/lib/secao.tsx`.
 
 ## 15. A falha intermitente da suíte unitária — resolvida, e o método fica
 

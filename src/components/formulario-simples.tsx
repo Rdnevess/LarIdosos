@@ -5,6 +5,7 @@ import { Campo, type PropsCampo } from './campo'
 import type { EstadoAcao } from '@/lib/acoes'
 import { Botao } from '@/components/ui/botao'
 import { useHidratado } from '@/lib/hidratacao'
+import { useEnlaceDaSecao } from '@/lib/secao'
 
 export function FormularioSimples({
   acao,
@@ -31,7 +32,12 @@ export function FormularioSimples({
    *  que preserva o comportamento de todo formulário que não é destrutivo. */
   variante?: 'primario' | 'secundario' | 'perigo'
 }) {
-  const [estado, enviar, enviando] = useActionState(acao, null)
+  // Terceiro argumento: para onde o envio nativo vai antes de a página
+  // hidratar, e onde o resultado da ação é reencontrado. Ver `lib/secao.tsx` e
+  // a pendência 14 da Fase 3. Fora de uma seção é `undefined`, e o
+  // `useActionState` se comporta como sempre se comportou.
+  const enlaceDaSecao = useEnlaceDaSecao()
+  const [estado, enviar, enviando] = useActionState(acao, null, enlaceDaSecao)
   const hidratado = useHidratado()
 
   return (

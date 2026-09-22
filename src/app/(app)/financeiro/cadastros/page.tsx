@@ -10,6 +10,7 @@ import {
   listarFornecedores,
 } from '@/modules/financeiro/cadastros.service'
 import { formatarMoeda } from '@/lib/ptbr'
+import { ProvedorSecao } from '@/lib/secao'
 import {
   FormularioInstituicao,
   FormularioConta,
@@ -34,28 +35,53 @@ const TIPO_CONTA: Record<string, string> = {
   APLICACAO: 'Aplicação',
 }
 
+const CAMINHO = '/financeiro/cadastros'
+
+/**
+ * O endereço que reabre uma seção. É para onde os formulários dela enviam
+ * enquanto a página não hidratou, e é por ele que o `<details>` volta aberto
+ * do outro lado da navegação — pendência 14 da Fase 3, com o mecanismo
+ * explicado em `lib/secao.tsx`.
+ */
+function enlaceDa(secao: string): string {
+  return `${CAMINHO}?secao=${secao}`
+}
+
 function Secao({
+  id,
+  aberta,
   titulo,
   descricao,
   children,
 }: {
+  id: string
+  /** Vem do `?secao=` da URL. Depois de hidratada, a página nunca navega e
+   *  quem manda no `open` é o próprio navegador, como sempre foi. */
+  aberta: boolean
   titulo: string
   descricao?: string
   children: React.ReactNode
 }) {
   return (
-    <details className="cartao p-4">
+    <details className="cartao p-4" open={aberta}>
       <summary className="cursor-pointer font-medium text-forte">
         <h2 className="inline">{titulo}</h2>
       </summary>
-      {descricao && <p className="mt-1 text-suporte text-apoio">{descricao}</p>}
-      <div className="mt-4 space-y-4">{children}</div>
+      <ProvedorSecao enlace={enlaceDa(id)}>
+        {descricao && <p className="mt-1 text-suporte text-apoio">{descricao}</p>}
+        <div className="mt-4 space-y-4">{children}</div>
+      </ProvedorSecao>
     </details>
   )
 }
 
-export default async function PaginaCadastrosFinanceiro() {
+export default async function PaginaCadastrosFinanceiro({
+  searchParams,
+}: {
+  searchParams: Promise<{ secao?: string }>
+}) {
   const ctx = await obterCtx()
+  const { secao } = await searchParams
 
   const [instituicao, contas, origens, categorias, fornecedores] = await Promise.all([
     obterConfiguracaoInstituicao(ctx),
@@ -79,6 +105,8 @@ export default async function PaginaCadastrosFinanceiro() {
       </div>
 
       <Secao
+        id="instituicao"
+        aberta={secao === 'instituicao'}
         titulo="Dados da instituição"
         descricao="Alimentam a capa, o ofício, os rodapés de assinatura e a declaração de encerramento da prestação de contas. Registro único: salvar de novo atualiza o que já existe."
       >
@@ -86,6 +114,8 @@ export default async function PaginaCadastrosFinanceiro() {
       </Secao>
 
       <Secao
+        id="contas"
+        aberta={secao === 'contas'}
         titulo="Contas bancárias"
         descricao="Cada lançamento pertence a uma conta, e cada prestação cobre uma conta num mês."
       >
@@ -109,6 +139,8 @@ export default async function PaginaCadastrosFinanceiro() {
       </Secao>
 
       <Secao
+        id="origens"
+        aberta={secao === 'origens'}
         titulo="Origens de receita"
         descricao="De onde o dinheiro vem. O rótulo da prestação é o que agrupa na conciliação — é por ele que a contribuição de um residente sai somada às demais como “Doação”, sem o nome dele."
       >
@@ -144,7 +176,12 @@ export default async function PaginaCadastrosFinanceiro() {
         )}
       </Secao>
 
-      <Secao titulo="Categorias de despesa" descricao="Em que o dinheiro é gasto.">
+      <Secao
+        id="categorias"
+        aberta={secao === 'categorias'}
+        titulo="Categorias de despesa"
+        descricao="Em que o dinheiro é gasto."
+      >
         <ul className="divide-y text-suporte">
           {categorias.map((categoria) => (
             <li key={categoria.id} className="py-2 text-forte">
@@ -178,6 +215,8 @@ export default async function PaginaCadastrosFinanceiro() {
       </Secao>
 
       <Secao
+        id="fornecedores"
+        aberta={secao === 'fornecedores'}
         titulo="Fornecedores"
         descricao="Para quem se paga. O documento é conferido conforme o tipo — este cadastro é o que substitui o XLOOKUP quebrado da planilha."
       >
