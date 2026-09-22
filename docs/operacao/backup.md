@@ -413,7 +413,7 @@ não arrisca dado real nenhum.
 
 | Data | Executado por | 8a (residente voltou) | 8b (documento listado) | 8c (documento abre) | Observações |
 |---|---|---|---|---|---|
-| _PENDENTE_ | — | — | — | — | Este teste não foi executado ainda. A Tarefa 18 escreveu, revisou e corrigiu os scripts e esta documentação em três rodadas de correção, mas **não pôde rodar o teste real** — a máquina onde os scripts foram escritos não tem Docker. Preencha esta linha (data real, no formato AAAA-MM-DD, e resultado observado) na primeira vez que alguém rodar o procedimento acima na VPS de produção. Só depois disso o sistema deve receber o cadastro dos ~30 residentes reais (ver "Ao terminar a Fase 1" em `docs/superpowers/plans/2026-08-18-fase-1-nucleo-cadastral.md`). |
+| _PENDENTE_ | — | — | — | — | O procedimento dos passos 1 a 11 **nunca foi executado na VPS**, que é o único lugar onde ele prova o que promete. O que já foi provado está nas três seções abaixo, e é bastante: os dois scripts rodaram **inteiros**, com Docker e com a pilha de pé, em 04 e 05/09/2026 — e acharam dois defeitos que impediam a implantação. O que falta é o que só existe em produção: `rclone` com remoto de verdade, o cron, o Caddy com domínio, e o volume `lar_uploads` escrito pela própria aplicação. Preencha esta linha (data real, no formato AAAA-MM-DD, e o resultado de cada item do passo 8) na primeira vez que alguém rodar o procedimento na VPS. Só depois disso o sistema deve receber o cadastro dos ~30 residentes reais (ver "Ao terminar a Fase 1" em `docs/superpowers/plans/2026-08-18-fase-1-nucleo-cadastral.md`). |
 
 ### O que já foi verificado fora da VPS, em 23/08/2026
 
@@ -530,16 +530,23 @@ completo exige `.env.producao`, `docker compose` e o contêiner do Postgres de
 pé. Continua valendo tudo o que o parágrafo seguinte diz, menos a frase sobre a
 restauração dos documentos.
 
-**O que continua sem prova, e por isso a linha acima segue `_PENDENTE_`:** o
-`pg_dump` de dentro do contêiner, o `docker compose stop`/`start app`, o envio
-pelo `rclone`, o cron, e o `docker volume inspect lar_uploads` contra o volume
-de produção de verdade — com a aplicação escrevendo nele, e não com arquivos
-postos à mão. A versão do `pg_dump` verificada é a da máquina de
-desenvolvimento; a que roda em produção é a do contêiner, e só a execução real
-confirma que são compatíveis.
+**O que continuava sem prova quando este parágrafo foi escrito:** o `pg_dump`
+de dentro do contêiner, o `docker compose stop`/`start app`, o envio pelo
+`rclone`, o cron, e o `docker volume inspect lar_uploads` contra o volume de
+produção de verdade — com a aplicação escrevendo nele, e não com arquivos
+postos à mão. A versão do `pg_dump` verificada era a da máquina de
+desenvolvimento; a que roda em produção é a do contêiner.
 
-Nenhum dos dois scripts foi executado de ponta a ponta: o que se exercitou
-foram os blocos que eles contêm.
+Naquele momento, nenhum dos dois scripts tinha sido executado de ponta a
+ponta: o que se exercitou foram os blocos que eles contêm.
+
+**Ainda no mesmo dia isso deixou de ser verdade** — ver "Os dois scripts, de
+ponta a ponta, em 04/09/2026", acima, e a repetição de 05/09 com a pilha
+inteira de pé, que cobriu o `pg_dump` de dentro do contêiner e o
+`stop`/`start app`. Da lista deste parágrafo sobraram o `rclone`, o cron e o
+Caddy com domínio real, que são justamente os três que não existem fora da
+VPS. As seções estão em ordem de leitura, e não de relógio: esta descreve a
+verificação da manhã, a de cima a da tarde.
 
 Repita o teste completo **a cada 6 meses**. A partir do segundo teste
 (quando já houver residentes reais cadastrados), **não repita os passos

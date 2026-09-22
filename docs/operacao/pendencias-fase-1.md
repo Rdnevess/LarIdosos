@@ -25,11 +25,14 @@ revisão precisa achar aqui o que aconteceu depois.
 ## 1. O teste de restauração do backup nunca foi executado
 
 **Situação:** `docs/operacao/backup.md` traz o procedimento de restauração e a
-tabela de execução com a linha marcada `_PENDENTE_`. Os scripts
-`scripts/backup.sh` e `scripts/restaurar.sh` foram escritos e revisados linha a
-linha, mas **nunca rodaram** — a máquina de desenvolvimento não tem Docker, e
-sem Docker não existe o volume nem o contêiner do Postgres que os scripts
-manipulam.
+tabela de execução com a linha marcada `_PENDENTE_`. O procedimento inteiro
+**nunca rodou na VPS**, que é o único lugar onde ele prova o que promete.
+
+Como este item foi escrito antes de a máquina de desenvolvimento ter Docker,
+ele começava dizendo que os scripts nunca haviam rodado. Isso deixou de valer
+em 04/09/2026 — os parágrafos abaixo contam o que foi exercitado e quando, em
+ordem. Restam três coisas que só existem em produção: o `rclone`, o cron e o
+Caddy com domínio real.
 
 **Por que isso importa:** a spec, na §13, exige backup **verificado**, não
 backup configurado. Um backup que ninguém restaurou é uma hipótese. O erro
