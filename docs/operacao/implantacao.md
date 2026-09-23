@@ -463,9 +463,15 @@ Este documento cobre só a implantação. A rotina de backup criptografado
 e o procedimento de restauração ficam em `docs/operacao/backup.md`.
 
 **Não considere o sistema pronto para uso real (cadastro dos ~30
-residentes) antes de executar o teste de restauração.** Os scripts foram
-escritos e revisados, e **nunca foram executados** — a máquina de
-desenvolvimento não tem Docker. O momento mais barato para o primeiro
-teste é agora, contra o banco vazio recém-criado: não há dado a perder.
-A tabela de execução em `backup.md` tem a linha marcada `_PENDENTE_`
-esperando a data, quem executou e quanto levou.
+residentes) antes de executar o teste de restauração.** Os dois scripts já
+rodaram **inteiros** fora da VPS, com Docker e com a pilha de pé, em 04 e
+05/09/2026 — e acharam dois defeitos que impediam a implantação. O que
+nunca rodou é o procedimento **na VPS**, que é o único lugar onde ele prova
+o que promete: é lá que existem o `rclone` com remoto de verdade, o cron, o
+Caddy com domínio e o volume `lar_uploads` escrito pela própria aplicação.
+O momento mais barato para esse primeiro teste é agora, contra o banco
+vazio recém-criado: não há dado a perder.
+
+A tabela de execução em `backup.md`, na seção "Registro dos testes de
+restauração", tem a linha marcada `_PENDENTE_` esperando a data, quem
+executou e o resultado de cada um dos três itens do passo 8.
