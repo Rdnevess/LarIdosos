@@ -393,9 +393,53 @@ não arrisca dado real nenhum.
    documento (o item (b) passaria) e só quando alguém clica é que o link
    quebra.
 
-9. **Se os três itens do passo 8 forem verdadeiros**, apague o residente
-   de teste normalmente pela tela do sistema (o botão de exclusão do
-   próprio cadastro), para não ficar misturado com os residentes reais.
+   **Recarregue a página de verdade** (`Ctrl+Shift+R`) antes de olhar, ou abra
+   as telas numa aba nova. O roteador do Next guarda a resposta do servidor
+   por alguns segundos, e uma aba que ficou aberta desde antes da restauração
+   pode mostrar o estado velho — o que faria (a) e (b) "passarem" sem que nada
+   tivesse voltado. O documento em si não tem esse risco: a resposta sai com
+   `Cache-Control: private, no-store`, então o item (c) é sempre uma leitura
+   nova do disco.
+
+   **Como ler uma falha**, se algum item não passar:
+
+   | O que se vê | O que significa |
+   |---|---|
+   | O residente não está na lista | o **banco** não voltou — pare aqui, (b) e (c) não têm o que testar |
+   | Residente na lista, mas "Documentos (0)" | o banco voltou **sem a linha** do documento; olhe a saída do passo `[4/6]` do `restaurar.sh` |
+   | Documento listado, clique devolve **404** (`Documento não encontrado`) | o **volume** não voltou: a linha existe no banco e o arquivo não está lá |
+   | Documento listado, clique devolve **500** (`Não foi possível abrir o documento`) | o arquivo voltou mas o contêiner não consegue lê-lo — quase sempre o `chown 1001:1001` do passo `[5/6]`. Confira com `docker compose --env-file .env.producao logs --tail 50 app` |
+
+   Repare que **404 não distingue** "linha ausente no banco" de "arquivo
+   ausente no volume": a rota devolve o mesmo código nos dois casos, de
+   propósito, para não revelar a existência de um documento a quem não pode
+   vê-lo. Quem separa os dois é o item (b) — por isso ele é um passo à parte, e
+   não um detalhe do (c).
+
+9. **Se os três itens do passo 8 forem verdadeiros**, apague o residente de
+   teste — pelo banco, como no passo 5, e **não pela tela**. O sistema não tem
+   exclusão de residente: a única saída pela interface é "Registrar saída", que
+   **preserva o cadastro** e só muda a situação. Usá-la aqui deixaria o
+   `TESTE BACKUP` no banco para sempre, misturado com os residentes reais — o
+   contrário do que este passo quer.
+
+   ```bash
+   cd /opt/lar
+   # Anote o caminho do arquivo ANTES de apagar a linha, senão o arquivo fica
+   # órfão no volume sem ninguém saber qual é.
+   docker compose --env-file .env.producao exec -T db psql -U lar -d lar      -c "select d.\"caminhoArmazenamento\" from documentos d join residentes r on r.id = d.\"residenteId\" where r.\"nomeCompleto\" = 'TESTE BACKUP 2026-08-19';"
+   ```
+
+   Com o caminho em mãos, apague na mesma ordem do passo 5 — primeiro o
+   documento, depois o residente (a chave estrangeira recusa o inverso):
+
+   ```bash
+   docker compose --env-file .env.producao exec -T db psql -U lar -d lar -c      "delete from documentos where \"residenteId\" = (select id from residentes where \"nomeCompleto\" = 'TESTE BACKUP 2026-08-19'); delete from residentes where \"nomeCompleto\" = 'TESTE BACKUP 2026-08-19';"
+   docker run --rm -v lar_uploads:/dados alpine:3.20 rm -f /dados/<caminho anotado acima>
+   ```
+
+   Troque o nome pelo que você digitou no passo 1. Confirme na tela que o
+   residente sumiu da lista.
 
 10. **Limpe a cópia de resguardo, se quiser.** O `restaurar.sh` do
     passo 7 criou `/var/backups/lar/pre-restauracao_<carimbo>/`, já
