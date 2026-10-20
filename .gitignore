@@ -13,6 +13,9 @@ dist/
 .env.*.local
 .env.producao
 !.env.producao.example
+# A senha que decifra todos os backups (docs/operacao/backup.md). Fica em
+# /opt/lar, dentro do clone, e o repositório é público.
+.senha-backup
 
 # Uploads (documentos, exames, comprovantes) — dados sensíveis, ficam em volume
 /data/
