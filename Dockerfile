@@ -119,6 +119,14 @@ RUN mkdir -p /data/uploads && chown -R lar:lar /data
 
 USER lar
 
+# O `server.js` do standalone escuta no endereço de `HOSTNAME`, e o Docker
+# preenche essa variável com o ID do contêiner — que resolve só para o IP da
+# rede interna (172.x). O Caddy alcança esse IP por `app:3000` e o site
+# funciona; o healthcheck, que pergunta em `127.0.0.1`, recebe ECONNREFUSED e
+# marca o contêiner `unhealthy` para sempre, sem nada no log. Medido na VPS em
+# 19/10/2026: `netstat` mostrava `172.18.0.2:3000` e mais nada.
+ENV HOSTNAME=0.0.0.0
+
 EXPOSE 3000
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
