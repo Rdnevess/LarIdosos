@@ -38,6 +38,13 @@ ping lar.suaorganizacao.org.br
 Se o IP que aparecer não for o da VPS, aguarde e tente de novo antes de
 seguir — o Passo 7 depende disso para emitir o certificado HTTPS.
 
+Crie também um registro **A** para `www.` + o domínio, com o mesmo IP. O
+Caddy atende os dois nomes e redireciona o `www` para o domínio sem ele —
+quem digitar com `www` não cai numa página sem certificado. Em `DOMINIO`
+(Passo 5) vai sempre o nome **sem** `www`, e nunca o nome que o provedor da
+VPS dá à máquina (ex.: `vmi1234567.contaboserver.net`): o certificado sai
+para esse nome, e o domínio de verdade fica sem HTTPS.
+
 ## Passo 2 — Liberar as portas 80 e 443 no firewall
 
 Muitos provedores de VPS bloqueiam todas as portas por padrão, exceto a

@@ -28,3 +28,13 @@
 
 	reverse_proxy app:3000
 }
+
+# Quem digita o endereço com `www` chega no mesmo sistema, com certificado
+# próprio, e é mandado para o nome canônico. Só um nome pode ser o canônico:
+# o cookie de sessão e o `NEXTAUTH_URL` (docker-compose.yml) valem para o
+# `DOMINIO`, e um login feito em `www.` ficaria preso nele. Exige o registro A
+# de `www` no DNS (Passo 1 do guia); sem ele, o Caddy só registra no log a
+# falha de emitir o certificado deste nome, e o `DOMINIO` segue servindo.
+www.{$DOMINIO} {
+	redir https://{$DOMINIO}{uri} permanent
+}
